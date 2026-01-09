@@ -98,6 +98,10 @@ object PlayerSettingsPlayerScreen : SearchableSettings {
                     title = stringResource(AYMR.strings.pref_controls_allow_gestures_in_panels),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
+                    preference = playerPreferences.alwaysAskOnEpisodeClick(),
+                    title = stringResource(AYMR.strings.pref_always_ask_on_episode_click),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
                     preference = showLoading,
                     title = stringResource(AYMR.strings.pref_controls_show_loading),
                 ),

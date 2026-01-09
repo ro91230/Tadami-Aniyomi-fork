@@ -165,6 +165,7 @@ class AnimeScreenModel(
 
     val showNextEpisodeAirTime = trackPreferences.showNextEpisodeAiringTime().get()
     val alwaysUseExternalPlayer = playerPreferences.alwaysUseExternalPlayer().get()
+    val alwaysAskOnEpisodeClick = playerPreferences.alwaysAskOnEpisodeClick().get()
     val useExternalDownloader = downloadPreferences.useExternalDownloader().get()
 
     val isUpdateIntervalEnabled =
@@ -1568,7 +1569,7 @@ class AnimeScreenModel(
         updateSuccessState { it.copy(dialog = Dialog.ChangeAnimeSkipIntro) }
     }
 
-    private fun showQualitiesDialog(episode: Episode) {
+    fun showQualitiesDialog(episode: Episode) {
         updateSuccessState { it.copy(dialog = Dialog.ShowQualities(episode, it.anime, it.source)) }
     }
 

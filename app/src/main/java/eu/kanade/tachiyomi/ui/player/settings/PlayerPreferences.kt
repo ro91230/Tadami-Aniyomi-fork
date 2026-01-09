@@ -68,6 +68,7 @@ class PlayerPreferences(
         "pref_always_use_external_player",
         false,
     )
+    fun alwaysAskOnEpisodeClick() = preferenceStore.getBoolean("pref_always_ask_on_episode_click", false)
     fun externalPlayerPreference() = preferenceStore.getString("external_player_preference", "")
 
     // Non-preferences

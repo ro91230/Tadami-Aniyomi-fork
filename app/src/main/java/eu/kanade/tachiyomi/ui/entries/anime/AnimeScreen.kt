@@ -133,8 +133,12 @@ class AnimeScreen(
             navigateUp = navigator::pop,
             onEpisodeClicked = { episode, alt ->
                 scope.launchIO {
-                    val extPlayer = screenModel.alwaysUseExternalPlayer != alt
-                    openEpisode(context, episode, extPlayer)
+                    if (screenModel.alwaysAskOnEpisodeClick) {
+                        screenModel.showQualitiesDialog(episode)
+                    } else {
+                        val extPlayer = screenModel.alwaysUseExternalPlayer != alt
+                        openEpisode(context, episode, extPlayer)
+                    }
                 }
             },
             onDownloadEpisode = screenModel::runEpisodeDownloadActions.takeIf {
