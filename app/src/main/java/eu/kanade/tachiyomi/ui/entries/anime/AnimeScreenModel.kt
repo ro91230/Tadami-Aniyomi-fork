@@ -141,6 +141,7 @@ class AnimeScreenModel(
     private val getEpisodesByAnimeId: GetEpisodesByAnimeId = Injekt.get(),
     private val filterEpisodesForDownload: FilterEpisodesForDownload = Injekt.get(),
     internal val setAnimeViewerFlags: SetAnimeViewerFlags = Injekt.get(),
+    private val preferenceStore: tachiyomi.core.common.preference.PreferenceStore = Injekt.get(),
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : StateScreenModel<AnimeScreenModel.State>(State.Loading) {
 
@@ -175,6 +176,22 @@ class AnimeScreenModel(
     private val selectedEpisodeIds: HashSet<Long> = HashSet()
 
     internal var isFromChangeCategory: Boolean = false
+
+    fun getPreferredDubbing(): String {
+        return preferenceStore.getString("anime_dubbing_pref_$animeId", "").get()
+    }
+
+    fun setPreferredDubbing(dubbing: String) {
+        preferenceStore.getString("anime_dubbing_pref_$animeId", "").set(dubbing)
+    }
+
+    fun getPreferredQuality(): String {
+        return preferenceStore.getString("anime_quality_pref_$animeId", "").get()
+    }
+
+    fun setPreferredQuality(quality: String) {
+        preferenceStore.getString("anime_quality_pref_$animeId", "").set(quality)
+    }
 
     internal val autoOpenTrack: Boolean
         get() = successState?.hasLoggedInTrackers == true && trackPreferences.trackOnAddingToLibrary().get()
@@ -1533,6 +1550,7 @@ class AnimeScreenModel(
         data object SeasonSettingsSheet : Dialog
         data object TrackSheet : Dialog
         data object FullImages : Dialog
+        data class SelectDubbing(val availableDubbings: List<String>, val currentDubbing: String, val currentQuality: String) : Dialog
     }
 
     fun dismissDialog() {
@@ -1567,6 +1585,21 @@ class AnimeScreenModel(
 
     fun showAnimeSkipIntroDialog() {
         updateSuccessState { it.copy(dialog = Dialog.ChangeAnimeSkipIntro) }
+    }
+
+    fun showDubbingDialog() {
+        val state = successState ?: return
+        val dubbings = state.availableDubbings
+        if (dubbings.isEmpty()) return
+        updateSuccessState {
+            it.copy(
+                dialog = Dialog.SelectDubbing(
+                    availableDubbings = dubbings,
+                    currentDubbing = getPreferredDubbing(),
+                    currentQuality = getPreferredQuality(),
+                ),
+            )
+        }
     }
 
     fun showQualitiesDialog(episode: Episode) {
@@ -1646,6 +1679,15 @@ class AnimeScreenModel(
 
             val showSummaries: Boolean
                 get() = anime.showSummaries()
+
+            val availableDubbings: List<String> by lazy {
+                episodes
+                    .mapNotNull { it.episode.scanlator }
+                    .flatMap { it.split(",").map { s -> s.trim() } }
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                    .sorted()
+            }
 
             /**
              * Applies the view filters to the list of episodes obtained from the database.

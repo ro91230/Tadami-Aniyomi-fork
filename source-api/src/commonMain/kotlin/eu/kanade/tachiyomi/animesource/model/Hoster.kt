@@ -37,14 +37,34 @@ open class Hoster(
     companion object {
         const val NO_HOSTER_LIST = "no_hoster_list"
 
+        private val TRANSLATION_PATTERN = Regex("""\(([^)]+)\)\s*$""")
+
         fun List<Video>.toHosterList(): List<Hoster> {
-            return listOf(
+            val grouped = this.groupBy { video ->
+                TRANSLATION_PATTERN.find(video.videoTitle)?.groupValues?.get(1) ?: NO_HOSTER_LIST
+            }
+
+            if (grouped.size <= 1 && grouped.containsKey(NO_HOSTER_LIST)) {
+                return listOf(
+                    Hoster(
+                        hosterUrl = "",
+                        hosterName = NO_HOSTER_LIST,
+                        videoList = this,
+                    ),
+                )
+            }
+
+            return grouped.map { (translationName, videos) ->
+                val cleanedVideos = videos.map { video ->
+                    val cleanTitle = video.videoTitle.replace(TRANSLATION_PATTERN, "").trim()
+                    video.copy(videoTitle = cleanTitle)
+                }
                 Hoster(
                     hosterUrl = "",
-                    hosterName = NO_HOSTER_LIST,
-                    videoList = this,
-                ),
-            )
+                    hosterName = translationName,
+                    videoList = cleanedVideos,
+                )
+            }
         }
     }
 }

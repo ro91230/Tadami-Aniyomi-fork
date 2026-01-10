@@ -160,6 +160,10 @@ fun AnimeScreen(
     // Season clicked
     onSeasonClicked: (SeasonAnime) -> Unit,
     onContinueWatchingClicked: ((SeasonAnime) -> Unit)?,
+
+    // Dubbing selection
+    onDubbingClicked: (() -> Unit)? = null,
+    selectedDubbing: String? = null,
 ) {
     val context = LocalContext.current
     val onCopyTagToClipboard: (tag: String) -> Unit = {
@@ -214,6 +218,8 @@ fun AnimeScreen(
             onSettingsClicked = onSettingsClicked,
             onSeasonClicked = onSeasonClicked,
             onClickContinueWatching = onContinueWatchingClicked,
+            onDubbingClicked = onDubbingClicked,
+            selectedDubbing = selectedDubbing,
         )
     } else {
         AnimeScreenLargeImpl(
@@ -256,6 +262,8 @@ fun AnimeScreen(
             onSettingsClicked = onSettingsClicked,
             onSeasonClicked = onSeasonClicked,
             onClickContinueWatching = onContinueWatchingClicked,
+            onDubbingClicked = onDubbingClicked,
+            selectedDubbing = selectedDubbing,
         )
     }
 }
@@ -317,6 +325,10 @@ private fun AnimeScreenSmallImpl(
     // Season clicked
     onSeasonClicked: (SeasonAnime) -> Unit,
     onClickContinueWatching: ((SeasonAnime) -> Unit)?,
+
+    // Dubbing selection
+    onDubbingClicked: (() -> Unit)?,
+    selectedDubbing: String?,
 ) {
     val density = LocalDensity.current
     val offsetGridPaddingPx = with(density) { GRID_PADDING.roundToPx() }
@@ -496,6 +508,8 @@ private fun AnimeScreenSmallImpl(
                             onTrackingClicked = onTrackingClicked,
                             onEditIntervalClicked = onEditIntervalClicked,
                             onEditCategory = onEditCategoryClicked,
+                            onDubbingClicked = onDubbingClicked,
+                            selectedDubbing = selectedDubbing,
                             modifier = Modifier.ignorePadding(offsetGridPaddingPx),
                         )
                     }
@@ -662,6 +676,10 @@ fun AnimeScreenLargeImpl(
     // Season clicked
     onSeasonClicked: (SeasonAnime) -> Unit,
     onClickContinueWatching: ((SeasonAnime) -> Unit)?,
+
+    // Dubbing selection
+    onDubbingClicked: (() -> Unit)?,
+    selectedDubbing: String?,
 ) {
     val layoutDirection = LocalLayoutDirection.current
     val density = LocalDensity.current
@@ -818,6 +836,8 @@ fun AnimeScreenLargeImpl(
                                 onTrackingClicked = onTrackingClicked,
                                 onEditIntervalClicked = onEditIntervalClicked,
                                 onEditCategory = onEditCategoryClicked,
+                                onDubbingClicked = onDubbingClicked,
+                                selectedDubbing = selectedDubbing,
                             )
                             ExpandableAnimeDescription(
                                 defaultExpandState = true,

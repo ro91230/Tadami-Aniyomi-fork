@@ -38,6 +38,7 @@ import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.outlined.RecordVoiceOver
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.DropdownMenuItem
@@ -173,6 +174,8 @@ fun AnimeActionRow(
     onTrackingClicked: (() -> Unit)?,
     onEditIntervalClicked: (() -> Unit)?,
     onEditCategory: (() -> Unit)?,
+    onDubbingClicked: (() -> Unit)? = null,
+    selectedDubbing: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val defaultActionButtonColor = MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA)
@@ -233,6 +236,19 @@ fun AnimeActionRow(
                 color = defaultActionButtonColor,
                 onClick = onWebViewClicked,
                 onLongClick = onWebViewLongClicked,
+            )
+        }
+
+        if (onDubbingClicked != null) {
+            AnimeActionButton(
+                title = selectedDubbing?.takeIf { it.isNotBlank() } ?: stringResource(MR.strings.label_dubbing),
+                icon = Icons.Outlined.RecordVoiceOver,
+                color = if (selectedDubbing?.isNotBlank() == true) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    defaultActionButtonColor
+                },
+                onClick = onDubbingClicked,
             )
         }
     }

@@ -30,6 +30,7 @@ import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.NavigatorAdaptiveSheet
 import eu.kanade.presentation.entries.EditCoverAction
 import eu.kanade.presentation.entries.anime.AnimeScreen
+import eu.kanade.presentation.entries.anime.DubbingSelectionDialog
 import eu.kanade.presentation.entries.anime.DuplicateAnimeDialog
 import eu.kanade.presentation.entries.anime.EpisodeOptionsDialogScreen
 import eu.kanade.presentation.entries.anime.EpisodeSettingsDialog
@@ -219,6 +220,10 @@ class AnimeScreen(
                     }
                 }
             },
+            onDubbingClicked = {
+                screenModel.showDubbingDialog()
+            }.takeIf { successState.availableDubbings.isNotEmpty() },
+            selectedDubbing = screenModel.getPreferredDubbing().takeIf { it.isNotBlank() },
         )
 
         val onDismissRequest = {
@@ -397,6 +402,19 @@ class AnimeScreen(
                         sourceId = dialog.source.id,
                     ),
                     onDismissRequest = onDismissRequest,
+                )
+            }
+            is AnimeScreenModel.Dialog.SelectDubbing -> {
+                DubbingSelectionDialog(
+                    availableDubbings = dialog.availableDubbings,
+                    currentDubbing = dialog.currentDubbing,
+                    currentQuality = dialog.currentQuality,
+                    onDismissRequest = onDismissRequest,
+                    onConfirm = { dubbing, quality ->
+                        screenModel.setPreferredDubbing(dubbing)
+                        screenModel.setPreferredQuality(quality)
+                        onDismissRequest()
+                    },
                 )
             }
         }
