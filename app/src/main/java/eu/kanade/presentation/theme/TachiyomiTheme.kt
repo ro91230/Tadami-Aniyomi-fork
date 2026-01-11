@@ -64,11 +64,17 @@ private fun BaseTachiyomiTheme(
     content: @Composable () -> Unit,
 ) {
     val isDark = isSystemInDarkTheme()
-    val auroraColors = if (isDark) AuroraColors.Dark else AuroraColors.Light
+    val colorScheme = getThemeColorScheme(appTheme, isAmoled)
+    
+    val auroraColors = AuroraColors.fromColorScheme(
+        colorScheme = colorScheme,
+        isDark = isDark,
+        isAmoled = isAmoled,
+    )
     
     CompositionLocalProvider(LocalAuroraColors provides auroraColors) {
         MaterialTheme(
-            colorScheme = getThemeColorScheme(appTheme, isAmoled),
+            colorScheme = colorScheme,
             content = content,
         )
     }
