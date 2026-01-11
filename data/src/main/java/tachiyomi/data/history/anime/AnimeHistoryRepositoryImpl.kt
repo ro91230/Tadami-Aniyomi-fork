@@ -19,6 +19,12 @@ class AnimeHistoryRepositoryImpl(
         }
     }
 
+    override fun getRecentAnimeHistory(limit: Long): Flow<List<AnimeHistoryWithRelations>> {
+        return handler.subscribeToList {
+            animehistoryViewQueries.getRecentAnimeHistory(limit, AnimeHistoryMapper::mapAnimeHistoryWithRelations)
+        }
+    }
+
     override suspend fun getLastAnimeHistory(): AnimeHistoryWithRelations? {
         return handler.awaitOneOrNull {
             animehistoryViewQueries.getLatestAnimeHistory(AnimeHistoryMapper::mapAnimeHistoryWithRelations)

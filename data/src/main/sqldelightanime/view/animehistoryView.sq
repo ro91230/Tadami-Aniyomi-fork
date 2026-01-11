@@ -43,6 +43,24 @@ AND maxSeenAtEpisodeId = animehistoryView.episodeId
 AND lower(animehistoryView.title) LIKE ('%' || :query || '%')
 ORDER BY seenAt DESC;
 
+getRecentAnimeHistory:
+SELECT
+id,
+animeId,
+episodeId,
+title,
+thumbnailUrl,
+source,
+favorite,
+cover_last_modified,
+episodeNumber,
+seenAt
+FROM animehistoryView
+WHERE animehistoryView.seenAt > 0
+AND maxSeenAtEpisodeId = animehistoryView.episodeId
+ORDER BY seenAt DESC
+LIMIT :limit;
+
 getLatestAnimeHistory:
 SELECT
 id,

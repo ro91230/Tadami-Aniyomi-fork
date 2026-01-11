@@ -593,10 +593,28 @@
 
     <!-- More Screen -->
     <string name="aurora_downloaded_only">Только загруженные</string>
+    <string name="aurora_incognito_mode">Режим инкогнито</string>
     <string name="aurora_downloads">Загрузки</string>
     <string name="aurora_about">О приложении</string>
     <string name="aurora_help">Помощь</string>
     <string name="aurora_statistics">Статистика</string>
     <string name="aurora_more">Ещё</string>
     <string name="aurora_library">Библиотека</string>
+    
+    <!-- Welcome Screen -->
+    <string name="aurora_welcome_title">Начните смотреть</string>
+    <string name="aurora_welcome_subtitle">Добавьте источники и найдите что-нибудь интересное</string>
+    <string name="aurora_browse_sources">Обзор источников</string>
+    <string name="aurora_add_extension">Добавить расширение</string>
+    <string name="aurora_tap_to_change">Нажмите, чтобы изменить</string>
+    <string name="aurora_episode_progress">Эпизод %d</string>
+    
+    <!-- Anime Detail Screen -->
+    <string name="aurora_rating">РЕЙТИНГ</string>
+    <string name="aurora_status">СТАТУС</string>
+    <string name="aurora_continue">ПРОДОЛЖИТЬ</string>
+    <string name="aurora_episodes_header">Эпизоды</string>
+    <string name="aurora_episode_count">%d эп.</string>
+    <string name="aurora_select_dubbing">Выбрать озвучку</string>
+    <string name="aurora_no_description">Нет описания</string>
 </resources>

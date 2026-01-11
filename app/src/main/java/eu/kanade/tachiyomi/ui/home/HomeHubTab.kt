@@ -21,10 +21,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -49,6 +53,7 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import tachiyomi.presentation.core.i18n.stringResource
@@ -64,6 +69,7 @@ import cafe.adriel.voyager.navigator.tab.TabOptions
 import coil3.compose.AsyncImage
 import eu.kanade.presentation.entries.anime.AnimeScreen
 import eu.kanade.presentation.util.Tab
+import eu.kanade.tachiyomi.ui.browse.BrowseTab
 import eu.kanade.tachiyomi.ui.browse.anime.source.browse.BrowseAnimeSourceScreen
 import eu.kanade.tachiyomi.ui.browse.anime.source.globalsearch.GlobalAnimeSearchScreen
 import eu.kanade.tachiyomi.ui.history.HistoriesTab
@@ -115,11 +121,12 @@ object HomeHubTab : Tab {
             )
         }
 
+        val tabNavigator = LocalTabNavigator.current
+
         HomeHubContent(
             state = state,
             onAnimeClick = { navigator.push(eu.kanade.tachiyomi.ui.entries.anime.AnimeScreen(it)) },
             onPlayHero = { screenModel.playHeroEpisode(context) },
-            onToggleHeroFavorite = { navigator.push(eu.kanade.tachiyomi.ui.entries.anime.AnimeScreen(state.heroItem!!.animeId)) },
             onAvatarClick = { photoPickerLauncher.launch("image/*") },
             onNameClick = { showNameDialog = true },
             onSearchClick = {
@@ -129,6 +136,11 @@ object HomeHubTab : Tab {
                 } else {
                     navigator.push(GlobalAnimeSearchScreen(""))
                 }
+            },
+            onBrowseSourcesClick = { tabNavigator.current = BrowseTab },
+            onAddExtensionClick = { 
+                tabNavigator.current = BrowseTab
+                BrowseTab.showAnimeExtension()
             }
         )
     }
@@ -169,36 +181,53 @@ fun HomeHubContent(
     state: HomeHubScreenModel.State,
     onAnimeClick: (Long) -> Unit,
     onPlayHero: () -> Unit,
-    onToggleHeroFavorite: () -> Unit,
     onAvatarClick: () -> Unit,
     onNameClick: () -> Unit,
-    onSearchClick: () -> Unit
+    onSearchClick: () -> Unit,
+    onBrowseSourcesClick: () -> Unit = {},
+    onAddExtensionClick: () -> Unit = {}
 ) {
-    val backgroundBrush = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF1e1b4b),
-            Color(0xFF101b22)
+    val backgroundBrush = remember {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF1e1b4b),
+                Color(0xFF101b22)
+            )
         )
-    )
+    }
     
     val tabNavigator = LocalTabNavigator.current
+    val isEmpty = state.heroItem == null && state.history.isEmpty() && state.recommendations.isEmpty()
 
-    Box(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .background(backgroundBrush)
+            .statusBarsPadding()
     ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            item { Spacer(modifier = Modifier.height(100.dp)) }
+        item {
+            TopBarSection(
+                userName = state.userName,
+                userAvatar = state.userAvatar,
+                onAvatarClick = onAvatarClick,
+                onNameClick = onNameClick,
+                onSearchClick = onSearchClick
+            )
+        }
 
+        if (isEmpty) {
+            item {
+                WelcomeHeroSection(
+                    onBrowseSourcesClick = onBrowseSourcesClick,
+                    onAddExtensionClick = onAddExtensionClick
+                )
+            }
+        } else {
             item {
                 if (state.heroItem != null) {
                     HeroSection(
                         anime = state.heroItem,
                         onPlayClick = onPlayHero,
-                        onMyListClick = onToggleHeroFavorite,
                         onAnimeClick = { onAnimeClick(state.heroItem.animeId) }
                     )
                 }
@@ -223,58 +252,69 @@ fun HomeHubContent(
                     )
                 }
             }
-
-            item { Spacer(modifier = Modifier.height(24.dp)) }
         }
 
-        TopBarSection(
-            modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding(),
-            userName = state.userName,
-            userAvatar = state.userAvatar,
-            onAvatarClick = onAvatarClick,
-            onNameClick = onNameClick,
-            onSearchClick = onSearchClick
-        )
+        item { Spacer(modifier = Modifier.height(24.dp)) }
     }
 }
 
 @Composable
 fun TopBarSection(
-    modifier: Modifier = Modifier,
     userName: String,
     userAvatar: String,
     onAvatarClick: () -> Unit,
     onNameClick: () -> Unit,
     onSearchClick: () -> Unit
 ) {
-    Box(
-        modifier = modifier
+    val isDefaultUser = userName == "User"
+    
+    Row(
+        modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF1e1b4b))
+            .padding(16.dp)
+            .height(60.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .height(60.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .clip(CircleShape)
-                .background(Color.Gray)
                 .clickable(onClick = onAvatarClick)
         ) {
-            AsyncImage(
-                model = if (userAvatar.isNotEmpty()) userAvatar else "https://lh3.googleusercontent.com/aida-public/AB6AXuB6n4ltLLeJN9EuQXjm33hyAJMuwfiggLkhKVckgOekmkHjmbZWqYUZUwLRqgilrR6kr7jlERkFYhVFbAUfJtT_d0T9sXMFUtjuclLxRshr8W0cwxVx_Vnwg42U0Nyv7a7BzZWiKIjzLWf24koc05LKU6hSjHYKJH8IB0juG-qZQQkaSdVWt9dFhDmPVPjUn7YztLr2XKyYDiKZUb6IhjVxZ_4kyb2RHP6Cm2Nh1f_Qg12fi_9s0Y8A8oSEgIASyOSIUmMCFMV1hSUw",
-                contentDescription = "Profile",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
+            if (userAvatar.isNotEmpty()) {
+                AsyncImage(
+                    model = userAvatar,
+                    contentDescription = "Profile",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Filled.AccountCircle,
+                    contentDescription = "Profile",
+                    tint = Color(0xFF279df1),
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(14.dp)
+                    .background(Color(0xFF279df1), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.CameraAlt,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(8.dp)
+                )
+            }
         }
         Spacer(modifier = Modifier.width(12.dp))
-        Column {
+        Column(modifier = Modifier.clickable(onClick = onNameClick)) {
             Text(
                 text = stringResource(AYMR.strings.aurora_welcome_back),
                 style = MaterialTheme.typography.labelSmall,
@@ -285,9 +325,15 @@ fun TopBarSection(
                 text = userName,
                 style = MaterialTheme.typography.titleMedium,
                 color = Color.White,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable(onClick = onNameClick)
+                fontWeight = FontWeight.Bold
             )
+            if (isDefaultUser) {
+                Text(
+                    text = stringResource(AYMR.strings.aurora_tap_to_change),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.5f)
+                )
+            }
         }
         Spacer(modifier = Modifier.weight(1f))
         
@@ -299,6 +345,81 @@ fun TopBarSection(
         ) {
             Icon(Icons.Filled.Search, contentDescription = "Search", tint = Color.White)
         }
+    }
+}
+
+@Composable
+fun WelcomeHeroSection(
+    onBrowseSourcesClick: () -> Unit,
+    onAddExtensionClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color.White.copy(alpha = 0.05f))
+            .padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.VideoLibrary,
+                contentDescription = null,
+                tint = Color(0xFF279df1),
+                modifier = Modifier.size(80.dp)
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Text(
+                text = stringResource(AYMR.strings.aurora_welcome_title),
+                color = Color.White,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                text = stringResource(AYMR.strings.aurora_welcome_subtitle),
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 14.sp,
+                modifier = Modifier.padding(horizontal = 16.dp),
+                textAlign = TextAlign.Center
+            )
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Button(
+                    onClick = onBrowseSourcesClick,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF279df1)),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().height(52.dp)
+                ) {
+                    Icon(Icons.Filled.Search, contentDescription = null, modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(AYMR.strings.aurora_browse_sources), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+                
+                Button(
+                    onClick = onAddExtensionClick,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.15f)),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().height(52.dp)
+                ) {
+                    Icon(Icons.Filled.Extension, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(AYMR.strings.aurora_add_extension), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+            }
         }
     }
 }
@@ -307,9 +428,16 @@ fun TopBarSection(
 fun HeroSection(
     anime: AnimeHistoryWithRelations,
     onPlayClick: () -> Unit,
-    onMyListClick: () -> Unit,
     onAnimeClick: () -> Unit
 ) {
+    val overlayGradient = remember {
+        Brush.verticalGradient(
+            colors = listOf(Color.Transparent, Color(0xFF101b22)),
+            startY = 0f,
+            endY = 1000f
+        )
+    }
+    
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -327,13 +455,7 @@ fun HeroSection(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color(0xFF101b22)),
-                        startY = 0f,
-                        endY = 1000f
-                    )
-                )
+                .background(overlayGradient)
         )
 
         Column(
@@ -355,35 +477,46 @@ fun HeroSection(
             Text(
                 text = anime.title,
                 color = Color.White,
-                fontSize = 32.sp,
+                fontSize = 28.sp,
                 fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.padding(bottom = 8.dp),
+                lineHeight = 34.sp,
+                textAlign = TextAlign.Center,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             
-            Spacer(modifier = Modifier.height(24.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(
-                    onClick = onPlayClick,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF279df1)),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f).height(52.dp)
-                ) {
-                    Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(22.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(AYMR.strings.aurora_play), fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                }
-                Button(
-                    onClick = onMyListClick,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.15f)),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f).height(52.dp)
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(AYMR.strings.aurora_details), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                }
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .background(Color(0xFF279df1), CircleShape)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(AYMR.strings.aurora_episode_progress, (anime.episodeNumber % 1000).toInt()),
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            Button(
+                onClick = onPlayClick,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF279df1)),
+                shape = RoundedCornerShape(12.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 24.dp, vertical = 8.dp),
+                modifier = Modifier.height(52.dp)
+            ) {
+                Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(22.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(stringResource(AYMR.strings.aurora_play), fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -412,7 +545,7 @@ fun ContinueWatchingSection(
         }
         Spacer(modifier = Modifier.height(16.dp))
         LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 24.dp)) {
-            items(history) { item ->
+            items(history, key = { it.animeId }) { item ->
                 ContinueWatchingCard(item, onAnimeClick)
                 Spacer(modifier = Modifier.width(16.dp))
             }
@@ -474,8 +607,7 @@ fun ContinueWatchingCard(
                 )
                 Text(
                     stringResource(AYMR.strings.aurora_episode_number, 
-                        if (item.episodeNumber % 1.0 == 0.0) item.episodeNumber.toInt().toString() 
-                        else item.episodeNumber.toString()), 
+                        (item.episodeNumber % 1000).toInt().toString()), 
                     color = Color.White.copy(alpha = 0.5f), 
                     fontSize = 11.sp
                 )

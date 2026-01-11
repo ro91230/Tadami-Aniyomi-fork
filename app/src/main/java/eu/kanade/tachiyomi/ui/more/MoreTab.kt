@@ -38,10 +38,12 @@ import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.stats.StatsTab
 import eu.kanade.tachiyomi.ui.storage.StorageTab
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -79,10 +81,13 @@ data object MoreTab : Tab {
         val theme by uiPreferences.appTheme().preferenceCollectAsState()
 
         if (theme == AppTheme.AURORA) {
+            val downloadedOnly by screenModel.downloadedOnlyFlow.collectAsState()
+            val incognitoMode by screenModel.incognitoModeFlow.collectAsState()
+            
             MoreScreenAurora(
-                downloadedOnly = screenModel.getDownloadedOnly(),
+                downloadedOnly = downloadedOnly,
                 onDownloadedOnlyChange = { screenModel.toggleDownloadedOnly() },
-                incognitoMode = screenModel.getIncognitoMode(),
+                incognitoMode = incognitoMode,
                 onIncognitoModeChange = { screenModel.toggleIncognitoMode() },
                 onDownloadClick = { navigator.push(DownloadsTab) },
                 onSettingsClick = { navigator.push(SettingsScreen()) },
@@ -118,6 +123,12 @@ class MoreScreenModel(
     private val animeDownloadManager: AnimeDownloadManager = Injekt.get(),
     private val preferences: BasePreferences = Injekt.get(),
 ) : ScreenModel {
+
+    val downloadedOnlyFlow: StateFlow<Boolean> = preferences.downloadedOnly().changes()
+        .stateIn(screenModelScope, SharingStarted.Eagerly, preferences.downloadedOnly().get())
+    
+    val incognitoModeFlow: StateFlow<Boolean> = preferences.incognitoMode().changes()
+        .stateIn(screenModelScope, SharingStarted.Eagerly, preferences.incognitoMode().get())
 
     fun getDownloadedOnly(): Boolean = preferences.downloadedOnly().get()
     fun getIncognitoMode(): Boolean = preferences.incognitoMode().get()

@@ -45,39 +45,6 @@ class HomeHubScreenModel(
 
     init {
         screenModelScope.launchIO {
-            // Get History
-            getAnimeHistory.subscribe(query = "")
-                .collectLatest { historyList ->
-                    val hero = historyList.firstOrNull()
-                    var heroEp: Episode? = null
-                    
-                    if (hero != null) {
-                        // Get next episode for hero
-                        val nextEpisodes = getNextEpisodes.await(hero.animeId, hero.episodeId, onlyUnseen = true)
-                        heroEp = nextEpisodes.firstOrNull() ?: getNextEpisodes.await(hero.animeId, hero.episodeId, onlyUnseen = false).firstOrNull()
-                    }
-
-                    mutableState.update { 
-                        it.copy(
-                            history = historyList.take(6), // Limit history items
-                            heroItem = hero,
-                            heroEpisode = heroEp
-                        )
-                    }
-                }
-        }
-
-        screenModelScope.launchIO {
-            // Get Recommendations
-            getLibraryAnime.subscribe()
-                .collectLatest { libraryList ->
-                    val sorted = libraryList.sortedByDescending { it.anime.lastUpdate }
-                    mutableState.update { it.copy(recommendations = sorted.take(10)) }
-                }
-        }
-
-        // Observe User Profile
-        screenModelScope.launchIO {
             userProfilePreferences.name().changes().collectLatest { name ->
                 mutableState.update { it.copy(userName = name) }
             }
@@ -86,6 +53,44 @@ class HomeHubScreenModel(
             userProfilePreferences.avatarUrl().changes().collectLatest { url ->
                 mutableState.update { it.copy(userAvatar = url) }
             }
+        }
+
+        screenModelScope.launchIO {
+            getAnimeHistory.subscribeRecent(limit = 7)
+                .collectLatest { historyList ->
+                    val hero = historyList.firstOrNull()
+                    val history = if (historyList.size > 1) historyList.drop(1) else emptyList()
+                    
+                    mutableState.update { 
+                        it.copy(
+                            history = history,
+                            heroItem = hero,
+                        )
+                    }
+
+                    if (hero != null) {
+                        loadHeroEpisode(hero)
+                    }
+                }
+        }
+
+        screenModelScope.launchIO {
+            getLibraryAnime.subscribe()
+                .collectLatest { libraryList ->
+                    val recommendations = libraryList
+                        .sortedByDescending { it.anime.lastUpdate }
+                        .take(10)
+                    mutableState.update { it.copy(recommendations = recommendations) }
+                }
+        }
+    }
+
+    private fun loadHeroEpisode(hero: AnimeHistoryWithRelations) {
+        screenModelScope.launchIO {
+            val nextEpisodes = getNextEpisodes.await(hero.animeId, hero.episodeId, onlyUnseen = true)
+            val heroEp = nextEpisodes.firstOrNull() 
+                ?: getNextEpisodes.await(hero.animeId, hero.episodeId, onlyUnseen = false).firstOrNull()
+            mutableState.update { it.copy(heroEpisode = heroEp) }
         }
     }
 

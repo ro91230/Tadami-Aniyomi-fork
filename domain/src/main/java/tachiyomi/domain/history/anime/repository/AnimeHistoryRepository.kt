@@ -9,6 +9,8 @@ interface AnimeHistoryRepository {
 
     fun getAnimeHistory(query: String): Flow<List<AnimeHistoryWithRelations>>
 
+    fun getRecentAnimeHistory(limit: Long): Flow<List<AnimeHistoryWithRelations>>
+
     suspend fun getLastAnimeHistory(): AnimeHistoryWithRelations?
 
     suspend fun resetAnimeHistory(historyId: Long)

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -80,12 +81,20 @@ fun MoreScreenAurora(
             }
 
             item {
-                // Quick toggles
                 AuroraToggleItem(
                     title = stringResource(AYMR.strings.aurora_downloaded_only),
                     icon = Icons.Filled.CloudOff,
                     checked = downloadedOnly,
                     onCheckedChange = onDownloadedOnlyChange
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                AuroraToggleItem(
+                    title = stringResource(AYMR.strings.aurora_incognito_mode),
+                    icon = Icons.Outlined.VisibilityOff,
+                    checked = incognitoMode,
+                    onCheckedChange = onIncognitoModeChange
                 )
                 
                 Spacer(modifier = Modifier.height(16.dp))

@@ -655,10 +655,28 @@
 
     <!-- More Screen -->
     <string name="aurora_downloaded_only">Downloaded Only</string>
+    <string name="aurora_incognito_mode">Incognito Mode</string>
     <string name="aurora_downloads">Downloads</string>
     <string name="aurora_about">About</string>
     <string name="aurora_help">Help</string>
     <string name="aurora_statistics">Statistics</string>
     <string name="aurora_more">More</string>
     <string name="aurora_library">Library</string>
+    
+    <!-- Welcome Screen -->
+    <string name="aurora_welcome_title">Start watching</string>
+    <string name="aurora_welcome_subtitle">Add sources and find something interesting</string>
+    <string name="aurora_browse_sources">Browse Sources</string>
+    <string name="aurora_add_extension">Add Extension</string>
+    <string name="aurora_tap_to_change">Tap to change</string>
+    <string name="aurora_episode_progress">Episode %d</string>
+    
+    <!-- Anime Detail Screen -->
+    <string name="aurora_rating">RATING</string>
+    <string name="aurora_status">STATUS</string>
+    <string name="aurora_continue">CONTINUE</string>
+    <string name="aurora_episodes_header">Episodes</string>
+    <string name="aurora_episode_count">%d eps</string>
+    <string name="aurora_select_dubbing">Select Dubbing</string>
+    <string name="aurora_no_description">No description</string>
 </resources>

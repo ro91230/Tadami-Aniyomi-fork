@@ -16,4 +16,8 @@ class GetAnimeHistory(
     fun subscribe(query: String): Flow<List<AnimeHistoryWithRelations>> {
         return repository.getAnimeHistory(query)
     }
+
+    fun subscribeRecent(limit: Long): Flow<List<AnimeHistoryWithRelations>> {
+        return repository.getRecentAnimeHistory(limit)
+    }
 }
