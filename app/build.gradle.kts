@@ -17,10 +17,10 @@ android {
     namespace = "eu.kanade.tachiyomi"
 
     defaultConfig {
-        applicationId = "xyz.jmir.tachiyomi.mi"
+        applicationId = "com.tadami.aurora"
 
-        versionCode = 131
-        versionName = "0.18.1.2"
+        versionCode = 132
+        versionName = "0.19"
 
         buildConfigField("String", "COMMIT_COUNT", "\"${getCommitCount()}\"")
         buildConfigField("String", "COMMIT_SHA", "\"${getGitSha()}\"")
