@@ -18,6 +18,33 @@
 *   **Focused Experience:** Streamlined menus and navigation (e.g., simplified Browse tab).
 *   **Continued Support:** Maintains compatibility with Aniyomi extensions while pushing for better usability.
 
+## Screenshots
+
+<div align="center">
+<table>
+  <tr>
+    <td align="center"><b>Home (Aurora)</b></td>
+    <td align="center"><b>Anime Details</b></td>
+    <td align="center"><b>Library</b></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/main_screen.jpg" width="240"/></td>
+    <td><img src="screenshots/anime_card.jpg" width="240"/></td>
+    <td><img src="screenshots/Library.jpg" width="240"/></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Browse</b></td>
+    <td align="center"><b>Updates</b></td>
+    <td align="center"><b>More / Settings</b></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/extensions.jpg" width="240"/></td>
+    <td><img src="screenshots/updates.jpg" width="240"/></td>
+    <td><img src="screenshots/more.jpg" width="240"/></td>
+  </tr>
+</table>
+</div>
+
 ## Features
 
 *   **Anime & Manga:** Unified library for all your media.
@@ -46,6 +73,7 @@ The developer(s) of this application does not have any affiliation with the cont
 Copyright © 2015 Javier Tomás
 Copyright © 2024 Mihon Open Source Project
 Copyright © 2024 Aniyomi Open Source Project
+Copyright © 2026 Tadami Project
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
