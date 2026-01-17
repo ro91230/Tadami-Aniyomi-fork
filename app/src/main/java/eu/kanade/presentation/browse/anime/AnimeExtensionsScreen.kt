@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.GetApp
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Refresh
@@ -83,6 +85,7 @@ fun AnimeExtensionScreen(
     onOpenExtension: (AnimeExtension.Installed) -> Unit,
     onClickUpdateAll: () -> Unit,
     onRefresh: () -> Unit,
+    onToggleSection: (AnimeExtensionUiModel.Header.Text) -> Unit,
 ) {
     val navigator = LocalNavigator.currentOrThrow
 
@@ -124,6 +127,7 @@ fun AnimeExtensionScreen(
                     onTrustExtension = onTrustExtension,
                     onOpenExtension = onOpenExtension,
                     onClickUpdateAll = onClickUpdateAll,
+                    onToggleSection = onToggleSection,
                 )
             }
         }
@@ -143,6 +147,7 @@ private fun AnimeExtensionContent(
     onTrustExtension: (AnimeExtension.Untrusted) -> Unit,
     onOpenExtension: (AnimeExtension.Installed) -> Unit,
     onClickUpdateAll: () -> Unit,
+    onToggleSection: (AnimeExtensionUiModel.Header.Text) -> Unit,
 ) {
     val context = LocalContext.current
     var trustState by remember { mutableStateOf<AnimeExtension.Untrusted?>(null) }
@@ -191,63 +196,70 @@ private fun AnimeExtensionContent(
                         )
                     }
                     is AnimeExtensionUiModel.Header.Text -> {
+                        val isCollapsed = header.text in state.collapsedLanguages
                         ExtensionHeader(
                             text = header.text,
-                            modifier = Modifier.animateItemFastScroll(),
+                            modifier = Modifier
+                                .animateItemFastScroll()
+                                .clickable { onToggleSection(header) },
+                            action = {
+                                IconButton(onClick = { onToggleSection(header) }) {
+                                    Icon(
+                                        imageVector = if (isCollapsed) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess,
+                                        contentDescription = null,
+                                    )
+                                }
+                            }
                         )
                     }
                 }
             }
 
-            items(
-                items = items,
-                contentType = { "item" },
-                key = { item ->
-                    when (item.extension) {
-                        is AnimeExtension.Untrusted -> "extension-untrusted-${item.hashCode()}"
-                        is AnimeExtension.Installed -> "extension-installed-${item.hashCode()}"
-                        is AnimeExtension.Available -> "extension-available-${item.hashCode()}"
-                    }
-                },
-            ) { item ->
-                AnimeExtensionItem(
-                    item = item,
-                    modifier = Modifier.animateItemFastScroll(),
-                    onClickItem = {
-                        when (it) {
-                            is AnimeExtension.Available -> onInstallExtension(it)
-                            is AnimeExtension.Installed -> onOpenExtension(it)
-                            is AnimeExtension.Untrusted -> {
-                                trustState = it
-                            }
-                        }
-                    },
-                    onLongClickItem = onLongClickItem,
-                    onClickItemSecondaryAction = {
-                        when (it) {
-                            is AnimeExtension.Available -> onOpenWebView(it)
-                            is AnimeExtension.Installed -> onOpenExtension(it)
-                            else -> {}
-                        }
-                    },
-                    onClickItemCancel = onClickItemCancel,
-                    onClickItemAction = {
-                        when (it) {
-                            is AnimeExtension.Available -> onInstallExtension(it)
-                            is AnimeExtension.Installed -> {
-                                if (it.hasUpdate) {
-                                    onUpdateExtension(it)
-                                } else {
-                                    onOpenExtension(it)
+            if (items.isNotEmpty()) {
+                items(
+                    items = items,
+                    contentType = { "item" },
+                    key = { item -> "extension-${header.hashCode()}-${item.extension.pkgName}" },
+                ) { item ->
+                    AnimeExtensionItem(
+                        item = item,
+                        modifier = Modifier.animateItemFastScroll(),
+                        onClickItem = {
+                            when (it) {
+                                is AnimeExtension.Available -> onInstallExtension(it)
+                                is AnimeExtension.Installed -> onOpenExtension(it)
+                                is AnimeExtension.Untrusted -> {
+                                    trustState = it
                                 }
                             }
-
-                            is AnimeExtension.Untrusted -> {
-                                trustState = it
+                        },
+                        onLongClickItem = onLongClickItem,
+                        onClickItemSecondaryAction = {
+                            when (it) {
+                                is AnimeExtension.Available -> onOpenWebView(it)
+                                is AnimeExtension.Installed -> onOpenExtension(it)
+                                else -> {}
                             }
-                        }
-                    },
-                )
+                        },
+                        onClickItemCancel = onClickItemCancel,
+                        onClickItemAction = {
+                            when (it) {
+                                is AnimeExtension.Available -> onInstallExtension(it)
+                                is AnimeExtension.Installed -> {
+                                    if (it.hasUpdate) {
+                                        onUpdateExtension(it)
+                                    } else {
+                                        onOpenExtension(it)
+                                    }
+                                }
+
+                                is AnimeExtension.Untrusted -> {
+                                    trustState = it
+                                }
+                            }
+                        },
+                    )
+                }
             }
         }
     }

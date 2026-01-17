@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -69,6 +70,8 @@ import eu.kanade.tachiyomi.ui.browse.manga.extension.details.MangaSourcePreferen
 import eu.kanade.tachiyomi.ui.entries.manga.ChapterList
 import eu.kanade.tachiyomi.ui.entries.manga.MangaScreenModel
 import eu.kanade.tachiyomi.util.system.copyToClipboard
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import tachiyomi.domain.entries.manga.model.Manga
 import tachiyomi.domain.items.chapter.model.Chapter
 import tachiyomi.domain.items.chapter.service.missingChaptersCount
@@ -81,6 +84,7 @@ import tachiyomi.presentation.core.components.material.ExtendedFloatingActionBut
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.collectAsState
 import tachiyomi.presentation.core.util.shouldExpandFAB
 import tachiyomi.source.local.entries.manga.isLocal
 import java.time.Instant
@@ -133,6 +137,47 @@ fun MangaScreen(
     onAllChapterSelected: (Boolean) -> Unit,
     onInvertSelection: () -> Unit,
 ) {
+    val uiPreferences = Injekt.get<eu.kanade.domain.ui.UiPreferences>()
+    val theme by uiPreferences.appTheme().collectAsState()
+
+    if (theme.isAuroraStyle && !isTabletUi) {
+        MangaScreenAuroraImpl(
+            state = state,
+            snackbarHostState = snackbarHostState,
+            nextUpdate = nextUpdate,
+            isTabletUi = isTabletUi,
+            chapterSwipeStartAction = chapterSwipeStartAction,
+            chapterSwipeEndAction = chapterSwipeEndAction,
+            navigateUp = navigateUp,
+            onChapterClicked = onChapterClicked,
+            onDownloadChapter = onDownloadChapter,
+            onAddToLibraryClicked = onAddToLibraryClicked,
+            onWebViewClicked = onWebViewClicked,
+            onWebViewLongClicked = onWebViewLongClicked,
+            onTrackingClicked = onTrackingClicked,
+            onTagSearch = onTagSearch,
+            onFilterButtonClicked = onFilterButtonClicked,
+            onRefresh = onRefresh,
+            onContinueReading = onContinueReading,
+            onSearch = onSearch,
+            onCoverClicked = onCoverClicked,
+            onShareClicked = onShareClicked,
+            onDownloadActionClicked = onDownloadActionClicked,
+            onEditCategoryClicked = onEditCategoryClicked,
+            onEditFetchIntervalClicked = onEditFetchIntervalClicked,
+            onMigrateClicked = onMigrateClicked,
+            onMultiBookmarkClicked = onMultiBookmarkClicked,
+            onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
+            onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
+            onMultiDeleteClicked = onMultiDeleteClicked,
+            onChapterSwipe = onChapterSwipe,
+            onChapterSelected = onChapterSelected,
+            onAllChapterSelected = onAllChapterSelected,
+            onInvertSelection = onInvertSelection,
+        )
+        return
+    }
+
     val context = LocalContext.current
     val onCopyTagToClipboard: (tag: String) -> Unit = {
         if (it.isNotEmpty()) {

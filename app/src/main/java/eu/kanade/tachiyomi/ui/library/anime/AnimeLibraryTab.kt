@@ -6,6 +6,7 @@ import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -15,8 +16,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
@@ -32,23 +35,30 @@ import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.AppTheme
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
+import eu.kanade.presentation.components.TabContent
+import eu.kanade.presentation.components.TabbedScreenAurora
 import eu.kanade.presentation.entries.components.LibraryBottomActionMenu
 import eu.kanade.presentation.library.DeleteLibraryEntryDialog
 import eu.kanade.presentation.library.anime.AnimeLibraryAuroraContent
 import eu.kanade.presentation.library.anime.AnimeLibraryContent
 import eu.kanade.presentation.library.anime.AnimeLibrarySettingsDialog
 import eu.kanade.presentation.library.components.LibraryToolbar
+import eu.kanade.presentation.library.manga.MangaLibraryAuroraContent
 import eu.kanade.presentation.more.onboarding.GETTING_STARTED_URL
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.library.anime.AnimeLibraryUpdateJob
+import eu.kanade.tachiyomi.data.library.manga.MangaLibraryUpdateJob
 import eu.kanade.tachiyomi.ui.browse.anime.source.globalsearch.GlobalAnimeSearchScreen
 import eu.kanade.tachiyomi.ui.category.CategoriesTab
 import eu.kanade.tachiyomi.ui.entries.anime.AnimeScreen
+import eu.kanade.tachiyomi.ui.entries.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.player.settings.PlayerPreferences
+import eu.kanade.tachiyomi.ui.library.manga.MangaLibraryScreenModel
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -78,7 +88,7 @@ data object AnimeLibraryTab : Tab {
     override val options: TabOptions
         @Composable
         get() {
-            val title = AYMR.strings.label_anime_library
+            val title = AYMR.strings.label_titles
             val isSelected = LocalTabNavigator.current.current.key == key
             val image = AnimatedImageVector.animatedVectorResource(
                 R.drawable.anim_animelibrary_leave,
@@ -103,16 +113,30 @@ data object AnimeLibraryTab : Tab {
         val haptic = LocalHapticFeedback.current
 
         val screenModel = rememberScreenModel { AnimeLibraryScreenModel() }
+        val mangaScreenModel = rememberScreenModel { MangaLibraryScreenModel() }
         val settingsScreenModel = rememberScreenModel { AnimeLibrarySettingsScreenModel() }
         val state by screenModel.state.collectAsState()
-        
+        val mangaState by mangaScreenModel.state.collectAsState()
+
         val uiPreferences = Injekt.get<UiPreferences>()
         val theme by uiPreferences.appTheme().collectAsState()
+        val showAnimeSection by uiPreferences.showAnimeSection().collectAsState()
+        val showMangaSection by uiPreferences.showMangaSection().collectAsState()
+        val isAurora = theme.isAuroraStyle
 
         val snackbarHostState = remember { SnackbarHostState() }
 
         val onClickRefresh: (Category?) -> Boolean = { category ->
             val started = AnimeLibraryUpdateJob.startNow(context, category)
+            scope.launch {
+                val msgRes = if (started) MR.strings.updating_category else MR.strings.update_already_running
+                snackbarHostState.showSnackbar(context.stringResource(msgRes))
+            }
+            started
+        }
+
+        val onClickRefreshManga: (Category?) -> Boolean = { category ->
+            val started = MangaLibraryUpdateJob.startNow(context, category)
             scope.launch {
                 val msgRes = if (started) MR.strings.updating_category else MR.strings.update_already_running
                 snackbarHostState.showSnackbar(context.stringResource(msgRes))
@@ -128,9 +152,116 @@ data object AnimeLibraryTab : Tab {
 
         val defaultTitle = stringResource(AYMR.strings.label_anime_library)
 
+        val animeTab = TabContent(
+            titleRes = AYMR.strings.label_anime,
+            searchEnabled = true,
+            content = { contentPadding, _ ->
+                val currentCategoryItems = state.getAnimelibItemsByPage(screenModel.activeCategoryIndex)
+                val libraryItems = currentCategoryItems.map { it.libraryAnime }
+                AnimeLibraryAuroraContent(
+                    items = libraryItems,
+                    onAnimeClicked = { navigator.push(AnimeScreen(it)) },
+                    contentPadding = contentPadding,
+                    onFilterClicked = screenModel::showSettingsDialog,
+                    onRefresh = { onClickRefresh(state.categories[screenModel.activeCategoryIndex]) },
+                    onGlobalUpdate = { onClickRefresh(null) },
+                    onOpenRandomEntry = {
+                        scope.launch {
+                            val randomItem = screenModel.getRandomAnimelibItemForCurrentCategory()
+                            if (randomItem != null) {
+                                navigator.push(AnimeScreen(randomItem.libraryAnime.anime.id))
+                            } else {
+                                snackbarHostState.showSnackbar(
+                                    context.stringResource(MR.strings.information_no_entries_found),
+                                )
+                            }
+                        }
+                    }
+                )
+            },
+        )
+        val mangaTab = TabContent(
+            titleRes = AYMR.strings.label_manga,
+            searchEnabled = true,
+            content = { contentPadding, _ ->
+                val currentCategoryItems = mangaState.getLibraryItemsByPage(mangaScreenModel.activeCategoryIndex)
+                val libraryItems = currentCategoryItems.map { it.libraryManga }
+                MangaLibraryAuroraContent(
+                    items = libraryItems,
+                    onMangaClicked = { navigator.push(MangaScreen(it)) },
+                    contentPadding = contentPadding,
+                    onFilterClicked = mangaScreenModel::showSettingsDialog,
+                    onRefresh = { onClickRefreshManga(state.categories.getOrNull(mangaScreenModel.activeCategoryIndex)) },
+                    onGlobalUpdate = { onClickRefreshManga(null) },
+                    onOpenRandomEntry = {
+                        scope.launch {
+                            val randomItem = mangaScreenModel.getRandomLibraryItemForCurrentCategory()
+                            if (randomItem != null) {
+                                navigator.push(MangaScreen(randomItem.libraryManga.manga.id))
+                            } else {
+                                snackbarHostState.showSnackbar(
+                                    context.stringResource(MR.strings.information_no_entries_found),
+                                )
+                            }
+                        }
+                    }
+                )
+            },
+        )
+        val auroraTabs = listOfNotNull(
+            animeTab.takeIf { showAnimeSection },
+            mangaTab.takeIf { showMangaSection },
+        ).toImmutableList()
+        val mangaTabIndex = when {
+            showMangaSection && showAnimeSection -> 1
+            showMangaSection -> 0
+            else -> -1
+        }
+        val isMangaTab: (Int) -> Boolean = { index -> index == mangaTabIndex }
+
+        val savedAuroraPage = rememberSaveable { mutableIntStateOf(0) }
+        val auroraPageCount = auroraTabs.size.coerceAtLeast(1)
+        val initialAuroraPage = savedAuroraPage.intValue.coerceIn(0, auroraPageCount - 1)
+        val auroraPagerState = rememberPagerState(initialAuroraPage) { auroraPageCount }
+
+        LaunchedEffect(auroraPageCount) {
+            if (auroraPagerState.currentPage > auroraPageCount - 1) {
+                auroraPagerState.scrollToPage(auroraPageCount - 1)
+            }
+        }
+
+        LaunchedEffect(auroraPagerState.currentPage, auroraPageCount, isAurora) {
+            if (isAurora) {
+                savedAuroraPage.intValue = auroraPagerState.currentPage.coerceAtMost(auroraPageCount - 1)
+            }
+        }
+
+        val isAnimeLibraryEmpty = state.searchQuery.isNullOrEmpty() && !state.hasActiveFilters && state.isLibraryEmpty
+        val isMangaLibraryEmpty = mangaState.searchQuery.isNullOrEmpty() && !mangaState.hasActiveFilters && mangaState.isLibraryEmpty
+        val isLibraryEmpty = if (isAurora) {
+            when {
+                showAnimeSection && showMangaSection -> isAnimeLibraryEmpty && isMangaLibraryEmpty
+                showAnimeSection -> isAnimeLibraryEmpty
+                showMangaSection -> isMangaLibraryEmpty
+                else -> isAnimeLibraryEmpty
+            }
+        } else {
+            isAnimeLibraryEmpty
+        }
+        val isLoading = if (isAurora) {
+            when {
+                showAnimeSection && showMangaSection -> state.isLoading && mangaState.isLoading
+                showAnimeSection -> state.isLoading
+                showMangaSection -> mangaState.isLoading
+                else -> state.isLoading
+            }
+        } else {
+            state.isLoading
+        }
+
         Scaffold(
             topBar = { scrollBehavior ->
-                if (theme.isAuroraStyle) return@Scaffold
+                if (isAurora) return@Scaffold
 
                 val title = state.getToolbarTitle(
                     defaultTitle = defaultTitle,
@@ -188,8 +319,8 @@ data object AnimeLibraryTab : Tab {
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         ) { contentPadding ->
             when {
-                state.isLoading -> LoadingScreen(Modifier.padding(contentPadding))
-                state.searchQuery.isNullOrEmpty() && !state.hasActiveFilters && state.isLibraryEmpty -> {
+                isLoading -> LoadingScreen(Modifier.padding(contentPadding))
+                isLibraryEmpty -> {
                     val handler = LocalUriHandler.current
                     EmptyScreen(
                         stringRes = MR.strings.information_empty_library,
@@ -204,13 +335,17 @@ data object AnimeLibraryTab : Tab {
                     )
                 }
                 else -> {
-                    if (theme.isAuroraStyle) {
-                        val currentCategoryItems = state.getAnimelibItemsByPage(screenModel.activeCategoryIndex)
-                        val libraryItems = currentCategoryItems.map { it.libraryAnime }
-                        AnimeLibraryAuroraContent(
-                            items = libraryItems,
-                            onAnimeClicked = { navigator.push(AnimeScreen(it)) },
-                            contentPadding = contentPadding
+                    if (isAurora) {
+                        TabbedScreenAurora(
+                            titleRes = null,
+                            tabs = auroraTabs,
+                            state = auroraPagerState,
+                            animeSearchQuery = state.searchQuery,
+                            onChangeAnimeSearchQuery = screenModel::search,
+                            mangaSearchQuery = mangaState.searchQuery,
+                            onChangeMangaSearchQuery = mangaScreenModel::search,
+                            isMangaTab = isMangaTab,
+                            showTabs = false,
                         )
                     } else {
                         AnimeLibraryContent(
@@ -296,10 +431,22 @@ data object AnimeLibraryTab : Tab {
             null -> {}
         }
 
-        BackHandler(enabled = state.selectionMode || state.searchQuery != null) {
+        val hasAnimeSearchQuery = state.searchQuery != null
+        val hasMangaSearchQuery = mangaState.searchQuery != null
+        val isMangaPage = isAurora && isMangaTab(auroraPagerState.currentPage)
+
+        BackHandler(enabled = state.selectionMode || hasAnimeSearchQuery || (isAurora && hasMangaSearchQuery)) {
             when {
                 state.selectionMode -> screenModel.clearSelection()
-                state.searchQuery != null -> screenModel.search(null)
+                isAurora -> {
+                    when {
+                        isMangaPage && hasMangaSearchQuery -> mangaScreenModel.search(null)
+                        !isMangaPage && hasAnimeSearchQuery -> screenModel.search(null)
+                        hasMangaSearchQuery -> mangaScreenModel.search(null)
+                        hasAnimeSearchQuery -> screenModel.search(null)
+                    }
+                }
+                hasAnimeSearchQuery -> screenModel.search(null)
             }
         }
 
@@ -307,8 +454,8 @@ data object AnimeLibraryTab : Tab {
             HomeScreen.showBottomNav(!state.selectionMode)
         }
 
-        LaunchedEffect(state.isLoading) {
-            if (!state.isLoading) {
+        LaunchedEffect(isLoading) {
+            if (!isLoading) {
                 (context as? MainActivity)?.ready = true
             }
         }

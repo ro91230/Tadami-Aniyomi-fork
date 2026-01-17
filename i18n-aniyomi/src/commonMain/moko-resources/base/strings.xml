@@ -384,6 +384,7 @@
     <string name="backup_settings_warning">Warning: Backing up settings will store your track passwords as well, do not share this backup file!</string>
     <string name="label_manga_library">Manga</string>
     <string name="label_anime_library">Anime</string>
+    <string name="label_titles">Titles</string>
     <string name="label_anime">Anime</string>
     <string name="label_manga">Manga</string>
     <string name="label_recent_anime_updates">Anime Updates</string>
@@ -392,6 +393,9 @@
     <string name="label_watched_duration">Watched duration</string>
     <string name="label_watched_episodes">Watched</string>
     <string name="pref_start_screen">Start Screen</string>
+    <string name="pref_show_anime_section">Show anime section</string>
+    <string name="pref_show_manga_section">Show manga section</string>
+    <string name="pref_show_section_required">At least one section must stay enabled</string>
     <string name="pref_library_manga_columns">Manga items per row</string>
     <string name="pref_library_anime_columns">Anime items per row</string>
     <string name="pref_bottom_nav_no_history">Move History to the More tab</string>
@@ -595,6 +599,7 @@
     <string name="aurora_continue_watching">Continue Watching</string>
     <string name="aurora_continue_watching_header">CONTINUE WATCHING</string>
     <string name="aurora_play">Play</string>
+    <string name="aurora_read">Читать</string>
     <string name="aurora_details">Details</string>
     <string name="aurora_view_all">View All</string>
     <string name="aurora_episode_number">Episode %s</string>
@@ -659,6 +664,7 @@
     <!-- Browse Screen -->
     <string name="aurora_browse">Browse</string>
     <string name="aurora_discover_sources">Discover anime sources</string>
+    <string name="aurora_discover_titles">Discover Titles</string>
     <string name="aurora_global_search">Global Search</string>
     <string name="aurora_extensions">Extensions</string>
     <string name="aurora_migrate">Migrate</string>
@@ -670,6 +676,8 @@
     <string name="aurora_updates">Updates</string>
     <string name="aurora_new_episodes_subtitle">New episodes from your library</string>
     <string name="aurora_no_new_episodes">No New Episodes</string>
+    <string name="aurora_new_chapters_subtitle">Check out the latest chapters</string>
+    <string name="aurora_no_new_chapters">No new chapters</string>
     <string name="aurora_library_up_to_date">Your library is up to date!\nTap refresh to check for new episodes.</string>
     <string name="aurora_update_library">Update Library</string>
     <string name="aurora_refresh_library">Refresh Library</string>
@@ -723,7 +731,7 @@
     <!-- Welcome Screen -->
     <string name="aurora_welcome_title">Start watching</string>
     <string name="aurora_welcome_subtitle">Add sources and find something interesting</string>
-    <string name="aurora_browse_sources">Add Source</string>
+    <string name="aurora_browse_sources">Connect repository</string>
     <string name="aurora_add_extension">Add Extension</string>
     <string name="aurora_tap_to_change">Tap to change</string>
     <string name="aurora_episode_progress">Episode %d</string>
@@ -734,6 +742,9 @@
     <string name="aurora_continue">CONTINUE</string>
     <string name="aurora_episodes_header">Episodes</string>
     <string name="aurora_episode_count">%d eps</string>
+    <string name="aurora_chapters_header">Chapters</string>
+    <string name="aurora_chapter_count">%d chs</string>
+    <string name="aurora_chapter_progress">Chapter %d</string>
     <string name="aurora_select_dubbing">Select Dubbing</string>
     <string name="aurora_no_description">No description</string>
 </resources>

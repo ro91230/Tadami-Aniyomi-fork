@@ -114,5 +114,7 @@ data class CachedRecommendationItem(
     val animeId: Long,
     val title: String,
     val coverUrl: String?,
-    val coverLastModified: Long
+    val coverLastModified: Long,
+    val totalCount: Long = 0,
+    val seenCount: Long = 0
 )

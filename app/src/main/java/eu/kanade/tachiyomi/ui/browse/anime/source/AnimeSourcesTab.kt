@@ -53,6 +53,9 @@ fun Screen.animeSourcesTab(): TabContent {
                 },
                 onClickPin = screenModel::togglePin,
                 onLongClickItem = screenModel::showSourceDialog,
+                searchQuery = state.searchQuery,
+                onChangeSearchQuery = screenModel::search,
+                onToggleLanguage = screenModel::toggleLanguage,
             )
 
             state.dialog?.let { dialog ->

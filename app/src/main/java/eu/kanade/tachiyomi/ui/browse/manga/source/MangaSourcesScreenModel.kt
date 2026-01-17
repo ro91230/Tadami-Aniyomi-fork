@@ -14,8 +14,11 @@ import eu.kanade.presentation.browse.manga.MangaSourceUiModel
 import eu.kanade.tachiyomi.util.system.LAST_USED_KEY
 import eu.kanade.tachiyomi.util.system.PINNED_KEY
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
@@ -46,6 +49,9 @@ class MangaSourcesScreenModel(
     private val _events = Channel<Event>(Int.MAX_VALUE)
     val events = _events.receiveAsFlow()
 
+    // Keep track of raw sources to re-filter when query/collapsed state changes
+    private var rawSources: List<Source> = emptyList()
+
     init {
         screenModelScope.launchIO {
             getEnabledSources.subscribe()
@@ -53,7 +59,10 @@ class MangaSourcesScreenModel(
                     logcat(LogPriority.ERROR, it)
                     _events.send(Event.FailedFetchingSources)
                 }
-                .collectLatest(::collectLatestSources)
+                .collectLatest { sources ->
+                    rawSources = sources
+                    updateState()
+                }
         }
         // SY -->
         sourcePreferences.dataSaver().changes()
@@ -68,42 +77,74 @@ class MangaSourcesScreenModel(
         // SY <--
     }
 
-    private fun collectLatestSources(sources: List<Source>) {
-        mutableState.update { state ->
-            val map = TreeMap<String, MutableList<Source>> { d1, d2 ->
-                // Sources without a lang defined will be placed at the end
-                when {
-                    d1 == LAST_USED_KEY && d2 != LAST_USED_KEY -> -1
-                    d2 == LAST_USED_KEY && d1 != LAST_USED_KEY -> 1
-                    d1 == PINNED_KEY && d2 != PINNED_KEY -> -1
-                    d2 == PINNED_KEY && d1 != PINNED_KEY -> 1
-                    d1 == "" && d2 != "" -> 1
-                    d2 == "" && d1 != "" -> -1
-                    else -> d1.compareTo(d2)
-                }
-            }
-            val byLang = sources.groupByTo(map) {
-                when {
-                    it.isUsedLast -> LAST_USED_KEY
-                    Pin.Actual in it.pin -> PINNED_KEY
-                    else -> it.lang
-                }
-            }
+    private fun updateState() {
+        val query = state.value.searchQuery
+        val collapsed = state.value.collapsedLanguages
 
-            state.copy(
-                isLoading = false,
-                items = byLang
-                    .flatMap {
-                        listOf(
-                            MangaSourceUiModel.Header(it.key),
-                            *it.value.map { source ->
-                                MangaSourceUiModel.Item(source)
-                            }.toTypedArray(),
-                        )
-                    }
-                    .toImmutableList(),
-            )
+        // 1. Separate Pinned (only if no search query)
+        val (pinned, others) = if (query.isBlank()) {
+            rawSources.partition { Pin.Actual in it.pin }
+        } else {
+            // When searching, show everything in the list, nothing in pinned carousel
+            Pair(emptyList(), rawSources)
         }
+
+        // 2. Filter by query
+        val filtered = others.filter { 
+            query.isBlank() || it.name.contains(query, ignoreCase = true) || it.lang.contains(query, ignoreCase = true)
+        }
+
+        // 3. Group by Lang
+        val map = TreeMap<String, MutableList<Source>> { d1, d2 ->
+            when {
+                d1 == LAST_USED_KEY && d2 != LAST_USED_KEY -> -1
+                d2 == LAST_USED_KEY && d1 != LAST_USED_KEY -> 1
+                d1 == "" && d2 != "" -> 1
+                d2 == "" && d1 != "" -> -1
+                else -> d1.compareTo(d2)
+            }
+        }
+        val byLang = filtered.groupByTo(map) {
+            when {
+                it.isUsedLast -> LAST_USED_KEY
+                else -> it.lang
+            }
+        }
+
+        // 4. Flatten to UI Models, respecting collapsed state
+        val uiItems = byLang.flatMap { (lang, sources) ->
+            if (lang in collapsed && query.isBlank()) {
+                listOf(MangaSourceUiModel.Header(lang, isCollapsed = true))
+            } else {
+                listOf(MangaSourceUiModel.Header(lang, isCollapsed = false)) + 
+                sources.map { MangaSourceUiModel.Item(it) }
+            }
+        }
+
+        mutableState.update { 
+            it.copy(
+                isLoading = false,
+                items = uiItems.toImmutableList(),
+                pinnedItems = pinned.toImmutableList()
+            ) 
+        }
+    }
+
+    fun search(query: String) {
+        mutableState.update { it.copy(searchQuery = query) }
+        updateState()
+    }
+
+    fun toggleLanguage(language: String) {
+        mutableState.update { state ->
+            val newCollapsed = if (language in state.collapsedLanguages) {
+                state.collapsedLanguages - language
+            } else {
+                state.collapsedLanguages + language
+            }
+            state.copy(collapsedLanguages = newCollapsed.toImmutableSet())
+        }
+        updateState()
     }
 
     fun toggleSource(source: Source) {
@@ -139,10 +180,13 @@ class MangaSourcesScreenModel(
         val dialog: Dialog? = null,
         val isLoading: Boolean = true,
         val items: ImmutableList<MangaSourceUiModel> = persistentListOf(),
+        val pinnedItems: ImmutableList<Source> = persistentListOf(),
+        val searchQuery: String = "",
+        val collapsedLanguages: ImmutableSet<String> = persistentSetOf(),
         // SY -->
         val dataSaverEnabled: Boolean = false,
         // SY <--
     ) {
-        val isEmpty = items.isEmpty()
+        val isEmpty = items.isEmpty() && pinnedItems.isEmpty()
     }
 }

@@ -381,24 +381,7 @@ fun AnimeScreenAuroraImpl(
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp, vertical = 6.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(
-                                    brush = if (colors.isDark) {
-                                        Brush.verticalGradient(
-                                            colors = listOf(
-                                                Color.Black.copy(alpha = 0.2f),
-                                                Color.Black.copy(alpha = 0.4f),
-                                            )
-                                        )
-                                    } else {
-                                        Brush.linearGradient(
-                                            colors = listOf(
-                                                colors.glass.copy(alpha = 0.5f),
-                                                colors.glass.copy(alpha = 0.5f),
-                                            )
-                                        )
-                                    },
-                                    shape = RoundedCornerShape(12.dp),
-                                )
+                                .background(colors.glass)
                                 .clickable { onEpisodeClicked(episode, false) }
                                 .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically

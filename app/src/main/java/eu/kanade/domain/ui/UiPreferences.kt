@@ -34,6 +34,10 @@ class UiPreferences(
 
     fun startScreen() = preferenceStore.getEnum("start_screen", StartScreen.HOME)
 
+    fun showAnimeSection() = preferenceStore.getBoolean("aurora_show_anime_section", true)
+
+    fun showMangaSection() = preferenceStore.getBoolean("aurora_show_manga_section", true)
+
     fun navStyle() = preferenceStore.getEnum("bottom_rail_nav_style", NavStyle.MOVE_HISTORY_TO_MORE)
 
     companion object {

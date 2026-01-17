@@ -166,6 +166,7 @@ class AppModule(val app: Application) : InjektModule {
             Json {
                 ignoreUnknownKeys = true
                 explicitNulls = false
+                coerceInputValues = true
             }
         }
         addSingletonFactory {

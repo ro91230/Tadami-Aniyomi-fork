@@ -243,11 +243,12 @@
     <string name="backup_settings_warning">Предупреждение: резервная копия настроек также сохранит ваши пароли к отслеживаемым, не передавайте этот файл резервной копии!</string>
     <string name="label_manga_library">Манга</string>
     <string name="label_anime_library">Аниме</string>
+    <string name="label_titles">Тайтлы</string>
     <string name="label_anime">Аниме</string>
     <string name="label_manga">Манга</string>
     <string name="label_recent_anime_updates">Обновления аниме</string>
-    <string name="label_manga_sources">Источники манги</string>
-    <string name="label_anime_sources">Источники аниме</string>
+    <string name="label_manga_sources">Доступные источники</string>
+    <string name="label_anime_sources">Доступные источники</string>
     <string name="label_watched_duration">Длительность просмотра</string>
     <string name="label_watched_episodes">Просмотрено</string>
     <string name="pref_start_screen">Начальный экран</string>
@@ -294,7 +295,10 @@
     <string name="action_order_by_episode_number">По номеру эпизода</string>
     <string name="action_start_download_externally">Использовать внешний загрузчик</string>
     <string name="action_start_download_internally">Использовать внутренний загрузчик</string>
-    <string name="pref_bottom_nav_style">Стиль нижней панели навигации</string>
+    <string name="pref_bottom_nav_style">Стиль нижней навигации</string>
+    <string name="pref_show_anime_section">Показывать раздел аниме</string>
+    <string name="pref_show_manga_section">Показывать раздел манги</string>
+    <string name="pref_show_section_required">По крайней мере один раздел должен оставаться включенным</string>
     <string name="pref_default_home_tab_library">Сделать вкладку манги начальным экраном</string>
     <string name="default_manga_category">Категория манги по умолчанию</string>
     <string name="default_anime_category">Категория аниме по умолчанию</string>
@@ -375,10 +379,10 @@
     <string name="notification_episodes_multiple">Эпизоды %1$s</string>
     <string name="episode_settings">Настройка эпизода</string>
     <string name="pref_backup_flags">Варианты резервного копирования</string>
-    <string name="label_manga_extensions">Расширения манги</string>
-    <string name="label_anime_extensions">Расширения аниме</string>
-    <string name="label_migration_manga">Перенести мангу</string>
-    <string name="label_migration_anime">Перенести аниме</string>
+    <string name="label_manga_extensions">Установить расширение</string>
+    <string name="label_anime_extensions">Установить расширение</string>
+    <string name="label_migration_manga">Перенос</string>
+    <string name="label_migration_anime">Перенос</string>
     <string name="settings">Настройки</string>
     <string name="copied_video_link_to_clipboard">Скопирована ссылка на качество видео в буфер обмена</string>
     <string name="choose_video_quality">Выберите качество видео:</string>
@@ -596,8 +600,8 @@
 
     <!-- Browse Screen -->
     <string name="aurora_browse">Обзор</string>
-    <string name="aurora_discover_sources">Найти источники аниме</string>
-    <string name="aurora_global_search">Глобальный поиск</string>
+    <string name="aurora_discover_sources">Открыть источники</string>
+    <string name="aurora_discover_titles">Найти тайтлы</string>
     <string name="aurora_extensions">Расширения</string>
     <string name="aurora_migrate">Миграция</string>
     <string name="aurora_pinned_sources">Закреплённые источники</string>
@@ -608,6 +612,8 @@
     <string name="aurora_updates">Обновления</string>
     <string name="aurora_new_episodes_subtitle">Новые эпизоды из вашей библиотеки</string>
     <string name="aurora_no_new_episodes">Нет новых эпизодов</string>
+    <string name="aurora_new_chapters_subtitle">Проверьте новые главы</string>
+    <string name="aurora_no_new_chapters">Нет новых глав</string>
     <string name="aurora_library_up_to_date">Ваша библиотека обновлена!\nНажмите обновить, чтобы проверить новые эпизоды.</string>
     <string name="aurora_update_library">Обновить библиотеку</string>
     <string name="aurora_refresh_library">Обновить библиотеку</string>
@@ -652,6 +658,9 @@
     <string name="aurora_statistics">Статистика</string>
     <string name="aurora_more">Ещё</string>
     <string name="aurora_library">Библиотека</string>
+    <string name="aurora_categories">Категории</string>
+    <string name="aurora_data_storage">Данные и хранилище</string>
+    <string name="aurora_player_settings">Настройки проигрывателя</string>
     
     <!-- Welcome Screen -->
     <string name="aurora_welcome_title">Начните смотреть</string>
@@ -667,6 +676,9 @@
     <string name="aurora_continue">ЗАПУСК</string>
     <string name="aurora_episodes_header">Эпизоды</string>
     <string name="aurora_episode_count">%d эп.</string>
+    <string name="aurora_chapters_header">Главы</string>
+    <string name="aurora_chapter_count">%d гл.</string>
+    <string name="aurora_chapter_progress">Глава %d</string>
     <string name="aurora_select_dubbing">Выбрать озвучку</string>
     <string name="aurora_no_description">Нет описания</string>
 </resources>

@@ -112,6 +112,11 @@ object SettingsAppearanceScreen : SearchableSettings {
             UiPreferences.dateFormat(dateFormat).format(now)
         }
 
+        val showAnimeSectionPref = uiPreferences.showAnimeSection()
+        val showMangaSectionPref = uiPreferences.showMangaSection()
+        val showAnimeSection by showAnimeSectionPref.collectAsState()
+        val showMangaSection by showMangaSectionPref.collectAsState()
+
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_display),
             preferenceItems = persistentListOf(
@@ -139,6 +144,30 @@ object SettingsAppearanceScreen : SearchableSettings {
                     onValueChanged = {
                         context.toast(MR.strings.requires_app_restart)
                         true
+                    },
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = showAnimeSectionPref,
+                    title = stringResource(AYMR.strings.pref_show_anime_section),
+                    subtitle = if (!showMangaSection) {
+                        stringResource(AYMR.strings.pref_show_section_required)
+                    } else {
+                        null
+                    },
+                    onValueChanged = { newValue ->
+                        newValue || showMangaSection
+                    },
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = showMangaSectionPref,
+                    title = stringResource(AYMR.strings.pref_show_manga_section),
+                    subtitle = if (!showAnimeSection) {
+                        stringResource(AYMR.strings.pref_show_section_required)
+                    } else {
+                        null
+                    },
+                    onValueChanged = { newValue ->
+                        newValue || showAnimeSection
                     },
                 ),
                 Preference.PreferenceItem.ListPreference(

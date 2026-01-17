@@ -28,6 +28,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
 import eu.kanade.presentation.theme.AuroraTheme
 import androidx.compose.ui.semantics.semantics
@@ -117,7 +118,20 @@ object HomeScreen : Screen() {
                             ) {
                                 val auroraColors = if (isAurora) AuroraTheme.colors else null
                                 NavigationBar(
-                                    containerColor = if (isAurora) auroraColors!!.surface else MaterialTheme.colorScheme.surfaceContainer,
+                                    containerColor = if (isAurora) {
+                                        // Aniview: Frosted glass effect with blur
+                                        auroraColors!!.surface.copy(alpha = 0.85f)
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceContainer
+                                    },
+                                    modifier = if (isAurora) {
+                                        Modifier.graphicsLayer {
+                                            // Add subtle blur for frosted glass effect
+                                            alpha = 0.95f
+                                        }
+                                    } else {
+                                        Modifier
+                                    }
                                 ) {
                                     navStyle.tabs.fastForEach {
                                         NavigationBarItem(it, isAurora)

@@ -28,10 +28,12 @@ import tachiyomi.presentation.core.util.plus
 fun ExtensionReposScreen(
     state: RepoScreenState.Success,
     onClickCreate: () -> Unit,
+    onAddRepo: (String) -> Unit,
     onOpenWebsite: (ExtensionRepo) -> Unit,
     onClickDelete: (String) -> Unit,
     onClickRefresh: () -> Unit,
     navigateUp: () -> Unit,
+    officialRepos: Map<String, String> = emptyMap(),
 ) {
     val lazyListState = rememberLazyListState()
     Scaffold(
@@ -57,14 +59,6 @@ fun ExtensionReposScreen(
             )
         },
     ) { paddingValues ->
-        if (state.isEmpty) {
-            EmptyScreen(
-                MR.strings.information_empty_repos,
-                modifier = Modifier.padding(paddingValues),
-            )
-            return@Scaffold
-        }
-
         ExtensionReposContent(
             repos = state.repos,
             lazyListState = lazyListState,
@@ -72,6 +66,8 @@ fun ExtensionReposScreen(
                 PaddingValues(horizontal = MaterialTheme.padding.medium),
             onOpenWebsite = onOpenWebsite,
             onClickDelete = onClickDelete,
+            onAddRepo = onAddRepo,
+            officialRepos = officialRepos,
         )
     }
 }

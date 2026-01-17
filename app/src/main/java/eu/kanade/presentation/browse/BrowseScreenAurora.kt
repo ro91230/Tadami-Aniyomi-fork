@@ -9,20 +9,22 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
@@ -42,17 +44,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import eu.kanade.presentation.theme.AuroraTheme
-import tachiyomi.presentation.core.i18n.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import tachiyomi.i18n.aniyomi.AYMR
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import eu.kanade.presentation.browse.anime.AnimeSourceUiModel
+import eu.kanade.presentation.theme.AuroraTheme
 import kotlinx.collections.immutable.ImmutableList
 import tachiyomi.domain.source.anime.model.AnimeSource
 import tachiyomi.domain.source.anime.model.Pin
+import tachiyomi.i18n.aniyomi.AYMR
+import tachiyomi.presentation.core.i18n.stringResource
 
 @Composable
 fun BrowseScreenAurora(
@@ -70,22 +72,24 @@ fun BrowseScreenAurora(
             .fillMaxSize()
             .background(colors.backgroundGradient)
     ) {
-        LazyColumn(
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 100.dp)
+            contentPadding = PaddingValues(bottom = 100.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item {
-                Spacer(modifier = Modifier.statusBarsPadding())
-                Spacer(modifier = Modifier.height(16.dp))
+            item(span = { GridItemSpan(2) }) {
+                Spacer(modifier = Modifier.height(20.dp))
             }
 
-            item {
+            item(span = { GridItemSpan(2) }) {
                 BrowseAuroraHeader(
                     onSearchClick = onGlobalSearchClick
                 )
             }
 
-            item {
+            item(span = { GridItemSpan(2) }) {
                 QuickActionsSection(
                     onGlobalSearchClick = onGlobalSearchClick,
                     onExtensionsClick = onExtensionsClick,
@@ -97,10 +101,10 @@ fun BrowseScreenAurora(
                 .filter { Pin.Actual in it.source.pin }
             
             if (pinnedSources.isNotEmpty()) {
-                item {
+                item(span = { GridItemSpan(2) }) {
                     SourcesSectionHeader(title = stringResource(AYMR.strings.aurora_pinned_sources))
                 }
-                item {
+                item(span = { GridItemSpan(2) }) {
                     PinnedSourcesRow(
                         sources = pinnedSources.map { it.source },
                         onSourceClick = onAnimeSourceClick,
@@ -114,7 +118,10 @@ fun BrowseScreenAurora(
             animeSources.forEach { item ->
                 when (item) {
                     is AnimeSourceUiModel.Header -> {
-                        item(key = "header_${item.language}") {
+                        item(
+                            span = { GridItemSpan(2) },
+                            key = "header_${item.language}"
+                        ) {
                             SourcesSectionHeader(
                                 title = getLanguageDisplayNameComposable(item.language),
                                 showDivider = true
@@ -124,7 +131,7 @@ fun BrowseScreenAurora(
                     is AnimeSourceUiModel.Item -> {
                         if (item.source.id !in pinnedSourceIds) {
                             item(key = "source_${item.source.id}") {
-                                SourceCard(
+                                SourceGridItem(
                                     source = item.source,
                                     onClick = { onAnimeSourceClick(item.source) },
                                     onPinClick = { onAnimeSourceLongClick(item.source) }
@@ -135,7 +142,7 @@ fun BrowseScreenAurora(
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(24.dp)) }
+            item(span = { GridItemSpan(2) }) { Spacer(modifier = Modifier.height(24.dp)) }
         }
     }
 }
@@ -156,7 +163,7 @@ private fun BrowseAuroraHeader(
         Column {
             Text(
                 text = stringResource(AYMR.strings.aurora_browse),
-                style = MaterialTheme.typography.headlineMedium,
+                fontSize = 22.sp,
                 color = colors.textPrimary,
                 fontWeight = FontWeight.Bold
             )
@@ -353,7 +360,7 @@ private fun PinnedSourceCard(
 }
 
 @Composable
-private fun SourceCard(
+private fun SourceGridItem(
     source: AnimeSource,
     onClick: () -> Unit,
     onPinClick: () -> Unit
@@ -362,10 +369,20 @@ private fun SourceCard(
     val isPinned = Pin.Actual in source.pin
     val successColor = Color(0xFF22c55e)
     
+    // Use padding for grid spacing simulation if needed, but LazyVerticalGrid handles it
+    // We add padding here to ensure content isn't touching the edges if used outside grid, 
+    // but inside grid we rely on arrangement. 
+    // However, to match the layout logic, we'll keep the card container.
+    
+    // We need to apply padding to the items on the edges of the grid.
+    // The grid has 12.dp spacing. The outer padding is handled by contentPadding.
+    // But we need to make sure the items look good.
+    
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 8.dp)
+            .height(130.dp) // Fixed height for grid uniformity
+            .padding(horizontal = 8.dp) // Slight horizontal padding to prevent touching
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
@@ -373,15 +390,17 @@ private fun SourceCard(
         ),
         border = BorderStroke(1.dp, colors.divider)
     ) {
-        Row(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxSize()
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
+            // Icon
             Box(
                 modifier = Modifier
-                    .size(52.dp)
+                    .size(48.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(
                         Brush.linearGradient(
@@ -401,59 +420,28 @@ private fun SourceCard(
                 )
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
+            // Text content
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = source.name,
                     color = colors.textPrimary,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
+                    fontSize = 13.sp,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
+                
                 Spacer(modifier = Modifier.height(4.dp))
+                
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .background(colors.accent.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = source.lang.uppercase(),
-                            color = colors.accent,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    if (isPinned) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .background(successColor.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = stringResource(AYMR.strings.aurora_pinned_badge),
-                                color = successColor,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
+                    Text(
+                        text = source.lang.uppercase(),
+                        color = colors.textSecondary,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
-            }
-
-            IconButton(
-                onClick = onPinClick,
-                modifier = Modifier.size(40.dp)
-            ) {
-                Icon(
-                    imageVector = if (isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
-                    contentDescription = stringResource(AYMR.strings.aurora_pinned_badge),
-                    tint = if (isPinned) successColor else colors.textSecondary,
-                    modifier = Modifier.size(24.dp)
-                )
             }
         }
     }

@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.home
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -48,6 +50,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,19 +71,71 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import coil3.compose.AsyncImage
-import eu.kanade.presentation.theme.AuroraTheme
+import eu.kanade.domain.ui.UiPreferences
+import eu.kanade.presentation.components.AuroraCard
+import eu.kanade.presentation.components.AuroraTabRow
+import eu.kanade.presentation.components.LocalTabState
+import eu.kanade.presentation.components.TabContent
+import eu.kanade.presentation.components.TabbedScreenAurora
 import eu.kanade.presentation.more.settings.screen.browse.AnimeExtensionReposScreen
+import eu.kanade.presentation.more.settings.screen.browse.MangaExtensionReposScreen
+import eu.kanade.presentation.theme.AuroraTheme
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.ui.browse.BrowseTab
 import eu.kanade.tachiyomi.ui.browse.anime.source.browse.BrowseAnimeSourceScreen
 import eu.kanade.tachiyomi.ui.browse.anime.source.globalsearch.GlobalAnimeSearchScreen
+import eu.kanade.tachiyomi.ui.browse.manga.source.browse.BrowseMangaSourceScreen
 import eu.kanade.tachiyomi.ui.entries.anime.AnimeScreen
+import eu.kanade.tachiyomi.ui.entries.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.history.HistoriesTab
 import eu.kanade.tachiyomi.ui.library.anime.AnimeLibraryTab
+import eu.kanade.tachiyomi.ui.library.manga.MangaLibraryTab
+import kotlinx.collections.immutable.toPersistentList
+import tachiyomi.domain.entries.EntryCover
 import tachiyomi.i18n.aniyomi.AYMR
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.collectAsState
+import uy.kohesive.injekt.injectLazy
+
+private enum class HomeHubSection {
+    Anime,
+    Manga,
+}
+
+private data class HomeHubUiState(
+    val hero: HomeHubHero? = null,
+    val history: List<HomeHubHistory> = emptyList(),
+    val recommendations: List<HomeHubRecommendation> = emptyList(),
+    val userName: String,
+    val userAvatar: String,
+    val greeting: dev.icerock.moko.resources.StringResource,
+    val showWelcome: Boolean,
+)
+
+private data class HomeHubHero(
+    val entryId: Long,
+    val title: String,
+    val progressNumber: Double,
+    val coverData: EntryCover,
+)
+
+private data class HomeHubHistory(
+    val entryId: Long,
+    val title: String,
+    val progressNumber: Double,
+    val coverData: EntryCover,
+)
+
+private data class HomeHubRecommendation(
+    val entryId: Long,
+    val title: String,
+    val coverUrl: String?,
+    val subtitle: String? = null
+)
 
 object HomeHubTab : Tab {
+
+    private val uiPreferences: UiPreferences by injectLazy()
 
     override val options: TabOptions
         @Composable
@@ -92,215 +147,461 @@ object HomeHubTab : Tab {
 
     @Composable
     override fun Content() {
-        val screenModel = rememberScreenModel { HomeHubScreenModel() }
-        val state by screenModel.state.collectAsState()
-        val navigator = LocalNavigator.currentOrThrow
-        val context = LocalContext.current
-        val tabNavigator = LocalTabNavigator.current
+        val showAnimeSection by uiPreferences.showAnimeSection().collectAsState()
+        val showMangaSection by uiPreferences.showMangaSection().collectAsState()
 
-        LaunchedEffect(screenModel) {
-            HomeHubScreenModel.setInstance(screenModel)
-            screenModel.startLiveUpdates()
+        val sections = remember(showAnimeSection, showMangaSection) {
+            buildList {
+                if (showAnimeSection) add(HomeHubSection.Anime)
+                if (showMangaSection) add(HomeHubSection.Manga)
+            }.ifEmpty { listOf(HomeHubSection.Anime) }
         }
 
+        var selectedSection by rememberSaveable { mutableStateOf(sections.first()) }
+        LaunchedEffect(sections) {
+            if (selectedSection !in sections) {
+                selectedSection = sections.first()
+            }
+        }
+
+        var animeSearchQuery by rememberSaveable { mutableStateOf<String?>(null) }
+        var mangaSearchQuery by rememberSaveable { mutableStateOf<String?>(null) }
+        
+        // Get screen models to access user data
+        val animeScreenModel = HomeHubTab.rememberScreenModel { HomeHubScreenModel() }
+        val mangaScreenModel = HomeHubTab.rememberScreenModel { MangaHomeHubScreenModel() }
+        val animeState by animeScreenModel.state.collectAsState()
+        val mangaState by mangaScreenModel.state.collectAsState()
+        
+        // Use current section's state for user info
+        val currentUserName = when (selectedSection) {
+            HomeHubSection.Anime -> animeState.userName
+            HomeHubSection.Manga -> mangaState.userName
+        }
+        val currentUserAvatar = when (selectedSection) {
+            HomeHubSection.Anime -> animeState.userAvatar
+            HomeHubSection.Manga -> mangaState.userAvatar
+        }
+        
+        // Photo picker for avatar
         val photoPickerLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.GetContent()
-        ) { uri -> uri?.let { screenModel.updateUserAvatar(it.toString()) } }
-
+        ) { uri -> 
+            uri?.let { 
+                when (selectedSection) {
+                    HomeHubSection.Anime -> animeScreenModel.updateUserAvatar(it.toString())
+                    HomeHubSection.Manga -> mangaScreenModel.updateUserAvatar(it.toString())
+                }
+            }
+        }
+        
+        // Name dialog
         var showNameDialog by remember { mutableStateOf(false) }
         if (showNameDialog) {
+            val currentName = when (selectedSection) {
+                HomeHubSection.Anime -> animeState.userName
+                HomeHubSection.Manga -> mangaState.userName
+            }
             NameDialog(
-                currentName = state.userName,
+                currentName = currentName,
                 onDismiss = { showNameDialog = false },
-                onConfirm = { screenModel.updateUserName(it); showNameDialog = false }
+                onConfirm = { newName ->
+                    when (selectedSection) {
+                        HomeHubSection.Anime -> animeScreenModel.updateUserName(newName)
+                        HomeHubSection.Manga -> mangaScreenModel.updateUserName(newName)
+                    }
+                    showNameDialog = false
+                }
             )
         }
 
-        val lastSourceName = remember { screenModel.getLastUsedAnimeSourceName() }
+        val tabs = sections.map { section ->
+            when (section) {
+                HomeHubSection.Anime -> TabContent(
+                    titleRes = AYMR.strings.label_anime,
+                    searchEnabled = true,
+                    content = { contentPadding, _ ->
+                        AnimeHomeHub(
+                            contentPadding = contentPadding,
+                            searchQuery = animeSearchQuery,
+                        )
+                    },
+                )
+                HomeHubSection.Manga -> TabContent(
+                    titleRes = AYMR.strings.label_manga,
+                    searchEnabled = true,
+                    content = { contentPadding, _ ->
+                        MangaHomeHub(
+                            contentPadding = contentPadding,
+                            searchQuery = mangaSearchQuery,
+                        )
+                    },
+                )
+            }
+        }.toPersistentList()
 
-        HomeHubScreen(
-            state = state,
-            lastSourceName = lastSourceName,
-            onAnimeClick = { navigator.push(AnimeScreen(it)) },
-            onPlayHero = { screenModel.playHeroEpisode(context) },
+        val initialIndex = sections.indexOf(selectedSection).coerceAtLeast(0)
+        val pagerState = rememberPagerState(initialPage = initialIndex) { tabs.size }
+
+        LaunchedEffect(sections, pagerState) {
+            val targetIndex = sections.indexOf(selectedSection).coerceAtLeast(0)
+            if (targetIndex in tabs.indices && pagerState.currentPage != targetIndex) {
+                pagerState.scrollToPage(targetIndex)
+            }
+        }
+
+        LaunchedEffect(pagerState.currentPage, sections) {
+            sections.getOrNull(pagerState.currentPage)?.let { selectedSection = it }
+        }
+
+        TabbedScreenAurora(
+            titleRes = null,
+            tabs = tabs,
+            state = pagerState,
+            mangaSearchQuery = mangaSearchQuery,
+            onChangeMangaSearchQuery = { mangaSearchQuery = it },
+            animeSearchQuery = animeSearchQuery,
+            onChangeAnimeSearchQuery = { animeSearchQuery = it },
+            isMangaTab = { index -> sections.getOrNull(index) == HomeHubSection.Manga },
+            showCompactHeader = true,
+            userName = currentUserName,
+            userAvatar = currentUserAvatar,
             onAvatarClick = { photoPickerLauncher.launch("image/*") },
             onNameClick = { showNameDialog = true },
-            onSearchClick = {
-                val sourceId = screenModel.getLastUsedAnimeSourceId()
-                if (sourceId != -1L) navigator.push(BrowseAnimeSourceScreen(sourceId, null))
-                else navigator.push(GlobalAnimeSearchScreen(""))
-            },
-            onSourceClick = {
-                val sourceId = screenModel.getLastUsedAnimeSourceId()
-                if (sourceId != -1L) navigator.push(BrowseAnimeSourceScreen(sourceId, null))
-                else tabNavigator.current = BrowseTab
-            },
-            onBrowseClick = { navigator.push(AnimeExtensionReposScreen()) },
-            onExtensionClick = { tabNavigator.current = BrowseTab; BrowseTab.showAnimeExtension() },
-            onHistoryClick = { tabNavigator.current = HistoriesTab },
-            onLibraryClick = { tabNavigator.current = AnimeLibraryTab }
+            showTabs = false,
         )
     }
 }
 
+private fun HomeHubScreenModel.State.toUiState(): HomeHubUiState {
+    return HomeHubUiState(
+        hero = hero?.let {
+            HomeHubHero(
+                entryId = it.animeId,
+                title = it.title,
+                progressNumber = it.episodeNumber,
+                coverData = it.coverData,
+            )
+        },
+        history = history.map {
+            HomeHubHistory(
+                entryId = it.animeId,
+                title = it.title,
+                progressNumber = it.episodeNumber,
+                coverData = it.coverData,
+            )
+        },
+        recommendations = recommendations.map {
+            HomeHubRecommendation(
+                entryId = it.animeId,
+                title = it.title,
+                coverUrl = it.coverUrl,
+                subtitle = "${it.seenCount}/${it.totalCount} эп."
+            )
+        },
+        userName = userName,
+        userAvatar = userAvatar,
+        greeting = greeting,
+        showWelcome = showWelcome,
+    )
+}
+
+private fun MangaHomeHubScreenModel.State.toUiState(): HomeHubUiState {
+    return HomeHubUiState(
+        hero = hero?.let {
+            HomeHubHero(
+                entryId = it.mangaId,
+                title = it.title,
+                progressNumber = it.chapterNumber,
+                coverData = it.coverData,
+            )
+        },
+        history = history.map {
+            HomeHubHistory(
+                entryId = it.mangaId,
+                title = it.title,
+                progressNumber = it.chapterNumber,
+                coverData = it.coverData,
+            )
+        },
+        recommendations = recommendations.map {
+            val readCount = it.totalCount - it.unreadCount
+            HomeHubRecommendation(
+                entryId = it.mangaId,
+                title = it.title,
+                coverUrl = it.coverUrl,
+                subtitle = "$readCount/${it.totalCount} гл."
+            )
+        },
+        userName = userName,
+        userAvatar = userAvatar,
+        greeting = greeting,
+        showWelcome = showWelcome,
+    )
+}
+
+@Composable
+private fun AnimeHomeHub(
+    contentPadding: PaddingValues,
+    searchQuery: String?,
+) {
+    val screenModel = HomeHubTab.rememberScreenModel { HomeHubScreenModel() }
+    val state by screenModel.state.collectAsState()
+    val navigator = LocalNavigator.currentOrThrow
+    val context = LocalContext.current
+    val tabNavigator = LocalTabNavigator.current
+
+    LaunchedEffect(screenModel) {
+        HomeHubScreenModel.setInstance(screenModel)
+        screenModel.startLiveUpdates()
+    }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri -> uri?.let { screenModel.updateUserAvatar(it.toString()) } }
+
+    var showNameDialog by remember { mutableStateOf(false) }
+    if (showNameDialog) {
+        NameDialog(
+            currentName = state.userName,
+            onDismiss = { showNameDialog = false },
+            onConfirm = { screenModel.updateUserName(it); showNameDialog = false }
+        )
+    }
+
+    val lastSourceName = remember { screenModel.getLastUsedAnimeSourceName() }
+
+    HomeHubScreen(
+        state = state.toUiState(),
+        searchQuery = searchQuery,
+        lastSourceName = lastSourceName,
+        contentPadding = contentPadding,
+        heroActionLabelRes = AYMR.strings.aurora_play,
+        onEntryClick = { navigator.push(AnimeScreen(it)) },
+        onPlayHero = { screenModel.playHeroEpisode(context) },
+        onAvatarClick = { photoPickerLauncher.launch("image/*") },
+        onNameClick = { showNameDialog = true },
+        onSourceClick = {
+            val sourceId = screenModel.getLastUsedAnimeSourceId()
+            if (sourceId != -1L) navigator.push(BrowseAnimeSourceScreen(sourceId, null))
+            else tabNavigator.current = BrowseTab
+        },
+        onBrowseClick = { navigator.push(AnimeExtensionReposScreen()) },
+        onExtensionClick = { tabNavigator.current = BrowseTab; BrowseTab.showAnimeExtension() },
+        onHistoryClick = { tabNavigator.current = HistoriesTab },
+        onLibraryClick = { tabNavigator.current = AnimeLibraryTab },
+    )
+}
+
+@Composable
+private fun MangaHomeHub(
+    contentPadding: PaddingValues,
+    searchQuery: String?,
+) {
+    val screenModel = HomeHubTab.rememberScreenModel { MangaHomeHubScreenModel() }
+    val state by screenModel.state.collectAsState()
+    val navigator = LocalNavigator.currentOrThrow
+    val context = LocalContext.current
+    val tabNavigator = LocalTabNavigator.current
+
+    LaunchedEffect(screenModel) {
+        MangaHomeHubScreenModel.setInstance(screenModel)
+        screenModel.startLiveUpdates()
+    }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri -> uri?.let { screenModel.updateUserAvatar(it.toString()) } }
+
+    var showNameDialog by remember { mutableStateOf(false) }
+    if (showNameDialog) {
+        NameDialog(
+            currentName = state.userName,
+            onDismiss = { showNameDialog = false },
+            onConfirm = { screenModel.updateUserName(it); showNameDialog = false }
+        )
+    }
+
+    val lastSourceName = remember { screenModel.getLastUsedMangaSourceName() }
+
+    HomeHubScreen(
+        state = state.toUiState(),
+        searchQuery = searchQuery,
+        lastSourceName = lastSourceName,
+        contentPadding = contentPadding,
+        heroActionLabelRes = AYMR.strings.aurora_read,
+        onEntryClick = { navigator.push(MangaScreen(it)) },
+        onPlayHero = { screenModel.readHeroChapter(context) },
+        onAvatarClick = { photoPickerLauncher.launch("image/*") },
+        onNameClick = { showNameDialog = true },
+        onSourceClick = {
+            val sourceId = screenModel.getLastUsedMangaSourceId()
+            if (sourceId != -1L) navigator.push(BrowseMangaSourceScreen(sourceId, null))
+            else tabNavigator.current = BrowseTab
+        },
+        onBrowseClick = { navigator.push(MangaExtensionReposScreen()) },
+        onExtensionClick = { tabNavigator.current = BrowseTab; BrowseTab.showExtension() },
+        onHistoryClick = { tabNavigator.current = HistoriesTab },
+        onLibraryClick = { tabNavigator.current = MangaLibraryTab },
+    )
+}
+
 @Composable
 private fun HomeHubScreen(
-    state: HomeHubScreenModel.State,
+    state: HomeHubUiState,
+    searchQuery: String?,
     lastSourceName: String?,
-    onAnimeClick: (Long) -> Unit,
+    contentPadding: PaddingValues,
+    heroActionLabelRes: dev.icerock.moko.resources.StringResource,
+    onEntryClick: (Long) -> Unit,
     onPlayHero: () -> Unit,
     onAvatarClick: () -> Unit,
     onNameClick: () -> Unit,
-    onSearchClick: () -> Unit,
     onSourceClick: () -> Unit,
     onBrowseClick: () -> Unit,
     onExtensionClick: () -> Unit,
     onHistoryClick: () -> Unit,
-    onLibraryClick: () -> Unit
+    onLibraryClick: () -> Unit,
 ) {
     val colors = AuroraTheme.colors
+    val trimmedQuery = searchQuery?.trim().orEmpty()
+    val isFiltering = trimmedQuery.isNotEmpty()
+    val matchesQuery: (String) -> Boolean = { title ->
+        !isFiltering || title.contains(trimmedQuery, ignoreCase = true)
+    }
+    
+    val listState = rememberLazyListState()
+
+    val hero = state.hero?.takeIf { matchesQuery(it.title) }
+    val history = state.history.filter { matchesQuery(it.title) }
+    val recommendations = state.recommendations.filter { matchesQuery(it.title) }
+    val showWelcome = state.showWelcome && !isFiltering
     
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(colors.backgroundGradient)
-            .statusBarsPadding()
-    ) {
-        item(key = "topbar") {
-            TopBar(
-                userName = state.userName,
-                userAvatar = state.userAvatar,
-                greeting = state.greeting,
-                onAvatarClick = onAvatarClick,
-                onNameClick = onNameClick,
-                onSearchClick = onSearchClick
-            )
-        }
-
-        if (state.showWelcome) {
-            item(key = "welcome") {
-                WelcomeSection(onBrowseClick = onBrowseClick, onExtensionClick = onExtensionClick)
-            }
-        } else {
-            state.hero?.let { hero ->
-                item(key = "hero") {
-                    HeroSection(
-                        hero = hero,
-                        onPlayClick = onPlayHero,
-                        onAnimeClick = { onAnimeClick(hero.animeId) }
-                    )
-                }
-            }
-
-            item(key = "quick_source") {
-                QuickSourceButton(sourceName = lastSourceName, onClick = onSourceClick)
-            }
-
-            if (state.history.isNotEmpty()) {
-                item(key = "history") {
-                    HistoryRow(
-                        history = state.history,
-                        onAnimeClick = onAnimeClick,
-                        onViewAllClick = onHistoryClick
-                    )
-                }
-            }
-
-            if (state.recommendations.isNotEmpty()) {
-                item(key = "recommendations") {
-                    RecommendationsGrid(
-                        recommendations = state.recommendations,
-                        onAnimeClick = onAnimeClick,
-                        onMoreClick = onLibraryClick
-                    )
-                }
-            }
-        }
-
-        item { Spacer(Modifier.height(24.dp)) }
-    }
-}
-
-@Composable
-private fun TopBar(
-    userName: String,
-    userAvatar: String,
-    greeting: dev.icerock.moko.resources.StringResource,
-    onAvatarClick: () -> Unit,
-    onNameClick: () -> Unit,
-    onSearchClick: () -> Unit
-) {
-    val colors = AuroraTheme.colors
-    
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(16.dp).height(60.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(Modifier.size(40.dp).clickable(onClick = onAvatarClick)) {
-            if (userAvatar.isNotEmpty()) {
-                AsyncImage(
-                    model = userAvatar,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().clip(CircleShape)
-                )
-            } else {
-                Icon(Icons.Filled.AccountCircle, null, tint = colors.accent, modifier = Modifier.fillMaxSize())
-            }
-            Box(
-                modifier = Modifier.align(Alignment.BottomEnd).size(14.dp).background(colors.accent, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Filled.CameraAlt, null, tint = colors.textOnAccent, modifier = Modifier.size(8.dp))
-            }
-        }
-
-        Spacer(Modifier.width(12.dp))
-
-        Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .clickable(onClick = onNameClick)
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
         ) {
-            Column {
-                Text(
-                    text = stringResource(greeting),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colors.accent,
-                    fontWeight = FontWeight.Bold
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(top = 2.dp)
+            // Inline Header with avatar, username, and tabs
+            item(key = "inline_header") {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
                 ) {
-                    Text(
-                        text = userName,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = colors.textPrimary,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Icon(
-                        imageVector = Icons.Outlined.Edit,
-                        contentDescription = null,
-                        modifier = Modifier.size(12.dp),
-                        tint = colors.textSecondary.copy(alpha = 0.7f)
-                    )
+                    Spacer(Modifier.height(20.dp))
+
+                    // Row with Username (Left) + Avatar (Right)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        // Greeting + Name
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable(onClick = onNameClick)
+                                .padding(end = 16.dp)
+                        ) {
+                            Text(
+                                text = stringResource(state.greeting),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = colors.textSecondary,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = state.userName,
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = colors.textPrimary,
+                                fontWeight = FontWeight.Black,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        // Avatar
+                        Box(Modifier.size(48.dp).clickable(onClick = onAvatarClick)) {
+                            if (state.userAvatar.isNotEmpty()) {
+                                AsyncImage(
+                                    model = state.userAvatar,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize().clip(CircleShape)
+                                )
+                            } else {
+                                Icon(Icons.Filled.AccountCircle, null, tint = colors.accent, modifier = Modifier.fillMaxSize())
+                            }
+                            Box(
+                                modifier = Modifier.align(Alignment.BottomEnd).size(16.dp).background(colors.accent, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Filled.CameraAlt, null, tint = colors.textOnAccent, modifier = Modifier.size(10.dp))
+                            }
+                        }
+                    }
+                    
+                    Spacer(Modifier.height(16.dp))
+                    
+                    // Tab Switcher (only if more than 1 tab)
+                    val tabState = LocalTabState.current
+                    if (tabState != null && tabState.tabs.size > 1) {
+                        AuroraTabRow(
+                            tabs = tabState.tabs,
+                            selectedIndex = tabState.selectedIndex,
+                            onTabSelected = tabState.onTabSelected,
+                            scrollable = false
+                        )
+                    }
+                    
+                    Spacer(Modifier.height(16.dp))
                 }
             }
-        }
 
-        Spacer(Modifier.weight(1f))
+            if (showWelcome) {
+                item(key = "welcome") {
+                    WelcomeSection(onBrowseClick = onBrowseClick, onExtensionClick = onExtensionClick)
+                }
+            } else {
+                hero?.let { heroData ->
+                    item(key = "hero") {
+                        HeroSection(
+                            hero = heroData,
+                            actionLabelRes = heroActionLabelRes,
+                            onPlayClick = onPlayHero,
+                            onEntryClick = { onEntryClick(heroData.entryId) }
+                        )
+                    }
+                }
 
-        IconButton(
-            onClick = onSearchClick,
-            modifier = Modifier.background(colors.glass, CircleShape).size(40.dp)
-        ) {
-            Icon(Icons.Filled.Search, null, tint = colors.textPrimary)
+                item(key = "quick_source") {
+                    QuickSourceButton(sourceName = lastSourceName, onClick = onSourceClick)
+                }
+
+                if (history.isNotEmpty()) {
+                    item(key = "history") {
+                        HistoryRow(
+                            history = history,
+                            onEntryClick = onEntryClick,
+                            onViewAllClick = onHistoryClick
+                        )
+                    }
+                }
+
+                if (recommendations.isNotEmpty()) {
+                    item(key = "recommendations") {
+                        RecommendationsGrid(
+                            recommendations = recommendations,
+                            onEntryClick = onEntryClick,
+                            onMoreClick = onLibraryClick
+                        )
+                    }
+                }
+            }
+
+            item { Spacer(Modifier.height(24.dp)) }
         }
-    }
 }
 
 @Composable
@@ -339,9 +640,10 @@ private fun WelcomeSection(onBrowseClick: () -> Unit, onExtensionClick: () -> Un
 
 @Composable
 private fun HeroSection(
-    hero: HomeHubScreenModel.HeroData,
+    hero: HomeHubHero,
+    actionLabelRes: dev.icerock.moko.resources.StringResource,
     onPlayClick: () -> Unit,
-    onAnimeClick: () -> Unit
+    onEntryClick: () -> Unit,
 ) {
     val colors = AuroraTheme.colors
     val overlayGradient = remember(colors) { 
@@ -349,7 +651,7 @@ private fun HeroSection(
     }
 
     Box(
-        modifier = Modifier.fillMaxWidth().height(500.dp).padding(16.dp).clip(RoundedCornerShape(24.dp)).clickable(onClick = onAnimeClick)
+        modifier = Modifier.fillMaxWidth().height(500.dp).padding(16.dp).clip(RoundedCornerShape(24.dp)).clickable(onClick = onEntryClick)
     ) {
         AsyncImage(model = hero.coverData, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         Box(Modifier.fillMaxSize().background(overlayGradient))
@@ -367,7 +669,7 @@ private fun HeroSection(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                 Box(Modifier.size(6.dp).background(colors.accent, CircleShape))
                 Spacer(Modifier.width(8.dp))
-                Text(stringResource(AYMR.strings.aurora_episode_progress, (hero.episodeNumber % 1000).toInt()), color = colors.textSecondary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Text(stringResource(AYMR.strings.aurora_episode_progress, (hero.progressNumber % 1000).toInt()), color = colors.textSecondary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             }
 
             Spacer(Modifier.height(20.dp))
@@ -375,7 +677,7 @@ private fun HeroSection(
             Button(onClick = onPlayClick, colors = ButtonDefaults.buttonColors(containerColor = colors.accent), shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp), modifier = Modifier.height(52.dp)) {
                 Icon(Icons.Filled.PlayArrow, null, tint = colors.textOnAccent, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(stringResource(AYMR.strings.aurora_play), color = colors.textOnAccent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(actionLabelRes), color = colors.textOnAccent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -412,8 +714,8 @@ private fun QuickSourceButton(sourceName: String?, onClick: () -> Unit) {
 
 @Composable
 private fun HistoryRow(
-    history: List<HomeHubScreenModel.HistoryData>,
-    onAnimeClick: (Long) -> Unit,
+    history: List<HomeHubHistory>,
+    onEntryClick: (Long) -> Unit,
     onViewAllClick: () -> Unit
 ) {
     val colors = AuroraTheme.colors
@@ -425,35 +727,25 @@ private fun HistoryRow(
         }
         Spacer(Modifier.height(16.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            items(history, key = { it.animeId }) { item ->
-                HistoryCard(item, onAnimeClick)
+            items(history, key = { it.entryId }) { item ->
+                AuroraCard(
+                    modifier = Modifier.width(128.dp).aspectRatio(0.68f),
+                    title = item.title,
+                    coverData = item.coverData,
+                    subtitle = stringResource(AYMR.strings.aurora_episode_number, (item.progressNumber % 1000).toInt().toString()),
+                    onClick = { onEntryClick(item.entryId) },
+                    imagePadding = 6.dp
+                )
             }
         }
-    }
-}
-
-@Composable
-private fun HistoryCard(item: HomeHubScreenModel.HistoryData, onAnimeClick: (Long) -> Unit) {
-    val colors = AuroraTheme.colors
-    
-    Column(Modifier.width(280.dp).clickable { onAnimeClick(item.animeId) }) {
-        Box(Modifier.height(160.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colors.surface)) {
-            AsyncImage(model = item.coverData, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            Box(Modifier.fillMaxWidth().height(4.dp).align(Alignment.BottomCenter).background(colors.divider)) {
-                Box(Modifier.fillMaxWidth(0.5f).height(4.dp).background(colors.accent))
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-        Text(item.title, color = colors.textPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(stringResource(AYMR.strings.aurora_episode_number, (item.episodeNumber % 1000).toInt().toString()), color = colors.textSecondary, fontSize = 11.sp)
     }
 }
 
 @Composable
 private fun RecommendationsGrid(
-    recommendations: List<HomeHubScreenModel.RecommendationData>,
-    onAnimeClick: (Long) -> Unit,
-    onMoreClick: () -> Unit
+    recommendations: List<HomeHubRecommendation>,
+    onEntryClick: (Long) -> Unit,
+    onMoreClick: () -> Unit,
 ) {
     val colors = AuroraTheme.colors
     
@@ -464,20 +756,20 @@ private fun RecommendationsGrid(
         }
         Spacer(Modifier.height(16.dp))
 
-        recommendations.chunked(2).forEach { rowItems ->
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                rowItems.forEach { item ->
-                    Column(Modifier.weight(1f).clickable { onAnimeClick(item.animeId) }) {
-                        Box(Modifier.aspectRatio(0.75f).clip(RoundedCornerShape(12.dp)).background(colors.surface)) {
-                            AsyncImage(model = item.coverUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Text(item.title, color = colors.textPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-                if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+        // Horizontal scrollable row instead of grid
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(recommendations, key = { it.entryId }) { item ->
+                AuroraCard(
+                    modifier = Modifier.width(128.dp).aspectRatio(0.68f),
+                    title = item.title,
+                    coverData = item.coverUrl,
+                    subtitle = item.subtitle,
+                    onClick = { onEntryClick(item.entryId) },
+                    imagePadding = 6.dp
+                )
             }
-            Spacer(Modifier.height(16.dp))
         }
     }
 }

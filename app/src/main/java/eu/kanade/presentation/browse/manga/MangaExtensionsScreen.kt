@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.GetApp
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Refresh
@@ -85,6 +87,7 @@ fun MangaExtensionScreen(
     onOpenExtension: (MangaExtension.Installed) -> Unit,
     onClickUpdateAll: () -> Unit,
     onRefresh: () -> Unit,
+    onToggleSection: (MangaExtensionUiModel.Header.Text) -> Unit,
 ) {
     val navigator = LocalNavigator.currentOrThrow
 
@@ -126,6 +129,7 @@ fun MangaExtensionScreen(
                     onTrustExtension = onTrustExtension,
                     onOpenExtension = onOpenExtension,
                     onClickUpdateAll = onClickUpdateAll,
+                    onToggleSection = onToggleSection,
                 )
             }
         }
@@ -145,6 +149,7 @@ private fun ExtensionContent(
     onTrustExtension: (MangaExtension.Untrusted) -> Unit,
     onOpenExtension: (MangaExtension.Installed) -> Unit,
     onClickUpdateAll: () -> Unit,
+    onToggleSection: (MangaExtensionUiModel.Header.Text) -> Unit,
 ) {
     val context = LocalContext.current
     var trustState by remember { mutableStateOf<MangaExtension.Untrusted?>(null) }
@@ -193,9 +198,20 @@ private fun ExtensionContent(
                         )
                     }
                     is MangaExtensionUiModel.Header.Text -> {
+                        val isCollapsed = header.text in state.collapsedLanguages
                         ExtensionHeader(
                             text = header.text,
-                            modifier = Modifier.animateItemFastScroll(),
+                            modifier = Modifier
+                                .animateItemFastScroll()
+                                .clickable { onToggleSection(header) },
+                            action = {
+                                IconButton(onClick = { onToggleSection(header) }) {
+                                    Icon(
+                                        imageVector = if (isCollapsed) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess,
+                                        contentDescription = null,
+                                    )
+                                }
+                            }
                         )
                     }
                 }
@@ -204,13 +220,7 @@ private fun ExtensionContent(
             items(
                 items = items,
                 contentType = { "item" },
-                key = { item ->
-                    when (item.extension) {
-                        is MangaExtension.Untrusted -> "extension-untrusted-${item.hashCode()}"
-                        is MangaExtension.Installed -> "extension-installed-${item.hashCode()}"
-                        is MangaExtension.Available -> "extension-available-${item.hashCode()}"
-                    }
-                },
+                key = { item -> "extension-${header.hashCode()}-${item.extension.pkgName}" },
             ) { item ->
                 ExtensionItem(
                     modifier = Modifier.animateItemFastScroll(),

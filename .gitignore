@@ -2,6 +2,8 @@
 .gradle
 .kotlin
 build
+*.apk
+build.log
 
 # IDE files
 *.iml
@@ -14,3 +16,12 @@ local.properties
 
 # macOS specific files
 .DS_Store
+
+# Local working files
+.sisyphus/
+desigh-fix/
+4pda.md
+new4pda.md
+resize_icon.py
+icon_processed.png
+icon-ai-social-1-*.png

@@ -1,13 +1,26 @@
 package eu.kanade.presentation.browse.anime
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -16,8 +29,17 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.browse.anime.components.BaseAnimeSourceItem
@@ -45,6 +67,9 @@ fun AnimeSourcesScreen(
     onClickItem: (AnimeSource, Listing) -> Unit,
     onClickPin: (AnimeSource) -> Unit,
     onLongClickItem: (AnimeSource) -> Unit,
+    searchQuery: String? = null,
+    onChangeSearchQuery: ((String) -> Unit)? = null,
+    onToggleLanguage: ((String) -> Unit)? = null,
 ) {
     when {
         state.isLoading -> LoadingScreen(Modifier.padding(contentPadding))
@@ -56,6 +81,109 @@ fun AnimeSourcesScreen(
             ScrollbarLazyColumn(
                 contentPadding = contentPadding + topSmallPaddingValues,
             ) {
+                // Search Bar
+                if (searchQuery != null && onChangeSearchQuery != null) {
+                    item(key = "search") {
+                        var isSearchActive by rememberSaveable { mutableStateOf(false) }
+                        // Keep active if there is text
+                        val active = isSearchActive || searchQuery.isNotEmpty()
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            if (!active) {
+                                // Collapsed - Beautiful Button
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(48.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                                        .clickable { isSearchActive = true }
+                                        .padding(horizontal = 16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Search,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = stringResource(MR.strings.action_search),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            } else {
+                                // Expanded - Beautiful TextField
+                                TextField(
+                                    value = searchQuery,
+                                    onValueChange = onChangeSearchQuery,
+                                    placeholder = { Text(stringResource(MR.strings.action_search)) },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Filled.Search,
+                                            null,
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    },
+                                    trailingIcon = {
+                                        IconButton(onClick = {
+                                            onChangeSearchQuery("")
+                                            isSearchActive = false
+                                        }) {
+                                            Icon(Icons.Filled.Close, null)
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(56.dp),
+                                    shape = CircleShape,
+                                    colors = TextFieldDefaults.colors(
+                                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                        focusedIndicatorColor = Color.Transparent,
+                                        unfocusedIndicatorColor = Color.Transparent,
+                                        disabledIndicatorColor = Color.Transparent
+                                    ),
+                                    singleLine = true
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Pinned Carousel
+                if (state.pinnedItems.isNotEmpty()) {
+                    item(key = "pinned-carousel") {
+                        Column {
+                            Text(
+                                text = stringResource(MR.strings.pinned_sources),
+                                style = MaterialTheme.typography.header,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(state.pinnedItems, key = { "pinned-${it.key()}" }) { source ->
+                                    AnimeSourceItem(
+                                        modifier = Modifier.width(200.dp).animateItem(),
+                                        source = source,
+                                        onClickItem = onClickItem,
+                                        onLongClickItem = onLongClickItem,
+                                        onClickPin = onClickPin,
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                        }
+                    }
+                }
+
                 items(
                     items = state.items,
                     contentType = {
@@ -76,6 +204,8 @@ fun AnimeSourcesScreen(
                             AnimeSourceHeader(
                                 modifier = Modifier.animateItem(),
                                 language = model.language,
+                                isCollapsed = model.isCollapsed,
+                                onToggle = { onToggleLanguage?.invoke(model.language) }
                             )
                         }
                         is AnimeSourceUiModel.Item -> AnimeSourceItem(
@@ -95,18 +225,32 @@ fun AnimeSourcesScreen(
 @Composable
 private fun AnimeSourceHeader(
     language: String,
+    isCollapsed: Boolean,
+    onToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    Text(
-        text = LocaleHelper.getSourceDisplayName(language, context),
+    Row(
         modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
             .padding(
                 horizontal = MaterialTheme.padding.medium,
                 vertical = MaterialTheme.padding.small,
             ),
-        style = MaterialTheme.typography.header,
-    )
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = LocaleHelper.getSourceDisplayName(language, context),
+            style = MaterialTheme.typography.header,
+        )
+        Icon(
+            imageVector = if (isCollapsed) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowUp,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 }
 
 @Composable
@@ -203,5 +347,5 @@ fun AnimeSourceOptionsDialog(
 
 sealed interface AnimeSourceUiModel {
     data class Item(val source: AnimeSource) : AnimeSourceUiModel
-    data class Header(val language: String) : AnimeSourceUiModel
+    data class Header(val language: String, val isCollapsed: Boolean) : AnimeSourceUiModel
 }

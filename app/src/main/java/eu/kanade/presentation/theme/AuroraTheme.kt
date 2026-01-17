@@ -25,6 +25,10 @@ data class AuroraColors(
     val cardBackground: Color,
     val divider: Color,
     val isDark: Boolean,
+    // Aniview Premium specific colors
+    val progressCyan: Color,
+    val glowEffect: Color,
+    val gradientPurple: Color,
 ) {
     val backgroundGradient: Brush
         get() = Brush.verticalGradient(listOf(gradientStart, gradientEnd))
@@ -35,6 +39,15 @@ data class AuroraColors(
                 gradientStart.copy(alpha = 0.85f),
                 gradientEnd.copy(alpha = 0.95f),
                 gradientEnd
+            )
+        )
+    
+    // Aniview gradient: electric blue to purple
+    val aniviewGradient: Brush
+        get() = Brush.horizontalGradient(
+            listOf(
+                glowEffect,
+                gradientPurple
             )
         )
 
@@ -101,17 +114,21 @@ data class AuroraColors(
                 },
                 divider = colorScheme.outlineVariant,
                 isDark = isDark,
+                // Aniview specific colors
+                progressCyan = colorScheme.secondary,
+                glowEffect = colorScheme.primary,
+                gradientPurple = colorScheme.tertiary,
             )
         }
         
         // Legacy static instances for backwards compatibility and previews
         val Dark = AuroraColors(
-            accent = AuroraColorScheme.auroraAccent,
-            accentVariant = AuroraColorScheme.auroraAccent,
-            background = AuroraColorScheme.auroraDarkBackground,
-            surface = AuroraColorScheme.auroraDarkSurface,
+            accent = AuroraColorScheme.aniviewElectricBlue,
+            accentVariant = AuroraColorScheme.aniviewElectricBlue,
+            background = AuroraColorScheme.aniviewDarkBg,
+            surface = AuroraColorScheme.aniviewSurface,
             gradientStart = AuroraColorScheme.auroraDarkGradientStart,
-            gradientEnd = AuroraColorScheme.auroraDarkGradientEnd,
+            gradientEnd = AuroraColorScheme.aniviewDarkBg,
             glass = AuroraColorScheme.auroraGlass,
             textPrimary = Color.White,
             textSecondary = Color.White.copy(alpha = 0.7f),
@@ -119,6 +136,9 @@ data class AuroraColors(
             cardBackground = Color.White.copy(alpha = 0.05f),
             divider = Color.White.copy(alpha = 0.1f),
             isDark = true,
+            progressCyan = AuroraColorScheme.aniviewCyan,
+            glowEffect = AuroraColorScheme.aniviewGlow,
+            gradientPurple = AuroraColorScheme.aniviewPurple,
         )
 
         val Light = AuroraColors(
@@ -135,6 +155,9 @@ data class AuroraColors(
             cardBackground = Color.Black.copy(alpha = 0.03f),
             divider = Color.Black.copy(alpha = 0.1f),
             isDark = false,
+            progressCyan = AuroraColorScheme.aniviewCyan,
+            glowEffect = AuroraColorScheme.aniviewElectricBlue,
+            gradientPurple = Color(0xFF6366f1),
         )
     }
 }

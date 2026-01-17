@@ -3,6 +3,7 @@ package eu.kanade.presentation.more.settings.screen.about
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -10,12 +11,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -170,27 +175,54 @@ object AboutScreen : Screen() {
                 }
 
                 item {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        LinkIcon(
-                            label = stringResource(MR.strings.website),
-                            icon = Icons.Outlined.Public,
-                            url = "https://aniyomi.org",
+                        Text(
+                            text = "Aniyomi",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
-                        LinkIcon(
-                            label = "Discord",
-                            icon = CustomIcons.Discord,
-                            url = "https://discord.gg/F32UjdJZrR",
+                        Row {
+                            LinkIcon(
+                                label = stringResource(MR.strings.website),
+                                icon = Icons.Outlined.Public,
+                                url = "https://aniyomi.org",
+                            )
+                            LinkIcon(
+                                label = "Discord",
+                                icon = CustomIcons.Discord,
+                                url = "https://discord.gg/F32UjdJZrR",
+                            )
+                            LinkIcon(
+                                label = "GitHub",
+                                icon = CustomIcons.Github,
+                                url = "https://github.com/aniyomiorg/aniyomi",
+                            )
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier
+                                .padding(vertical = 8.dp)
+                                .fillMaxWidth(0.5f),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
                         )
-                        LinkIcon(
-                            label = "GitHub",
-                            icon = CustomIcons.Github,
-                            url = "https://github.com/aniyomiorg/aniyomi",
+
+                        Text(
+                            text = "Tadami",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
+                        Row {
+                            LinkIcon(
+                                label = "Tadami",
+                                icon = CustomIcons.Github,
+                                url = "https://github.com/andreykolesnikov/Tadami-Aniyomi-fork",
+                            )
+                        }
                     }
                 }
             }

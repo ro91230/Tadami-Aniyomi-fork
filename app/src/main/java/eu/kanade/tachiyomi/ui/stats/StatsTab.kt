@@ -19,6 +19,14 @@ import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import eu.kanade.domain.ui.UiPreferences
+import eu.kanade.presentation.components.TabbedScreenAurora
+import tachiyomi.presentation.core.util.collectAsState
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
+
 data object StatsTab : Tab {
 
     override val options: TabOptions
@@ -36,6 +44,8 @@ data object StatsTab : Tab {
     @Composable
     override fun Content() {
         val context = LocalContext.current
+        val uiPreferences = Injekt.get<UiPreferences>()
+        val theme by uiPreferences.appTheme().collectAsState()
 
         val tabs = persistentListOf(
             animeStatsTab(),
@@ -43,11 +53,21 @@ data object StatsTab : Tab {
         )
         val state = rememberPagerState { tabs.size }
 
-        TabbedScreen(
-            titleRes = MR.strings.label_stats,
-            tabs = tabs,
-            state = state,
-        )
+        if (theme.isAuroraStyle) {
+            TabbedScreenAurora(
+                titleRes = MR.strings.label_stats,
+                tabs = tabs,
+                state = state,
+                isMangaTab = { it == 1 },
+                scrollable = false
+            )
+        } else {
+            TabbedScreen(
+                titleRes = MR.strings.label_stats,
+                tabs = tabs,
+                state = state,
+            )
+        }
 
         LaunchedEffect(Unit) {
             (context as? MainActivity)?.ready = true

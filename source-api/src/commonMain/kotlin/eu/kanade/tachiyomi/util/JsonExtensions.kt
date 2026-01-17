@@ -10,6 +10,7 @@ import uy.kohesive.injekt.api.get
  * Json {
  *     ignoreUnknownKeys = true
  *     explicitNulls = false
+ *     coerceInputValues = true
  * }
  * ```
  *

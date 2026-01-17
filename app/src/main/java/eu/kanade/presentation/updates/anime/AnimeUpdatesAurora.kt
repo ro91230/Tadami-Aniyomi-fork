@@ -18,9 +18,11 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PlayCircle
@@ -31,11 +33,18 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import eu.kanade.presentation.components.AuroraTabRow
+import eu.kanade.presentation.components.LocalTabState
 import eu.kanade.presentation.theme.AuroraTheme
 import androidx.compose.ui.layout.ContentScale
 import tachiyomi.presentation.core.i18n.stringResource
@@ -46,50 +55,92 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.tachiyomi.ui.updates.anime.AnimeUpdatesItem
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import tachiyomi.presentation.core.components.material.PullRefresh
+import kotlin.time.Duration.Companion.seconds
+import java.time.LocalDate
 
 @Composable
 fun AnimeUpdatesAuroraContent(
-    items: List<AnimeUpdatesItem>,
+    items: List<AnimeUpdatesUiModel>,
     onAnimeClicked: (Long) -> Unit,
     onDownloadClicked: (AnimeUpdatesItem) -> Unit,
     onRefresh: () -> Unit,
     contentPadding: PaddingValues
 ) {
     val colors = AuroraTheme.colors
+    val scope = rememberCoroutineScope()
+    var isRefreshing by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(colors.backgroundGradient)
     ) {
-        LazyColumn(
-            contentPadding = contentPadding,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
+        PullRefresh(
+            refreshing = isRefreshing,
+            onRefresh = {
+                scope.launch {
+                    isRefreshing = true
+                    onRefresh()
+                    delay(1.seconds)
+                    isRefreshing = false
+                }
+            },
+            enabled = true,
+            indicatorPadding = contentPadding
         ) {
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                UpdatesHeader(onRefresh = onRefresh)
-            }
-
-            if (items.isEmpty()) {
+            LazyColumn(
+                state = listState,
+                contentPadding = contentPadding,
+                modifier = Modifier
+                    .fillMaxSize()
+            ) {
                 item {
-                    EmptyUpdatesState(onRefresh = onRefresh)
+                    UpdatesHeader(onRefresh = onRefresh)
                 }
-            } else {
-                items(items, key = { it.update.episodeId }) { item ->
-                    AuroraUpdateCard(
-                        item = item,
-                        onClick = onAnimeClicked,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
-            }
 
-            item { Spacer(modifier = Modifier.height(24.dp)) }
+                if (items.isEmpty()) {
+                    item {
+                        EmptyUpdatesState(onRefresh = onRefresh)
+                    }
+                } else {
+                    items(
+                        items = items,
+                        key = {
+                            when (it) {
+                                is AnimeUpdatesUiModel.Header -> "header_${it.date}"
+                                is AnimeUpdatesUiModel.Item -> "item_${it.item.update.episodeId}"
+                            }
+                        },
+                        contentType = {
+                            when (it) {
+                                is AnimeUpdatesUiModel.Header -> "header"
+                                is AnimeUpdatesUiModel.Item -> "item"
+                            }
+                        }
+                    ) { uiModel ->
+                        when (uiModel) {
+                            is AnimeUpdatesUiModel.Header -> {
+                                DateHeader(date = uiModel.date)
+                            }
+                            is AnimeUpdatesUiModel.Item -> {
+                                AuroraUpdateCard(
+                                    item = uiModel.item,
+                                    onClick = onAnimeClicked,
+                                    modifier = Modifier.padding(bottom = 12.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item { Spacer(modifier = Modifier.height(24.dp)) }
+            }
         }
     }
 }
@@ -97,41 +148,71 @@ fun AnimeUpdatesAuroraContent(
 @Composable
 private fun UpdatesHeader(onRefresh: () -> Unit) {
     val colors = AuroraTheme.colors
-    
-    Row(
+    val tabState = LocalTabState.current
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 24.dp, vertical = 16.dp)
     ) {
-        Column {
-            Text(
-                text = stringResource(AYMR.strings.aurora_updates),
-                style = MaterialTheme.typography.headlineMedium,
-                color = colors.textPrimary,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = stringResource(AYMR.strings.aurora_new_episodes_subtitle),
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.textSecondary
-            )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = stringResource(AYMR.strings.aurora_updates),
+                    fontSize = 22.sp,
+                    color = colors.textPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = stringResource(AYMR.strings.aurora_new_episodes_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.textSecondary
+                )
+            }
+
+            IconButton(
+                onClick = onRefresh,
+                modifier = Modifier
+                    .background(colors.glass, CircleShape)
+                    .size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Refresh,
+                    contentDescription = stringResource(AYMR.strings.aurora_refresh_library),
+                    tint = colors.textPrimary
+                )
+            }
         }
 
-        IconButton(
-            onClick = onRefresh,
-            modifier = Modifier
-                .background(colors.glass, CircleShape)
-                .size(48.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Refresh,
-                contentDescription = stringResource(AYMR.strings.aurora_refresh_library),
-                tint = colors.textPrimary
+        // Tab Switcher
+        if (tabState != null && tabState.tabs.size > 1) {
+            Spacer(Modifier.height(16.dp))
+            AuroraTabRow(
+                tabs = tabState.tabs,
+                selectedIndex = tabState.selectedIndex,
+                onTabSelected = tabState.onTabSelected,
+                scrollable = false
             )
         }
     }
+}
+
+@Composable
+private fun DateHeader(date: LocalDate) {
+    val colors = AuroraTheme.colors
+    Text(
+        text = relativeDateText(date),
+        style = MaterialTheme.typography.titleSmall,
+        color = colors.accent,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 8.dp)
+    )
 }
 
 @Composable
@@ -241,81 +322,89 @@ fun AuroraUpdateCard(
 ) {
     val colors = AuroraTheme.colors
     
-    Card(
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onClick(item.update.animeId) },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = colors.glass
-        ),
-        border = BorderStroke(1.dp, colors.divider)
+            .clickable { onClick(item.update.animeId) }
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(
+        // Left: Thumbnail (60x90dp portrait)
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .width(60.dp)
+                .height(90.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color.Gray.copy(alpha = 0.3f))
         ) {
-            Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color.Gray.copy(alpha = 0.3f))
-            ) {
-                AsyncImage(
-                    model = item.update.coverData,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
+            AsyncImage(
+                model = item.update.coverData,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        
+        Spacer(modifier = Modifier.width(16.dp))
+        
+        // Center: Content (title + episode + badge)
+        Column(modifier = Modifier.weight(1f)) {
+            // Title
+            Text(
+                text = item.update.animeTitle,
+                color = colors.textPrimary,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 20.sp
+            )
+            
+            Spacer(modifier = Modifier.height(6.dp))
+            
+            // Episode name
+            Text(
+                text = item.update.episodeName,
+                color = colors.textSecondary,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            
+            // "NEW" Badge - ONLY if unseen
+            if (!item.update.seen) {
+                Spacer(modifier = Modifier.height(8.dp))
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.3f)),
-                    contentAlignment = Alignment.Center
+                        .background(colors.accent, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.PlayCircle,
-                        contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.9f),
-                        modifier = Modifier.size(32.dp)
+                    Text(
+                        text = "NEW",
+                        color = colors.textOnAccent,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = item.update.animeTitle,
-                    color = colors.textPrimary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    lineHeight = 20.sp
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .background(colors.accent.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = item.update.episodeName,
-                            color = colors.accent,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
+        }
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        // Right: Play button
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .background(colors.accent, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.PlayArrow,
+                contentDescription = null,
+                tint = colors.textOnAccent,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

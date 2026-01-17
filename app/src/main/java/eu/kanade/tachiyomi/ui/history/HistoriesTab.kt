@@ -12,8 +12,10 @@ import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.NavStyle
 import eu.kanade.presentation.components.TabbedScreen
+import eu.kanade.presentation.components.TabbedScreenAurora
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.history.anime.AnimeHistoryScreenModel
@@ -25,6 +27,9 @@ import eu.kanade.tachiyomi.ui.main.MainActivity
 import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.collectAsState
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 data object HistoriesTab : Tab {
 
@@ -53,6 +58,8 @@ data object HistoriesTab : Tab {
     override fun Content() {
         val context = LocalContext.current
         val fromMore = currentNavigationStyle() == NavStyle.MOVE_HISTORY_TO_MORE
+        val uiPreferences = Injekt.get<UiPreferences>()
+        val theme by uiPreferences.appTheme().collectAsState()
         // Hoisted for history tab's search bar
         val mangaHistoryScreenModel = rememberScreenModel { MangaHistoryScreenModel() }
         val mangaSearchQuery by mangaHistoryScreenModel.query.collectAsState()
@@ -60,17 +67,30 @@ data object HistoriesTab : Tab {
         val animeHistoryScreenModel = rememberScreenModel { AnimeHistoryScreenModel() }
         val animeSearchQuery by animeHistoryScreenModel.query.collectAsState()
 
-        TabbedScreen(
-            titleRes = MR.strings.label_recent_manga,
-            tabs = persistentListOf(
-                animeHistoryTab(context, fromMore),
-                mangaHistoryTab(context, fromMore),
-            ),
-            mangaSearchQuery = mangaSearchQuery,
-            onChangeMangaSearchQuery = mangaHistoryScreenModel::search,
-            animeSearchQuery = animeSearchQuery,
-            onChangeAnimeSearchQuery = animeHistoryScreenModel::search,
+        val tabs = persistentListOf(
+            animeHistoryTab(context, fromMore),
+            mangaHistoryTab(context, fromMore),
         )
+
+        if (theme.isAuroraStyle) {
+            TabbedScreenAurora(
+                titleRes = MR.strings.label_recent_manga,
+                tabs = tabs,
+                mangaSearchQuery = mangaSearchQuery,
+                onChangeMangaSearchQuery = mangaHistoryScreenModel::search,
+                animeSearchQuery = animeSearchQuery,
+                onChangeAnimeSearchQuery = animeHistoryScreenModel::search,
+            )
+        } else {
+            TabbedScreen(
+                titleRes = MR.strings.label_recent_manga,
+                tabs = tabs,
+                mangaSearchQuery = mangaSearchQuery,
+                onChangeMangaSearchQuery = mangaHistoryScreenModel::search,
+                animeSearchQuery = animeSearchQuery,
+                onChangeAnimeSearchQuery = animeHistoryScreenModel::search,
+            )
+        }
 
         LaunchedEffect(Unit) {
             (context as? MainActivity)?.ready = true

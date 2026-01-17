@@ -13,9 +13,17 @@ import eu.kanade.presentation.more.stats.StatsScreenState
 import tachiyomi.i18n.aniyomi.AYMR
 import tachiyomi.presentation.core.screens.LoadingScreen
 
+import eu.kanade.domain.ui.UiPreferences
+import eu.kanade.presentation.more.stats.MangaStatsAuroraContent
+import tachiyomi.presentation.core.util.collectAsState
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
+
 @Composable
 fun Screen.mangaStatsTab(): TabContent {
     val navigator = LocalNavigator.currentOrThrow
+    val uiPreferences = Injekt.get<UiPreferences>()
+    val theme by uiPreferences.appTheme().collectAsState()
 
     val screenModel = rememberScreenModel { MangaStatsScreenModel() }
     val state by screenModel.state.collectAsState()
@@ -31,10 +39,17 @@ fun Screen.mangaStatsTab(): TabContent {
             if (state is StatsScreenState.Loading) {
                 LoadingScreen()
             } else {
-                MangaStatsScreenContent(
-                    state = state as StatsScreenState.SuccessManga,
-                    paddingValues = contentPadding,
-                )
+                if (theme.isAuroraStyle) {
+                    MangaStatsAuroraContent(
+                        state = state as StatsScreenState.SuccessManga,
+                        paddingValues = contentPadding,
+                    )
+                } else {
+                    MangaStatsScreenContent(
+                        state = state as StatsScreenState.SuccessManga,
+                        paddingValues = contentPadding,
+                    )
+                }
             }
         },
         navigateUp = navigator::pop,

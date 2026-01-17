@@ -12,8 +12,11 @@ import eu.kanade.presentation.browse.anime.AnimeSourceUiModel
 import eu.kanade.tachiyomi.util.system.LAST_USED_KEY
 import eu.kanade.tachiyomi.util.system.PINNED_KEY
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
@@ -39,6 +42,9 @@ class AnimeSourcesScreenModel(
     private val _events = Channel<Event>(Int.MAX_VALUE)
     val events = _events.receiveAsFlow()
 
+    // Keep track of raw sources to re-filter when query/collapsed state changes
+    private var rawSources: List<AnimeSource> = emptyList()
+
     init {
         screenModelScope.launchIO {
             getEnabledAnimeSources.subscribe()
@@ -46,46 +52,81 @@ class AnimeSourcesScreenModel(
                     logcat(LogPriority.ERROR, it)
                     _events.send(Event.FailedFetchingSources)
                 }
-                .collectLatest(::collectLatestAnimeSources)
+                .collectLatest { sources ->
+                    rawSources = sources
+                    updateState()
+                }
         }
     }
 
-    private fun collectLatestAnimeSources(sources: List<AnimeSource>) {
-        mutableState.update { state ->
-            val map = TreeMap<String, MutableList<AnimeSource>> { d1, d2 ->
-                // Sources without a lang defined will be placed at the end
-                when {
-                    d1 == LAST_USED_KEY && d2 != LAST_USED_KEY -> -1
-                    d2 == LAST_USED_KEY && d1 != LAST_USED_KEY -> 1
-                    d1 == PINNED_KEY && d2 != PINNED_KEY -> -1
-                    d2 == PINNED_KEY && d1 != PINNED_KEY -> 1
-                    d1 == "" && d2 != "" -> 1
-                    d2 == "" && d1 != "" -> -1
-                    else -> d1.compareTo(d2)
-                }
-            }
-            val byLang = sources.groupByTo(map) {
-                when {
-                    it.isUsedLast -> LAST_USED_KEY
-                    Pin.Actual in it.pin -> PINNED_KEY
-                    else -> it.lang
-                }
-            }
+    private fun updateState() {
+        val query = state.value.searchQuery
+        val collapsed = state.value.collapsedLanguages
 
-            state.copy(
-                isLoading = false,
-                items = byLang
-                    .flatMap {
-                        listOf(
-                            AnimeSourceUiModel.Header(it.key),
-                            *it.value.map { source ->
-                                AnimeSourceUiModel.Item(source)
-                            }.toTypedArray(),
-                        )
-                    }
-                    .toImmutableList(),
-            )
+        // 1. Separate Pinned (only if no search query)
+        val (pinned, others) = if (query.isBlank()) {
+            rawSources.partition { Pin.Actual in it.pin }
+        } else {
+            // When searching, show everything in the list, nothing in pinned carousel
+            Pair(emptyList(), rawSources)
         }
+
+        // 2. Filter by query
+        val filtered = others.filter { 
+            query.isBlank() || it.name.contains(query, ignoreCase = true) || it.lang.contains(query, ignoreCase = true)
+        }
+
+        // 3. Group by Lang
+        val map = TreeMap<String, MutableList<AnimeSource>> { d1, d2 ->
+            when {
+                d1 == LAST_USED_KEY && d2 != LAST_USED_KEY -> -1
+                d2 == LAST_USED_KEY && d1 != LAST_USED_KEY -> 1
+                d1 == "" && d2 != "" -> 1
+                d2 == "" && d1 != "" -> -1
+                else -> d1.compareTo(d2)
+            }
+        }
+        val byLang = filtered.groupByTo(map) {
+            when {
+                it.isUsedLast -> LAST_USED_KEY
+                else -> it.lang
+            }
+        }
+
+        // 4. Flatten to UI Models, respecting collapsed state
+        val uiItems = byLang.flatMap { (lang, sources) ->
+            if (lang in collapsed && query.isBlank()) {
+                listOf(AnimeSourceUiModel.Header(lang, isCollapsed = true))
+            } else {
+                listOf(AnimeSourceUiModel.Header(lang, isCollapsed = false)) + 
+                sources.map { AnimeSourceUiModel.Item(it) }
+            }
+        }
+
+        mutableState.update { 
+            it.copy(
+                isLoading = false,
+                items = uiItems.toImmutableList(),
+                pinnedItems = pinned.toImmutableList()
+            ) 
+        }
+    }
+
+    fun search(query: String) {
+        mutableState.update { it.copy(searchQuery = query) }
+        updateState()
+    }
+
+    fun toggleLanguage(language: String) {
+        mutableState.update { state ->
+            val newCollapsed = if (language in state.collapsedLanguages) {
+                state.collapsedLanguages - language
+            } else {
+                state.collapsedLanguages + language
+            }
+            state.copy(collapsedLanguages = newCollapsed.toImmutableSet())
+        }
+        updateState()
     }
 
     fun toggleSource(source: AnimeSource) {
@@ -115,7 +156,10 @@ class AnimeSourcesScreenModel(
         val dialog: Dialog? = null,
         val isLoading: Boolean = true,
         val items: ImmutableList<AnimeSourceUiModel> = persistentListOf(),
+        val pinnedItems: ImmutableList<AnimeSource> = persistentListOf(),
+        val searchQuery: String = "",
+        val collapsedLanguages: ImmutableSet<String> = persistentSetOf(),
     ) {
-        val isEmpty = items.isEmpty()
+        val isEmpty = items.isEmpty() && pinnedItems.isEmpty()
     }
 }

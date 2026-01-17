@@ -42,6 +42,7 @@ class MangaExtensionsScreenModel(
 ) : StateScreenModel<MangaExtensionsScreenModel.State>(State()) {
 
     private val currentDownloads = MutableStateFlow<Map<String, InstallStep>>(hashMapOf())
+    private val collapsedLanguages = MutableStateFlow<Set<String>>(emptySet())
 
     init {
         val context = Injekt.get<Application>()
@@ -94,7 +95,8 @@ class MangaExtensionsScreenModel(
                 state.map { it.searchQuery }.distinctUntilChanged().debounce(SEARCH_DEBOUNCE_MILLIS),
                 currentDownloads,
                 getExtensions.subscribe(),
-            ) { query, downloads, (_updates, _installed, _available, _untrusted) ->
+                collapsedLanguages,
+            ) { query, downloads, (_updates, _installed, _available, _untrusted), _collapsedLanguages ->
                 val searchQuery = query ?: ""
 
                 val itemsGroups: ItemGroups = mutableMapOf()
@@ -121,9 +123,15 @@ class MangaExtensionsScreenModel(
                     .groupBy { it.lang }
                     .toSortedMap(LocaleHelper.comparator)
                     .map { (lang, exts) ->
-                        MangaExtensionUiModel.Header.Text(
+                        val header = MangaExtensionUiModel.Header.Text(
                             LocaleHelper.getSourceDisplayName(lang, context),
-                        ) to exts.map(extensionMapper(downloads))
+                        )
+                        val items = if (header.text in _collapsedLanguages && searchQuery.isEmpty()) {
+                            emptyList()
+                        } else {
+                            exts.map(extensionMapper(downloads))
+                        }
+                        header to items
                     }
 
                 if (languagesWithExtensions.isNotEmpty()) {
@@ -137,6 +145,7 @@ class MangaExtensionsScreenModel(
                         state.copy(
                             isLoading = false,
                             items = it,
+                            collapsedLanguages = collapsedLanguages.value
                         )
                     }
                 }
@@ -151,6 +160,16 @@ class MangaExtensionsScreenModel(
         basePreferences.extensionInstaller().changes()
             .onEach { mutableState.update { state -> state.copy(installer = it) } }
             .launchIn(screenModelScope)
+    }
+
+    fun toggleSection(header: MangaExtensionUiModel.Header.Text) {
+        collapsedLanguages.update {
+            if (it.contains(header.text)) {
+                it - header.text
+            } else {
+                it + header.text
+            }
+        }
     }
 
     fun search(query: String?) {
@@ -230,6 +249,7 @@ class MangaExtensionsScreenModel(
         val updates: Int = 0,
         val installer: BasePreferences.ExtensionInstaller? = null,
         val searchQuery: String? = null,
+        val collapsedLanguages: Set<String> = emptySet(),
     ) {
         val isEmpty = items.isEmpty()
     }
