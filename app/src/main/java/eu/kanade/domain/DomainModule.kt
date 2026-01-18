@@ -174,6 +174,7 @@ import tachiyomi.domain.items.season.interactor.GetAnimeSeasonsByParentId
 import tachiyomi.domain.items.season.interactor.SetAnimeDefaultSeasonFlags
 import tachiyomi.domain.items.season.interactor.ShouldUpdateDbSeason
 import tachiyomi.domain.release.interactor.GetApplicationRelease
+import tachiyomi.domain.release.service.AppUpdatePreferences
 import tachiyomi.domain.release.service.ReleaseService
 import tachiyomi.domain.source.anime.interactor.GetAnimeSourcesWithNonLibraryAnime
 import tachiyomi.domain.source.anime.interactor.GetRemoteAnime
@@ -283,6 +284,7 @@ class DomainModule : InjektModule {
 
         addSingletonFactory<ReleaseService> { ReleaseServiceImpl(get(), get()) }
         addFactory { GetApplicationRelease(get(), get()) }
+        addSingletonFactory { AppUpdatePreferences(get()) }
 
         addSingletonFactory<AnimeTrackRepository> { AnimeTrackRepositoryImpl(get()) }
         addFactory { TrackEpisode(get(), get(), get(), get()) }

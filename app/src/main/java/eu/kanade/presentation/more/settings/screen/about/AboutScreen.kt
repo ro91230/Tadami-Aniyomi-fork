@@ -35,7 +35,13 @@ import eu.kanade.presentation.util.LocalBackPress
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
+import eu.kanade.tachiyomi.data.updater.AppUpdateJob
 import eu.kanade.tachiyomi.data.updater.RELEASE_URL
+import tachiyomi.domain.release.service.AppUpdatePreferences
+import tachiyomi.presentation.core.util.collectAsState
+import kotlinx.collections.immutable.persistentMapOf
+import tachiyomi.presentation.core.components.material.padding
+import eu.kanade.presentation.more.settings.widget.ListPreferenceWidget
 import eu.kanade.tachiyomi.ui.more.NewUpdateScreen
 import eu.kanade.tachiyomi.util.CrashLogUtil
 import eu.kanade.tachiyomi.util.lang.toDateTimestampString
@@ -135,6 +141,30 @@ object AboutScreen : Screen() {
                                         )
                                     }
                                 }
+                            },
+                        )
+                    }
+
+                    item {
+                        val appUpdatePreferences = remember { Injekt.get<AppUpdatePreferences>() }
+                        val updateInterval by appUpdatePreferences.appUpdateInterval().collectAsState()
+
+                        ListPreferenceWidget(
+                            value = updateInterval,
+                            title = stringResource(MR.strings.pref_app_update_interval),
+                            subtitle = null,
+                            icon = null,
+                            entries = persistentMapOf(
+                                -1 to stringResource(MR.strings.app_update_on_start),
+                                0 to stringResource(MR.strings.update_never),
+                                6 to stringResource(MR.strings.app_update_6h),
+                                12 to stringResource(MR.strings.app_update_12h),
+                                24 to stringResource(MR.strings.app_update_24h),
+                                168 to stringResource(MR.strings.app_update_weekly),
+                            ),
+                            onValueChange = { newInterval ->
+                                appUpdatePreferences.appUpdateInterval().set(newInterval)
+                                AppUpdateJob.setupTask(context, newInterval)
                             },
                         )
                     }

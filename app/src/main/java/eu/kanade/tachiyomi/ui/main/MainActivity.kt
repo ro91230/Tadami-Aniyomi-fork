@@ -79,6 +79,7 @@ import eu.kanade.tachiyomi.data.download.anime.AnimeDownloadCache
 import eu.kanade.tachiyomi.data.download.manga.MangaDownloadCache
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
+import eu.kanade.tachiyomi.data.updater.AppUpdateJob
 import eu.kanade.tachiyomi.data.updater.RELEASE_URL
 import eu.kanade.tachiyomi.extension.anime.api.AnimeExtensionApi
 import eu.kanade.tachiyomi.extension.manga.api.MangaExtensionApi
@@ -120,6 +121,7 @@ import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.release.interactor.GetApplicationRelease
+import tachiyomi.domain.release.service.AppUpdatePreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.util.collectAsState
@@ -374,16 +376,25 @@ class MainActivity : BaseActivity() {
         LaunchedEffect(Unit) {
             if (updaterEnabled) {
                 try {
-                    val result = AppUpdateChecker().checkForUpdate(context)
-                    if (result is GetApplicationRelease.Result.NewUpdate) {
-                        val updateScreen = NewUpdateScreen(
-                            versionName = result.release.version,
-                            changelogInfo = result.release.info,
-                            releaseLink = result.release.releaseLink,
-                            downloadLink = result.release.downloadLink,
-                        )
-                        navigator.push(updateScreen)
+                    val appUpdatePreferences = Injekt.get<AppUpdatePreferences>()
+                    val interval = appUpdatePreferences.appUpdateInterval().get()
+
+                    // Check on startup only if interval == -1 (on app start)
+                    if (interval == -1) {
+                        val result = AppUpdateChecker().checkForUpdate(context)
+                        if (result is GetApplicationRelease.Result.NewUpdate) {
+                            val updateScreen = NewUpdateScreen(
+                                versionName = result.release.version,
+                                changelogInfo = result.release.info,
+                                releaseLink = result.release.releaseLink,
+                                downloadLink = result.release.downloadLink,
+                            )
+                            navigator.push(updateScreen)
+                        }
                     }
+
+                    // Set up periodic check (will cancel if interval <= 0)
+                    AppUpdateJob.setupTask(context)
                 } catch (e: Exception) {
                     logcat(LogPriority.ERROR, e)
                 }
