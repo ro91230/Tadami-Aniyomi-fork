@@ -120,6 +120,7 @@ class MangaExtensionsScreenModel(
 
                 val languagesWithExtensions = _available
                     .filter(queryFilter(searchQuery))
+                    .filter { it.lang.isNotBlank() }
                     .groupBy { it.lang }
                     .toSortedMap(LocaleHelper.comparator)
                     .map { (lang, exts) ->

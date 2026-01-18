@@ -25,6 +25,7 @@ class GetLanguagesWithAnimeSources(
             )
 
             sortedSources
+                .filter { it.lang.isNotBlank() }
                 .groupBy { it.lang }
                 .toSortedMap(
                     compareBy<String> { it !in enabledLanguage }.then(LocaleHelper.comparator),
