@@ -175,7 +175,7 @@ object SettingsAppearanceScreen : SearchableSettings {
                     entries = NavStyle.entries
                         .associateWith { stringResource(it.titleRes) }
                         .toImmutableMap(),
-                    title = "Navigation Style",
+                    title = stringResource(AYMR.strings.pref_bottom_nav_style),
                     onValueChanged = { true },
                 ),
                 Preference.PreferenceItem.ListPreference(
