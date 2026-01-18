@@ -49,11 +49,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import eu.kanade.presentation.components.AuroraCard
 import eu.kanade.presentation.components.AuroraTabRow
 import eu.kanade.presentation.components.LocalTabState
 import eu.kanade.presentation.theme.AuroraTheme
+import tachiyomi.domain.entries.manga.model.asMangaCover
 import tachiyomi.domain.library.manga.LibraryManga
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.aniyomi.AYMR
@@ -108,17 +111,20 @@ fun MangaLibraryAuroraContent(
                 )
             }
 
-                                                items(filteredItems) { item ->
+                                                items(filteredItems, key = { it.manga.id }) { item ->
+                val context = LocalContext.current
+                AuroraCard(
 
-                                                    AuroraCard(
+                    modifier = Modifier.aspectRatio(0.6f),
 
-                                                        modifier = Modifier.aspectRatio(0.6f),
-
-                                                        title = item.manga.title,
-
-                                                        coverData = item.manga.thumbnailUrl,
-
-                                                        subtitle = "${item.totalChapters - item.unreadCount}/${item.totalChapters} гл.",
+                    title = item.manga.title,
+                    coverData = remember(item.manga.id, item.manga.thumbnailUrl, item.manga.coverLastModified) {
+                        ImageRequest.Builder(context)
+                            .data(item.manga.asMangaCover())
+                            .placeholderMemoryCacheKey(item.manga.thumbnailUrl)
+                            .build()
+                    },
+                    subtitle = "${item.totalChapters - item.unreadCount}/${item.totalChapters} гл.",
 
                                                         coverHeightFraction = 0.6f,
 

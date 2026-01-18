@@ -54,12 +54,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import eu.kanade.presentation.entries.DownloadAction
 import eu.kanade.presentation.entries.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.theme.AuroraTheme
 import eu.kanade.tachiyomi.ui.entries.manga.MangaScreenModel
 import eu.kanade.tachiyomi.ui.entries.manga.ChapterList
+import tachiyomi.domain.entries.manga.model.asMangaCover
 import tachiyomi.domain.items.chapter.model.Chapter
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
@@ -109,13 +112,19 @@ fun MangaScreenAuroraImpl(
     val manga = state.manga
     val chapters = state.chapterListItems
     val colors = AuroraTheme.colors
+    val context = LocalContext.current
     
     var descriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var descriptionOverflows by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize().background(colors.background)) {
         AsyncImage(
-            model = manga.thumbnailUrl,
+            model = remember(manga.id, manga.thumbnailUrl, manga.coverLastModified) {
+                ImageRequest.Builder(context)
+                    .data(manga.asMangaCover())
+                    .placeholderMemoryCacheKey(manga.thumbnailUrl)
+                    .build()
+            },
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -200,7 +209,12 @@ fun MangaScreenAuroraImpl(
                             .clickable(onClick = onCoverClicked)
                     ) {
                         AsyncImage(
-                            model = manga.thumbnailUrl,
+                            model = remember(manga.id, manga.thumbnailUrl, manga.coverLastModified) {
+                                ImageRequest.Builder(context)
+                                    .data(manga.asMangaCover())
+                                    .placeholderMemoryCacheKey(manga.thumbnailUrl)
+                                    .build()
+                            },
                             contentDescription = "Cover",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
@@ -365,7 +379,12 @@ fun MangaScreenAuroraImpl(
                             ) {
                                 // Use manga thumbnail as placeholder
                                 AsyncImage(
-                                    model = manga.thumbnailUrl,
+                                    model = remember(manga.id, manga.thumbnailUrl, manga.coverLastModified) {
+                                        ImageRequest.Builder(context)
+                                            .data(manga.asMangaCover())
+                                            .placeholderMemoryCacheKey(manga.thumbnailUrl)
+                                            .build()
+                                    },
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize()
