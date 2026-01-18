@@ -1123,6 +1123,10 @@ class MangaScreenModel(
 
     fun showCoverDialog() {
         updateSuccessState { it.copy(dialog = Dialog.FullCover) }
+        // Trigger cover update to fetch full-size image from source
+        screenModelScope.launchIO {
+            fetchMangaFromSource(manualFetch = true)
+        }
     }
 
     fun showMigrateDialog(duplicate: Manga) {

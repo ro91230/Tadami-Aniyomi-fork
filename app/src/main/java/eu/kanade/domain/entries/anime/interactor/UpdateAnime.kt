@@ -44,16 +44,11 @@ class UpdateAnime(
         // if the anime isn't a favorite, set its title from source and update in db
         val title = if (remoteTitle.isEmpty() || localAnime.favorite) null else remoteTitle
 
-        // Only update cover if manual fetch OR we don't have a valid thumbnail yet
-        // This prevents flickering when extension returns different URLs (thumbnail vs full-size)
-        val shouldUpdateCover = manualFetch || localAnime.thumbnailUrl.isNullOrEmpty()
-
         val coverLastModified =
             when {
                 // Never refresh covers if the url is empty to avoid "losing" existing covers
                 remoteAnime.thumbnail_url.isNullOrEmpty() -> null
-                // Don't update cover during automatic refresh if we already have one
-                !shouldUpdateCover -> null
+                !manualFetch && localAnime.thumbnailUrl == remoteAnime.thumbnail_url -> null
                 localAnime.isLocal() -> Instant.now().toEpochMilli()
                 localAnime.hasCustomCover(coverCache) -> {
                     coverCache.deleteFromCache(localAnime, false)
@@ -65,15 +60,11 @@ class UpdateAnime(
                 }
             }
 
-        // Only update background if manual fetch OR we don't have one yet
-        val shouldUpdateBackground = manualFetch || localAnime.backgroundUrl.isNullOrEmpty()
-
         val backgroundLastModified =
             when {
                 // Never refresh backgrounds if the url is empty to avoid "losing" existing backgrounds
                 remoteAnime.background_url.isNullOrEmpty() -> null
-                // Don't update background during automatic refresh if we already have one
-                !shouldUpdateBackground -> null
+                !manualFetch && localAnime.backgroundUrl == remoteAnime.background_url -> null
                 localAnime.isLocal() -> Instant.now().toEpochMilli()
                 localAnime.hasCustomBackground(backgroundCache) -> {
                     backgroundCache.deleteFromCache(localAnime, false)
@@ -85,19 +76,9 @@ class UpdateAnime(
                 }
             }
 
-        // Only update thumbnailUrl if we're updating the cover (null = don't update field)
-        val thumbnailUrl = if (shouldUpdateCover) {
-            remoteAnime.thumbnail_url?.takeIf { it.isNotEmpty() }
-        } else {
-            null
-        }
+        val thumbnailUrl = remoteAnime.thumbnail_url?.takeIf { it.isNotEmpty() }
 
-        // Only update backgroundUrl if we're updating the background (null = don't update field)
-        val backgroundUrl = if (shouldUpdateBackground) {
-            remoteAnime.background_url?.takeIf { it.isNotEmpty() }
-        } else {
-            null
-        }
+        val backgroundUrl = remoteAnime.background_url?.takeIf { it.isNotEmpty() }
 
         return animeRepository.updateAnime(
             AnimeUpdate(
