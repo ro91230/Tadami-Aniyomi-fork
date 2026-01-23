@@ -1,76 +1,70 @@
 package eu.kanade.presentation.entries.anime
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Translate
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import aniyomi.domain.anime.SeasonAnime
-import coil3.compose.AsyncImage
+import eu.kanade.presentation.components.DropdownMenu
+import eu.kanade.presentation.components.EntryDownloadDropdownMenu
 import eu.kanade.presentation.entries.DownloadAction
 import eu.kanade.presentation.entries.anime.components.EpisodeDownloadAction
+import eu.kanade.presentation.entries.anime.components.aurora.AnimeActionCard
+import eu.kanade.presentation.entries.anime.components.aurora.AnimeHeroContent
+import eu.kanade.presentation.entries.anime.components.aurora.AnimeInfoCard
+import eu.kanade.presentation.entries.anime.components.aurora.EpisodesHeader
+import eu.kanade.presentation.entries.anime.components.aurora.FullscreenPosterBackground
 import eu.kanade.presentation.theme.AuroraTheme
 import eu.kanade.tachiyomi.ui.entries.anime.AnimeScreenModel
 import eu.kanade.tachiyomi.ui.entries.anime.EpisodeList
 import tachiyomi.domain.items.episode.model.Episode
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
-import tachiyomi.i18n.aniyomi.AYMR
 import tachiyomi.presentation.core.i18n.stringResource
 import java.time.Instant
-
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -111,360 +105,322 @@ fun AnimeScreenAuroraImpl(
     onEpisodeSelected: (EpisodeList.Item, Boolean, Boolean, Boolean) -> Unit,
     onAllEpisodeSelected: (Boolean) -> Unit,
     onInvertSelection: () -> Unit,
-    onSeasonClicked: (SeasonAnime) -> Unit,
-    onContinueWatchingClicked: ((SeasonAnime) -> Unit)?,
-    onDubbingClicked: (() -> Unit)? = null,
-    selectedDubbing: String? = null,
-    onDownloadLongClick: ((Episode) -> Unit)? = null,
+    onSeasonClicked: ((aniyomi.domain.anime.SeasonAnime) -> Unit)?,
+    onContinueWatchingClicked: ((aniyomi.domain.anime.SeasonAnime) -> Unit)?,
+    onDubbingClicked: (() -> Unit)?,
+    selectedDubbing: String?,
+    onDownloadLongClick: ((Episode) -> Unit)?,
 ) {
     val anime = state.anime
     val episodes = state.episodeListItems
     val colors = AuroraTheme.colors
+    val configuration = LocalConfiguration.current
+    val screenHeight = configuration.screenHeightDp.dp
 
-    var descriptionExpanded by rememberSaveable { mutableStateOf(false) }
-    var descriptionOverflows by remember { mutableStateOf(false) }
+    val lazyListState = rememberLazyListState()
+    val scrollOffset by remember { derivedStateOf { lazyListState.firstVisibleItemScrollOffset } }
+    val firstVisibleItemIndex by remember { derivedStateOf { lazyListState.firstVisibleItemIndex } }
 
-    Box(modifier = Modifier.fillMaxSize().background(colors.background)) {
-        AsyncImage(
-            model = anime.thumbnailUrl,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
-                .blur(100.dp)
+    // State for episodes expansion
+    var episodesExpanded by remember { mutableStateOf(false) }
+    val episodesToShow = if (episodesExpanded) episodes else episodes.take(5)
+
+    // State for description and genres expansion
+    var descriptionExpanded by remember { mutableStateOf(false) }
+    var genresExpanded by remember { mutableStateOf(false) }
+
+    // Check if there are unseen episodes
+    val hasUnseenEpisodes = remember(episodes) {
+        episodes.any { (it as? EpisodeList.Item)?.episode?.seen == false }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Fixed background poster
+        FullscreenPosterBackground(
+            anime = anime,
+            scrollOffset = scrollOffset,
+            firstVisibleItemIndex = firstVisibleItemIndex,
         )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(colors.cardGradient)
-        )
 
-        Column(modifier = Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(WindowInsets.statusBars.asPaddingValues())
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = navigateUp,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(colors.glass, CircleShape)
-                ) {
-                    Icon(Icons.Filled.ArrowBack, contentDescription = null, tint = colors.textPrimary)
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    IconButton(
-                        onClick = onAddToLibraryClicked,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(colors.glass, CircleShape)
-                    ) {
-                        Icon(
-                            if (anime.favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                            contentDescription = null,
-                            tint = if (anime.favorite) Color.Red else colors.textPrimary
-                        )
-                    }
-                    if (onWebViewClicked != null) {
-                        IconButton(
-                            onClick = onWebViewClicked,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .background(colors.glass, CircleShape)
-                        ) {
-                            Icon(
-                                Icons.Outlined.Public,
-                                contentDescription = stringResource(MR.strings.action_open_in_web_view),
-                                tint = colors.textPrimary
-                            )
-                        }
-                    }
-                    if (onShareClicked != null) {
-                        IconButton(
-                            onClick = onShareClicked,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .background(colors.glass, CircleShape)
-                        ) {
-                            Icon(Icons.Filled.Share, contentDescription = null, tint = colors.textPrimary)
-                        }
-                    }
-                }
+        // Scrollable content
+        LazyColumn(
+            state = lazyListState,
+            contentPadding = PaddingValues(
+                top = screenHeight,
+                bottom = 100.dp,
+            ),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            // Info card (description and stats)
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                AnimeInfoCard(
+                    anime = anime,
+                    episodeCount = episodes.size,
+                    nextUpdate = nextUpdate,
+                    onTagSearch = onTagSearch,
+                    descriptionExpanded = descriptionExpanded,
+                    genresExpanded = genresExpanded,
+                    onToggleDescription = { descriptionExpanded = !descriptionExpanded },
+                    onToggleGenres = { genresExpanded = !genresExpanded },
+                )
             }
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 100.dp)
-            ) {
+            // Action buttons card
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                AnimeActionCard(
+                    anime = anime,
+                    trackingCount = state.trackingCount,
+                    onAddToLibraryClicked = onAddToLibraryClicked,
+                    onWebViewClicked = onWebViewClicked,
+                    onTrackingClicked = onTrackingClicked,
+                    onShareClicked = onShareClicked,
+                )
+            }
+
+            // Episodes header
+            item {
+                Spacer(modifier = Modifier.height(20.dp))
+                EpisodesHeader(episodeCount = episodes.size)
+            }
+
+            // Empty state for episodes
+            if (episodes.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .aspectRatio(16f / 10f)
-                            .padding(horizontal = 16.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .clickable(onClick = onCoverClicked)
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        AsyncImage(
-                            model = anime.thumbnailUrl,
-                            contentDescription = "Cover",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    Brush.verticalGradient(
-                                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f))
-                                    )
-                                )
+                        Text(
+                            text = stringResource(MR.strings.no_chapters_error),
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 14.sp,
                         )
                     }
                 }
+            }
 
-                // Info Card
-                item {
-                    Column(
+            // Episode list (placeholder cards - to be replaced in Task 8)
+            items(
+                items = episodesToShow,
+                key = { (it as? EpisodeList.Item)?.episode?.id ?: it.hashCode() },
+                contentType = { "episode" },
+            ) { item ->
+                if (item is EpisodeList.Item) {
+                    // Placeholder for AnimeEpisodeCardCompact (Task 8)
+                    Box(
                         modifier = Modifier
-                            .padding(16.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(colors.glass)
-                            .padding(24.dp)
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                            .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                            .clickable { onEpisodeClicked(item.episode, false) }
+                            .padding(12.dp),
                     ) {
                         Text(
-                            text = anime.title,
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = colors.textPrimary,
-                            lineHeight = 36.sp
-                        )
-
-                        // Genre
-                        if (anime.genre.isNullOrEmpty().not()) {
-                            Row(
-                                modifier = Modifier.padding(top = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                anime.genre!!.take(3).forEachIndexed { index, genre ->
-                                    Text(
-                                        text = genre,
-                                        color = colors.accent,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    if (index < minOf(anime.genre!!.size, 3) - 1) {
-                                        Text("•", color = colors.textSecondary, fontSize = 12.sp)
-                                    }
-                                }
-                            }
-                        }
-
-                        // Stats Row
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 24.dp)
-                                .background(Color.Transparent, shape = RoundedCornerShape(0.dp)),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                             // Status/Rating Placeholder
-                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFFACC15), modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("4.9", color = colors.textPrimary, fontWeight = FontWeight.Bold)
-                                }
-                                Text(stringResource(AYMR.strings.aurora_rating), color = colors.textSecondary, fontSize = 10.sp, letterSpacing = 1.sp)
-                             }
-                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(anime.status.toString(), color = colors.textPrimary, fontWeight = FontWeight.Bold)
-                                Text(stringResource(AYMR.strings.aurora_status), color = colors.textSecondary, fontSize = 10.sp, letterSpacing = 1.sp)
-                             }
-                        }
-
-                        // Description
-                        Text(
-                            text = anime.description ?: stringResource(AYMR.strings.aurora_no_description),
-                            color = colors.textPrimary,
+                            text = item.episode.name,
+                            color = Color.White,
                             fontSize = 14.sp,
-                            lineHeight = 20.sp,
-                            maxLines = if (descriptionExpanded) Int.MAX_VALUE else 4,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.clickable { descriptionExpanded = !descriptionExpanded },
-                            onTextLayout = { result ->
-                                descriptionOverflows = result.hasVisualOverflow || descriptionExpanded
-                            },
                         )
+                    }
+                }
+            }
 
-                        if (descriptionOverflows || descriptionExpanded) {
-                            Icon(
-                                imageVector = if (descriptionExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                                contentDescription = null,
-                                tint = colors.textSecondary,
-                                modifier = Modifier
-                                    .align(Alignment.CenterHorizontally)
-                                    .clickable { descriptionExpanded = !descriptionExpanded }
-                                    .padding(top = 4.dp),
+            // Show More button if there are more than 5 episodes
+            if (episodes.size > 5) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(
+                                            Color.White.copy(alpha = 0.12f),
+                                            Color.White.copy(alpha = 0.08f),
+                                        ),
+                                    ),
+                                )
+                                .clickable { episodesExpanded = !episodesExpanded }
+                                .padding(horizontal = 24.dp, vertical = 12.dp),
+                        ) {
+                            Text(
+                                text = if (episodesExpanded) {
+                                    "Показать меньше"
+                                } else {
+                                    "Показать все ${episodes.size} эпизодов"
+                                },
+                                color = colors.accent,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
                             )
                         }
-
-                        // Dubbing Button
-                        if (onDubbingClicked != null) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 16.dp)
-                                    .height(48.dp)
-                                    .clip(RoundedCornerShape(50))
-                                    .background(colors.glass)
-                                    .clickable(onClick = onDubbingClicked),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Filled.Translate, contentDescription = null, tint = colors.textPrimary, modifier = Modifier.size(20.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(selectedDubbing ?: stringResource(AYMR.strings.aurora_select_dubbing), color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                }
-                            }
-                        }
-
-                        // Continue Button
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 16.dp)
-                                .height(56.dp)
-                                .clip(RoundedCornerShape(50))
-                                .background(colors.accent)
-                                .clickable(onClick = onContinueWatching),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(end = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = colors.textOnAccent, modifier = Modifier.size(28.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(stringResource(AYMR.strings.aurora_continue), color = colors.textOnAccent, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
-                            }
-                        }
                     }
                 }
+            }
+        }
 
-                // Episodes Header
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+        // Hero content (fixed at bottom of first screen) - fades out on scroll
+        val heroThreshold = (screenHeight.value * 0.7f).toInt()
+        if (firstVisibleItemIndex == 0 && scrollOffset < heroThreshold) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 0.dp),
+                contentAlignment = Alignment.BottomStart,
+            ) {
+                val heroAlpha = (1f - (scrollOffset / heroThreshold.toFloat())).coerceIn(0f, 1f)
+
+                Box(modifier = Modifier.graphicsLayer { alpha = heroAlpha }) {
+                    AnimeHeroContent(
+                        anime = anime,
+                        episodeCount = episodes.size,
+                        hasUnseenEpisodes = hasUnseenEpisodes,
+                        onContinueWatching = onContinueWatching,
+                        onDubbingClicked = onDubbingClicked,
+                        selectedDubbing = selectedDubbing,
+                    )
+                }
+            }
+        }
+
+        // Floating Play button (shows after Hero Content is hidden)
+        val showFab = firstVisibleItemIndex > 0 || scrollOffset > heroThreshold
+        if (showFab) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(end = 20.dp, bottom = 20.dp),
+                contentAlignment = Alignment.BottomEnd,
+            ) {
+                FloatingActionButton(
+                    onClick = onContinueWatching,
+                    containerColor = colors.accent,
+                    contentColor = colors.textOnAccent,
+                    modifier = Modifier.size(64.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(32.dp),
+                    )
+                }
+            }
+        }
+
+        // Top header bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(WindowInsets.statusBars.asPaddingValues())
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            // Back button
+            IconButton(
+                onClick = navigateUp,
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(colors.accent.copy(alpha = 0.2f), CircleShape),
+            ) {
+                Icon(
+                    Icons.Filled.ArrowBack,
+                    contentDescription = null,
+                    tint = colors.accent,
+                )
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Filter button
+            IconButton(
+                onClick = onFilterButtonClicked,
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(colors.accent.copy(alpha = 0.2f), CircleShape),
+            ) {
+                val filterTint = if (state.filterActive) colors.accent else colors.accent.copy(alpha = 0.7f)
+                Icon(
+                    Icons.Default.FilterList,
+                    contentDescription = null,
+                    tint = filterTint,
+                )
+            }
+
+            // Download menu
+            if (onDownloadActionClicked != null) {
+                var downloadExpanded by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(
+                        onClick = { downloadExpanded = !downloadExpanded },
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(colors.accent.copy(alpha = 0.2f), CircleShape),
                     ) {
-                        Text(stringResource(AYMR.strings.aurora_episodes_header), color = colors.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Text(stringResource(AYMR.strings.aurora_episode_count, episodes.size), color = colors.accent, fontWeight = FontWeight.Bold)
+                        Icon(
+                            Icons.Filled.Download,
+                            contentDescription = null,
+                            tint = colors.accent,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = downloadExpanded,
+                        onDismissRequest = { downloadExpanded = false },
+                    ) {
+                        EntryDownloadDropdownMenu(
+                            expanded = true,
+                            onDismissRequest = { downloadExpanded = false },
+                            onDownloadClicked = { onDownloadActionClicked.invoke(it) },
+                            isManga = false,
+                        )
                     }
                 }
+            }
 
-                // Episode List
-                items(episodes) { item ->
-                    if (item is EpisodeList.Item) {
-                        val episode = item.episode
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 6.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(colors.glass)
-                                .clickable { onEpisodeClicked(episode, false) }
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Thumbnail placeholder
-                            Box(
-                                modifier = Modifier
-                                    .width(110.dp)
-                                    .aspectRatio(16f/9f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Color.Black.copy(alpha = 0.3f))
-                            ) {
-                                // Use anime thumbnail as placeholder if episode thumb is missing (which is common)
-                                AsyncImage(
-                                    model = anime.thumbnailUrl,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-
-                                if (episode.seen) {
-                                    Box(
-                                        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = colors.textPrimary)
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(16.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = episode.name,
-                                    color = colors.textPrimary,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = stringResource(AYMR.strings.aurora_episode_progress, (episode.episodeNumber % 1000).toInt()),
-                                    color = colors.textSecondary,
-                                    fontSize = 12.sp
-                                )
-                                if (episode.seen) {
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(4.dp)
-                                            .clip(RoundedCornerShape(50))
-                                            .background(colors.divider)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(4.dp)
-                                                .clip(RoundedCornerShape(50))
-                                                .background(colors.accent)
-                                        )
-                                    }
-                                }
-                            }
-
-                            // Download Button
-                            if (onDownloadEpisode != null) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .clip(CircleShape)
-                                        .combinedClickable(
-                                            onClick = { onDownloadEpisode(listOf(item), EpisodeDownloadAction.START) },
-                                            onLongClick = { onDownloadLongClick?.invoke(item.episode) }
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Filled.Download, contentDescription = null, tint = colors.textSecondary)
-                                }
-                            }
-                        }
+            // More menu
+            var showMenu by remember { mutableStateOf(false) }
+            Box {
+                IconButton(
+                    onClick = { showMenu = !showMenu },
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(colors.accent.copy(alpha = 0.2f), CircleShape),
+                ) {
+                    Icon(
+                        Icons.Default.MoreVert,
+                        contentDescription = null,
+                        tint = colors.accent,
+                    )
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                ) {
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = {
+                            androidx.compose.material3.Text(text = stringResource(MR.strings.action_webview_refresh))
+                        },
+                        onClick = {
+                            onRefresh()
+                            showMenu = false
+                        },
+                    )
+                    if (onShareClicked != null) {
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { androidx.compose.material3.Text(text = stringResource(MR.strings.action_share)) },
+                            onClick = {
+                                onShareClicked()
+                                showMenu = false
+                            },
+                        )
                     }
                 }
             }
