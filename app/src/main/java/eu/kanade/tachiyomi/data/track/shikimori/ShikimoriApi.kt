@@ -153,6 +153,19 @@ class ShikimoriApi(
         }
     }
 
+    suspend fun getAnimeById(id: Long): SMEntry {
+        return withIOContext {
+            val url = "$API_URL/animes".toUri().buildUpon()
+                .appendPath(id.toString())
+                .build()
+            with(json) {
+                authClient.newCall(GET(url.toString()))
+                    .awaitSuccess()
+                    .parseAs()
+            }
+        }
+    }
+
     suspend fun findLibManga(track: MangaTrack, userId: String): MangaTrack? {
         return withIOContext {
             val urlMangas = "$API_URL/mangas".toUri().buildUpon()
