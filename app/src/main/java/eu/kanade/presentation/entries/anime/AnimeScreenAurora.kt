@@ -53,6 +53,7 @@ import eu.kanade.presentation.components.EntryDownloadDropdownMenu
 import eu.kanade.presentation.entries.DownloadAction
 import eu.kanade.presentation.entries.anime.components.EpisodeDownloadAction
 import eu.kanade.presentation.entries.anime.components.aurora.AnimeActionCard
+import eu.kanade.presentation.entries.anime.components.aurora.AnimeEpisodeCardCompact
 import eu.kanade.presentation.entries.anime.components.aurora.AnimeHeroContent
 import eu.kanade.presentation.entries.anime.components.aurora.AnimeInfoCard
 import eu.kanade.presentation.entries.anime.components.aurora.EpisodesHeader
@@ -203,28 +204,20 @@ fun AnimeScreenAuroraImpl(
                 }
             }
 
-            // Episode list (placeholder cards - to be replaced in Task 8)
+            // Episode list
             items(
                 items = episodesToShow,
                 key = { (it as? EpisodeList.Item)?.episode?.id ?: it.hashCode() },
                 contentType = { "episode" },
             ) { item ->
                 if (item is EpisodeList.Item) {
-                    // Placeholder for AnimeEpisodeCardCompact (Task 8)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp)
-                            .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                            .clickable { onEpisodeClicked(item.episode, false) }
-                            .padding(12.dp),
-                    ) {
-                        Text(
-                            text = item.episode.name,
-                            color = Color.White,
-                            fontSize = 14.sp,
-                        )
-                    }
+                    AnimeEpisodeCardCompact(
+                        anime = anime,
+                        item = item,
+                        onEpisodeClicked = { episode -> onEpisodeClicked(episode, false) },
+                        onDownloadEpisode = onDownloadEpisode,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
                 }
             }
 
