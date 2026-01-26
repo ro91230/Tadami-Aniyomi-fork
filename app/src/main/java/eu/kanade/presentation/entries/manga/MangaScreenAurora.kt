@@ -1,10 +1,14 @@
 package eu.kanade.presentation.entries.manga
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,6 +23,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -66,6 +71,7 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import java.time.Instant
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -114,6 +120,7 @@ fun MangaScreenAuroraImpl(
     val scrollOffset by remember { derivedStateOf { lazyListState.firstVisibleItemScrollOffset } }
     val firstVisibleItemIndex by remember { derivedStateOf { lazyListState.firstVisibleItemIndex } }
     val scope = rememberCoroutineScope()
+    val statsBringIntoViewRequester = remember { BringIntoViewRequester() }
 
     // State for chapters expansion
     var chaptersExpanded by remember { mutableStateOf(false) }
@@ -125,47 +132,75 @@ fun MangaScreenAuroraImpl(
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Fixed background poster
-        FullscreenPosterBackground(
-            manga = manga,
-            scrollOffset = scrollOffset,
-            firstVisibleItemIndex = firstVisibleItemIndex,
-        )
+        if (manga.initialized && !state.isRefreshingData) {
+            FullscreenPosterBackground(
+                manga = manga,
+                scrollOffset = scrollOffset,
+                firstVisibleItemIndex = firstVisibleItemIndex,
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black),
+            )
+        }
 
         // Scrollable content
         LazyColumn(
             state = lazyListState,
-            contentPadding = PaddingValues(
-                top = screenHeight,
-                bottom = 100.dp,
-            ),
+            contentPadding = PaddingValues(bottom = 100.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            // Info card (description and stats)
+            // Spacer for poster/hero area
             item {
-                Spacer(modifier = Modifier.height(16.dp))
-                MangaInfoCard(
-                    manga = manga,
-                    chapterCount = chapters.size,
-                    nextUpdate = nextUpdate,
-                    onTagSearch = onTagSearch,
-                    descriptionExpanded = descriptionExpanded,
-                    genresExpanded = genresExpanded,
-                    onToggleDescription = { descriptionExpanded = !descriptionExpanded },
-                    onToggleGenres = { genresExpanded = !genresExpanded },
-                )
+                Spacer(modifier = Modifier.height(screenHeight))
             }
 
-            // Action buttons card (after description)
+            // Info and Action cards merged into one item for layout stability
             item {
-                Spacer(modifier = Modifier.height(12.dp))
-                MangaActionCard(
-                    manga = manga,
-                    trackingCount = state.trackingCount,
-                    onAddToLibraryClicked = onAddToLibraryClicked,
-                    onWebViewClicked = onWebViewClicked,
-                    onTrackingClicked = onTrackingClicked,
-                    onShareClicked = onShareClicked,
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessLow,
+                            ),
+                            alignment = Alignment.TopStart,
+                        ),
+                ) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    MangaInfoCard(
+                        manga = manga,
+                        chapterCount = chapters.size,
+                        nextUpdate = nextUpdate,
+                        onTagSearch = onTagSearch,
+                        descriptionExpanded = descriptionExpanded,
+                        genresExpanded = genresExpanded,
+                        onToggleDescription = {
+                            descriptionExpanded = !descriptionExpanded
+                            if (descriptionExpanded) {
+                                scope.launch {
+                                    statsBringIntoViewRequester.bringIntoView()
+                                }
+                            }
+                        },
+                        onToggleGenres = { genresExpanded = !genresExpanded },
+                        statsRequester = statsBringIntoViewRequester,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    MangaActionCard(
+                        manga = manga,
+                        trackingCount = state.trackingCount,
+                        onAddToLibraryClicked = onAddToLibraryClicked,
+                        onWebViewClicked = onWebViewClicked,
+                        onTrackingClicked = onTrackingClicked,
+                        onShareClicked = onShareClicked,
+                    )
+                }
             }
 
             // Chapters header

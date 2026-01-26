@@ -1,5 +1,7 @@
 package eu.kanade.presentation.entries.manga.components.aurora
 
+import android.util.Log
+
 /**
  * Data class to hold parsed rating information from manga description.
  */
@@ -12,6 +14,11 @@ data class ParsedRating(
  * Utility object for parsing rating information from manga descriptions.
  */
 object RatingParser {
+    private const val TAG = "RatingParser"
+
+    init {
+        Log.d(TAG, "RatingParser initialized")
+    }
 
     private val ratingPatterns = listOf(
         // Russian patterns with colon - MOST COMMON, check first
@@ -30,7 +37,9 @@ object RatingParser {
         Regex("""MAL:\s*(\d+\.?\d*)""", RegexOption.IGNORE_CASE),
         Regex("""MyAnimeList:\s*(\d+\.?\d*)""", RegexOption.IGNORE_CASE),
 
-        // Star ratings
+        // Star ratings - 5 star pattern (filled/empty/half mix) with rating
+        Regex("""[★☆⭐✬✩]{5}\s*(\d+\.?\d*)\s*(?:\[ⓘ[^\]]*\])?\s*(?:\((\d+(?:,\s*\d+)*)\s*(?:голосов?|votes?)?\))?"""),
+        // Single star patterns
         Regex("""★\s*(\d+\.?\d*)\s*(?:\((\d+(?:,\d+)*)\))?"""),
         Regex("""⭐\s*(\d+\.?\d*)\s*(?:\((\d+(?:,\d+)*)\))?"""),
 
@@ -44,7 +53,12 @@ object RatingParser {
      * Returns null if no rating pattern is found or rating is invalid.
      */
     fun parseRating(description: String?): ParsedRating? {
-        if (description.isNullOrBlank()) return null
+        if (description.isNullOrBlank()) {
+            Log.d(TAG, "parseRating: description is null or blank")
+            return null
+        }
+
+        Log.d(TAG, "parseRating: description = \"$description\"")
 
         for (pattern in ratingPatterns) {
             val match = pattern.find(description) ?: continue
@@ -59,9 +73,11 @@ object RatingParser {
             val votesString = match.groupValues.getOrNull(2)
             val votes = votesString?.replace(Regex("""[,\s]"""), "")?.toIntOrNull()
 
+            Log.d(TAG, "parseRating: FOUND rating=$rating, votes=$votes, matched pattern: ${match.value}")
             return ParsedRating(rating, votes)
         }
 
+        Log.d(TAG, "parseRating: NO MATCH FOUND")
         return null
     }
 

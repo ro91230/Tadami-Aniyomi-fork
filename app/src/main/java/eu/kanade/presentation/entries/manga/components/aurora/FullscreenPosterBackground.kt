@@ -60,25 +60,13 @@ fun FullscreenPosterBackground(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // Layer 1: Thumbnail (always visible immediately, cached)
-        AsyncImage(
-            model = remember(manga.thumbnailUrl) {
-                ImageRequest.Builder(context)
-                    .data(manga.thumbnailUrl)
-                    .build()
-            },
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
-                .blur(blurAmount),
-        )
-
-        // Layer 2: Full quality poster (loads in background, instantly replaces when ready)
+        // Full quality poster
         AsyncImage(
             model = remember(manga.id, manga.coverLastModified) {
                 ImageRequest.Builder(context)
                     .data(manga.asMangaCover())
+                    // Avoid reusing low-res cached covers from list thumbnails.
+                    .memoryCacheKey("manga-bg;${manga.id};${manga.coverLastModified}")
                     .build()
             },
             contentDescription = null,

@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -54,6 +56,7 @@ fun MangaInfoCard(
     onToggleDescription: () -> Unit,
     onToggleGenres: () -> Unit,
     modifier: Modifier = Modifier,
+    statsRequester: BringIntoViewRequester? = null,
 ) {
     val colors = AuroraTheme.colors
 
@@ -89,7 +92,15 @@ fun MangaInfoCard(
             )
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .let { base ->
+                        if (statsRequester != null) {
+                            base.bringIntoViewRequester(statsRequester)
+                        } else {
+                            base
+                        }
+                    },
                 horizontalArrangement = if (isCompleted) Arrangement.SpaceBetween else Arrangement.SpaceEvenly,
             ) {
                 // Rating (parsed from description or N/A)
@@ -127,15 +138,7 @@ fun MangaInfoCard(
             // Description
             Column(
                 verticalArrangement = Arrangement.Top,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .animateContentSize(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow,
-                        ),
-                        alignment = Alignment.TopStart,
-                    ),
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -173,15 +176,7 @@ fun MangaInfoCard(
             if (!manga.genre.isNullOrEmpty()) {
                 Column(
                     verticalArrangement = Arrangement.Top,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .animateContentSize(
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessLow,
-                            ),
-                            alignment = Alignment.TopStart,
-                        ),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
