@@ -7,6 +7,7 @@ import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -61,14 +63,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -109,6 +112,7 @@ fun AnimeInfoBox(
     isStubSource: Boolean,
     onCoverClick: () -> Unit,
     doSearch: (query: String, global: Boolean) -> Unit,
+    resolvedCoverUrl: String?,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier) {
@@ -117,25 +121,36 @@ fun AnimeInfoBox(
             Color.Transparent,
             MaterialTheme.colorScheme.background,
         )
-        AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(anime)
-                .useBackground(true)
-                .crossfade(true)
-                .placeholderMemoryCacheKey(anime.thumbnailUrl)
-                .build(),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
+        if (resolvedCoverUrl != null) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(resolvedCoverUrl)
+                    .useBackground(true)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .matchParentSize()
+                    .blur(4.dp)
+                    .alpha(0.2f),
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                    )
+                    .blur(4.dp)
+                    .alpha(0.2f),
+            )
+        }
+
+        Box(
             modifier = Modifier
                 .matchParentSize()
-                .drawWithContent {
-                    drawContent()
-                    drawRect(
-                        brush = Brush.verticalGradient(colors = backdropGradientColors),
-                    )
-                }
-                .blur(4.dp)
-                .alpha(0.2f),
+                .background(Brush.verticalGradient(colors = backdropGradientColors)),
         )
 
         // Anime & source info
@@ -146,6 +161,7 @@ fun AnimeInfoBox(
                     anime = anime,
                     sourceName = sourceName,
                     isStubSource = isStubSource,
+                    coverUrl = resolvedCoverUrl,
                     onCoverClick = onCoverClick,
                     doSearch = doSearch,
                 )
@@ -155,6 +171,7 @@ fun AnimeInfoBox(
                     anime = anime,
                     sourceName = sourceName,
                     isStubSource = isStubSource,
+                    coverUrl = resolvedCoverUrl,
                     onCoverClick = onCoverClick,
                     doSearch = doSearch,
                 )
@@ -360,6 +377,7 @@ private fun AnimeAndSourceTitlesLarge(
     anime: Anime,
     sourceName: String,
     isStubSource: Boolean,
+    coverUrl: String?,
     onCoverClick: () -> Unit,
     doSearch: (query: String, global: Boolean) -> Unit,
 ) {
@@ -369,16 +387,22 @@ private fun AnimeAndSourceTitlesLarge(
             .padding(start = 16.dp, top = appBarPadding + 16.dp, end = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        ItemCover.Book(
-            modifier = Modifier.fillMaxWidth(0.65f),
-            data = ImageRequest.Builder(LocalContext.current)
-                .data(anime)
-                .crossfade(true)
-                .placeholderMemoryCacheKey(anime.thumbnailUrl)
-                .build(),
-            contentDescription = stringResource(MR.strings.manga_cover),
-            onClick = onCoverClick,
-        )
+        if (coverUrl != null) {
+            ItemCover.Book(
+                modifier = Modifier.fillMaxWidth(0.65f),
+                data = ImageRequest.Builder(LocalContext.current)
+                    .data(coverUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = stringResource(MR.strings.manga_cover),
+                onClick = onCoverClick,
+            )
+        } else {
+            AnimeCoverPlaceholder(
+                modifier = Modifier.fillMaxWidth(0.65f),
+                onClick = onCoverClick,
+            )
+        }
         Spacer(modifier = Modifier.height(16.dp))
         AnimeContentInfo(
             title = anime.title,
@@ -399,6 +423,7 @@ private fun AnimeAndSourceTitlesSmall(
     anime: Anime,
     sourceName: String,
     isStubSource: Boolean,
+    coverUrl: String?,
     onCoverClick: () -> Unit,
     doSearch: (query: String, global: Boolean) -> Unit,
 ) {
@@ -409,18 +434,26 @@ private fun AnimeAndSourceTitlesSmall(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ItemCover.Book(
-            modifier = Modifier
-                .sizeIn(maxWidth = 100.dp)
-                .align(Alignment.Top),
-            data = ImageRequest.Builder(LocalContext.current)
-                .data(anime)
-                .crossfade(true)
-                .placeholderMemoryCacheKey(anime.thumbnailUrl)
-                .build(),
-            contentDescription = stringResource(MR.strings.manga_cover),
-            onClick = onCoverClick,
-        )
+        if (coverUrl != null) {
+            ItemCover.Book(
+                modifier = Modifier
+                    .sizeIn(maxWidth = 100.dp)
+                    .align(Alignment.Top),
+                data = ImageRequest.Builder(LocalContext.current)
+                    .data(coverUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = stringResource(MR.strings.manga_cover),
+                onClick = onCoverClick,
+            )
+        } else {
+            AnimeCoverPlaceholder(
+                modifier = Modifier
+                    .sizeIn(maxWidth = 100.dp)
+                    .align(Alignment.Top),
+                onClick = onCoverClick,
+            )
+        }
         Column(
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
@@ -675,6 +708,23 @@ private fun TagsChip(
             label = { Text(text = text, style = MaterialTheme.typography.bodySmall) },
         )
     }
+}
+
+@Composable
+private fun AnimeCoverPlaceholder(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .aspectRatio(ItemCover.Book.ratio)
+            .clip(MaterialTheme.shapes.extraSmall)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+            .clickable(
+                role = Role.Button,
+                onClick = onClick,
+            ),
+    )
 }
 
 @Composable

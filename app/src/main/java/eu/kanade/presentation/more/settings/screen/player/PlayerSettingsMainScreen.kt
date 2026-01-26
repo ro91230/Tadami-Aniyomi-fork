@@ -79,6 +79,7 @@ class PlayerSettingsMainScreen(private val mainSettings: Boolean) : Screen() {
         val backPress = LocalBackPress.currentOrThrow
         val containerColor = if (twoPane) getPalerSurface() else MaterialTheme.colorScheme.surface
         val topBarState = rememberTopAppBarState()
+        val items = remember { buildItems() }
 
         Scaffold(
             topBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(topBarState),
@@ -179,7 +180,7 @@ class PlayerSettingsMainScreen(private val mainSettings: Boolean) : Screen() {
         val screen: VoyagerScreen,
     )
 
-    private val items = listOf(
+    private fun buildItems(): List<Item> = listOf(
         Item(
             titleRes = AYMR.strings.pref_player_internal,
             subtitleRes = AYMR.strings.pref_player_internal_summary,

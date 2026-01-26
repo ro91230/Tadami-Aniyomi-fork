@@ -99,6 +99,7 @@ import tachiyomi.domain.items.season.service.seasonSortAlphabetically
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.source.anime.service.AnimeSourceManager
 import tachiyomi.domain.track.anime.interactor.GetAnimeTracks
+import tachiyomi.domain.shikimori.model.ShikimoriMetadata
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.aniyomi.AYMR
 import tachiyomi.source.local.entries.anime.isLocal
@@ -142,6 +143,8 @@ class AnimeScreenModel(
     private val filterEpisodesForDownload: FilterEpisodesForDownload = Injekt.get(),
     internal val setAnimeViewerFlags: SetAnimeViewerFlags = Injekt.get(),
     private val preferenceStore: tachiyomi.core.common.preference.PreferenceStore = Injekt.get(),
+    private val getShikimoriMetadata: eu.kanade.domain.shikimori.interactor.GetShikimoriMetadata = Injekt.get(),
+    private val shikimoriMetadataCache: tachiyomi.data.shikimori.ShikimoriMetadataCache = Injekt.get(),
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : StateScreenModel<AnimeScreenModel.State>(State.Loading) {
 
@@ -270,6 +273,11 @@ class AnimeScreenModel(
             }
             // Start observe tracking since it only needs animeId
             observeTrackers()
+
+            // Load Shikimori metadata in parallel
+            screenModelScope.launchIO {
+                loadShikimoriMetadata(animeId)
+            }
 
             // Fetch info-episodes when needed
             if (screenModelScope.isActive) {
@@ -1535,6 +1543,75 @@ class AnimeScreenModel(
 
     // Track sheet - end
 
+    // Shikimori integration - start
+
+    private suspend fun loadShikimoriMetadata(animeId: Long) {
+        val currentState = successState ?: return
+
+        // Show loading
+        updateSuccessState {
+            it.copy(isShikimoriLoading = true, shikimoriError = null)
+        }
+
+        try {
+            val metadata = getShikimoriMetadata.await(currentState.anime)
+
+            updateSuccessState {
+                it.copy(
+                    shikimoriMetadata = metadata,
+                    isShikimoriLoading = false,
+                    shikimoriError = if (metadata == null || !metadata.hasData()) {
+                        ShikimoriError.NotFound
+                    } else {
+                        null
+                    },
+                )
+            }
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e) { "Failed to load Shikimori metadata for anime $animeId" }
+
+            // Try to show cached data on error
+            val cached = shikimoriMetadataCache.get(animeId)
+
+            // Check if error is "Not authenticated"
+            val error = when {
+                e.isNotAuthenticatedShikimori() ->
+                    ShikimoriError.NotAuthenticated
+                else -> ShikimoriError.NetworkError
+            }
+
+            updateSuccessState {
+                it.copy(
+                    shikimoriMetadata = cached,
+                    isShikimoriLoading = false,
+                    shikimoriError = error,
+                )
+            }
+        }
+    }
+
+    fun retryShikimoriLoad() {
+        val currentState = successState ?: return
+        screenModelScope.launchIO {
+            loadShikimoriMetadata(currentState.anime.id)
+        }
+    }
+
+    // Shikimori integration - end
+
+    private fun Throwable.isNotAuthenticatedShikimori(): Boolean {
+        var current: Throwable? = this
+        while (current != null) {
+            val message = current.message.orEmpty()
+            if (message.contains("Not authenticated", ignoreCase = true) &&
+                message.contains("Shikimori", ignoreCase = true)) {
+                return true
+            }
+            current = current.cause
+        }
+        return false
+    }
+
     sealed interface Dialog {
         data class ChangeCategory(
             val anime: Anime,
@@ -1613,6 +1690,7 @@ class AnimeScreenModel(
     sealed interface ShikimoriError {
         data object NetworkError : ShikimoriError
         data object NotFound : ShikimoriError
+        data object NotAuthenticated : ShikimoriError
         data object Disabled : ShikimoriError
     }
 
@@ -1637,6 +1715,10 @@ class AnimeScreenModel(
                 anime.nextEpisodeToAir,
                 anime.nextEpisodeAiringAt,
             ),
+            // Shikimori integration
+            val shikimoriMetadata: ShikimoriMetadata? = null,
+            val isShikimoriLoading: Boolean = false,
+            val shikimoriError: ShikimoriError? = null,
         ) : State {
 
             val processedSeasons by lazy {
