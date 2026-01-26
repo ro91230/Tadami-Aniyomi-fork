@@ -1,10 +1,14 @@
 package eu.kanade.presentation.entries.anime
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -30,13 +35,18 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +58,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.relocation.BringIntoViewRequester
 import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.presentation.components.EntryDownloadDropdownMenu
 import eu.kanade.presentation.entries.DownloadAction
@@ -66,6 +77,7 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import java.time.Instant
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -111,6 +123,8 @@ fun AnimeScreenAuroraImpl(
     onDubbingClicked: (() -> Unit)?,
     selectedDubbing: String?,
     onDownloadLongClick: ((Episode) -> Unit)?,
+    onRetryShikimori: () -> Unit,
+    useShikimoriCovers: Boolean,
 ) {
     val anime = state.anime
     val episodes = state.episodeListItems
@@ -118,9 +132,21 @@ fun AnimeScreenAuroraImpl(
     val configuration = LocalConfiguration.current
     val screenHeight = configuration.screenHeightDp.dp
 
+    val resolvedCoverUrl = remember(
+        state.anime,
+        state.isShikimoriLoading,
+        state.shikimoriError,
+        state.shikimoriMetadata,
+        useShikimoriCovers,
+    ) {
+        resolveCoverUrl(state, useShikimoriCovers)
+    }
+
     val lazyListState = rememberLazyListState()
     val scrollOffset by remember { derivedStateOf { lazyListState.firstVisibleItemScrollOffset } }
     val firstVisibleItemIndex by remember { derivedStateOf { lazyListState.firstVisibleItemIndex } }
+    val statsBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val coroutineScope = rememberCoroutineScope()
 
     // State for episodes expansion
     var episodesExpanded by remember { mutableStateOf(false) }
@@ -129,6 +155,26 @@ fun AnimeScreenAuroraImpl(
     // State for description and genres expansion
     var descriptionExpanded by remember { mutableStateOf(false) }
     var genresExpanded by remember { mutableStateOf(false) }
+
+    // One-time Shikimori hint flag
+    var shikimoriHintShown by remember { mutableStateOf(false) }
+
+    // One-time Snackbar when Shikimori is disabled
+    LaunchedEffect(state.shikimoriError) {
+        if (state.shikimoriError == AnimeScreenModel.ShikimoriError.NotAuthenticated &&
+            !shikimoriHintShown &&
+            onTrackingClicked != null) {
+            val result = snackbarHostState.showSnackbar(
+                message = "Авторизуйтесь в Shikimori для рейтинга, типа и обложки",
+                actionLabel = "Войти",
+                duration = SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                onTrackingClicked.invoke()
+            }
+            shikimoriHintShown = true
+        }
+    }
 
     // Check if there are unseen episodes
     val hasUnseenEpisodes = remember(episodes) {
@@ -141,43 +187,75 @@ fun AnimeScreenAuroraImpl(
             anime = anime,
             scrollOffset = scrollOffset,
             firstVisibleItemIndex = firstVisibleItemIndex,
+            resolvedCoverUrl = resolvedCoverUrl,
         )
 
         // Scrollable content
         LazyColumn(
             state = lazyListState,
-            contentPadding = PaddingValues(
-                top = screenHeight,
-                bottom = 100.dp,
-            ),
+            contentPadding = PaddingValues(bottom = 100.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            // Info card (description and stats)
+            // Spacer for poster/hero area
             item {
-                Spacer(modifier = Modifier.height(16.dp))
-                AnimeInfoCard(
-                    anime = anime,
-                    episodeCount = episodes.size,
-                    nextUpdate = nextUpdate,
-                    onTagSearch = onTagSearch,
-                    descriptionExpanded = descriptionExpanded,
-                    genresExpanded = genresExpanded,
-                    onToggleDescription = { descriptionExpanded = !descriptionExpanded },
-                    onToggleGenres = { genresExpanded = !genresExpanded },
-                )
+                Spacer(modifier = Modifier.height(screenHeight))
             }
 
-            // Action buttons card
+            // Info and Action cards merged into one item for layout stability
             item {
-                Spacer(modifier = Modifier.height(12.dp))
-                AnimeActionCard(
-                    anime = anime,
-                    trackingCount = state.trackingCount,
-                    onAddToLibraryClicked = onAddToLibraryClicked,
-                    onWebViewClicked = onWebViewClicked,
-                    onTrackingClicked = onTrackingClicked,
-                    onShareClicked = onShareClicked,
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessLow,
+                            ),
+                            alignment = Alignment.TopStart,
+                        ),
+                ) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    AnimeInfoCard(
+                        anime = anime,
+                        episodeCount = episodes.size,
+                        nextUpdate = nextUpdate,
+                        onTagSearch = onTagSearch,
+                        descriptionExpanded = descriptionExpanded,
+                        genresExpanded = genresExpanded,
+                        onToggleDescription = {
+                            descriptionExpanded = !descriptionExpanded
+                            if (descriptionExpanded) {
+                                coroutineScope.launch {
+                                    statsBringIntoViewRequester.bringIntoView()
+                                }
+                            }
+                        },
+                        onToggleGenres = {
+                            genresExpanded = !genresExpanded
+                        },
+                        shikimoriMetadata = state.shikimoriMetadata,
+                        isShikimoriLoading = state.isShikimoriLoading,
+                        shikimoriError = state.shikimoriError,
+                        onRetryShikimori = onRetryShikimori,
+                        onLoginClick = {
+                            onTrackingClicked?.invoke()
+                        },
+
+                        statsRequester = statsBringIntoViewRequester,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    AnimeActionCard(
+                        anime = anime,
+                        trackingCount = state.trackingCount,
+                        onAddToLibraryClicked = onAddToLibraryClicked,
+                        onWebViewClicked = onWebViewClicked,
+                        onTrackingClicked = onTrackingClicked,
+                        onShareClicked = onShareClicked,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
 
             // Episodes header
@@ -279,6 +357,7 @@ fun AnimeScreenAuroraImpl(
                         onContinueWatching = onContinueWatching,
                         onDubbingClicked = onDubbingClicked,
                         selectedDubbing = selectedDubbing,
+                        shikimoriMetadata = state.shikimoriMetadata,
                     )
                 }
             }
@@ -417,5 +496,35 @@ fun AnimeScreenAuroraImpl(
                 }
             }
         }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(WindowInsets.systemBars.asPaddingValues()),
+        )
+
+    }
+}
+
+private fun resolveCoverUrl(
+    state: AnimeScreenModel.State.Success,
+    useShikimoriCovers: Boolean,
+): String? {
+    if (!useShikimoriCovers) {
+        return state.anime.thumbnailUrl
+    }
+
+    if (state.isShikimoriLoading) {
+        return null
+    }
+
+    val shikimoriCoverUrl = state.shikimoriMetadata?.coverUrl?.takeIf { it.isNotBlank() }
+    return when (state.shikimoriError) {
+        null -> shikimoriCoverUrl ?: state.anime.thumbnailUrl
+        AnimeScreenModel.ShikimoriError.NetworkError,
+        AnimeScreenModel.ShikimoriError.NotFound,
+        AnimeScreenModel.ShikimoriError.NotAuthenticated,
+        AnimeScreenModel.ShikimoriError.Disabled,
+        -> state.anime.thumbnailUrl
     }
 }

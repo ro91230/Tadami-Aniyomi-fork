@@ -1,8 +1,5 @@
 package eu.kanade.presentation.entries.anime.components.aurora
 
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,10 +12,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,7 +35,9 @@ import androidx.compose.ui.unit.sp
 import eu.kanade.presentation.entries.manga.components.aurora.GlassmorphismCard
 import eu.kanade.presentation.theme.AuroraTheme
 import eu.kanade.tachiyomi.animesource.model.SAnime
+import eu.kanade.tachiyomi.ui.entries.anime.AnimeScreenModel
 import tachiyomi.domain.entries.anime.model.Anime
+import tachiyomi.domain.shikimori.model.ShikimoriMetadata
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.aniyomi.AYMR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -41,8 +45,33 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 /**
+ * Filter out Shikimori metadata from description (Original, Rating, etc.).
+ * Plugins like AnimeGO add this info, but we display it separately in UI.
+ */
+private fun filterDescription(description: String?): String? {
+    if (description.isNullOrBlank()) return null
+
+    val patternsToFilter = listOf(
+        "Original:", "Оригинал:",
+        "Original Title:", "Оригинальное название:",
+        "Rating:", "Рейтинг:",
+        "Shikimori", "сикимори",
+    )
+
+    return description.lines()
+        .filterNot { line ->
+            patternsToFilter.any { pattern ->
+                line.contains(pattern, ignoreCase = true)
+            }
+        }
+        .joinToString("\n")
+        .trim()
+        .takeIf { it.isNotEmpty() }
+}
+
+/**
  * Info card containing description, stats, and genre tags for anime.
- * Displays: Rating (placeholder), Type (placeholder), Status, Next Update
+ * Displays: Rating (from Shikimori), Type (from Shikimori), Status, Next Update
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -56,6 +85,13 @@ fun AnimeInfoCard(
     onToggleDescription: () -> Unit,
     onToggleGenres: () -> Unit,
     modifier: Modifier = Modifier,
+    statsRequester: BringIntoViewRequester? = null,
+    // Shikimori integration
+    shikimoriMetadata: ShikimoriMetadata? = null,
+    isShikimoriLoading: Boolean = false,
+    shikimoriError: AnimeScreenModel.ShikimoriError? = null,
+    onRetryShikimori: () -> Unit = {},
+    onLoginClick: () -> Unit = {},
 ) {
     val colors = AuroraTheme.colors
 
@@ -68,12 +104,16 @@ fun AnimeInfoCard(
         }
     }
 
-    // Determine if anime is completed
-    val isCompleted = anime.status.toInt() in listOf(
-        SAnime.COMPLETED,
-        SAnime.PUBLISHING_FINISHED,
-        SAnime.CANCELLED,
-    )
+    // Determine if anime is completed (prefer Shikimori status)
+    val isCompleted = when {
+        shikimoriMetadata?.status?.lowercase() == "released" -> true
+        shikimoriMetadata?.status?.lowercase() == "discontinued" -> true
+        else -> anime.status.toInt() in listOf(
+            SAnime.COMPLETED,
+            SAnime.PUBLISHING_FINISHED,
+            SAnime.CANCELLED,
+        )
+    }
 
     GlassmorphismCard(
         modifier = modifier,
@@ -86,28 +126,59 @@ fun AnimeInfoCard(
         ) {
             // Stats grid - Rating, Type, Status, optionally Next Update
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .let { base ->
+                        if (statsRequester != null) {
+                            base.bringIntoViewRequester(statsRequester)
+                        } else {
+                            base
+                        }
+                    },
                 horizontalArrangement = if (isCompleted) Arrangement.SpaceBetween else Arrangement.SpaceEvenly,
             ) {
-                // Rating (placeholder for Shikimori integration)
+                // Rating (from Shikimori)
                 StatItem(
-                    value = stringResource(MR.strings.not_applicable),
+                    value = when {
+                        isShikimoriLoading -> "..."
+                        shikimoriError == AnimeScreenModel.ShikimoriError.NotAuthenticated -> stringResource(MR.strings.not_applicable)
+                        else -> shikimoriMetadata?.score?.let { String.format("%.1f", it) } ?: stringResource(MR.strings.not_applicable)
+                    },
                     label = "РЕЙТИНГ",
                     modifier = if (isCompleted) Modifier else Modifier.weight(1f),
+                    isLoading = isShikimoriLoading,
+                    error = shikimoriError,
+                    onRetry = onRetryShikimori,
+                    onLoginClick = onLoginClick,
                 )
 
-                // Type (placeholder for Shikimori integration)
+                // Type (from Shikimori)
                 StatItem(
-                    value = stringResource(MR.strings.not_applicable),
+                    value = when {
+                        isShikimoriLoading -> "..."
+                        shikimoriError == AnimeScreenModel.ShikimoriError.NotAuthenticated -> stringResource(MR.strings.not_applicable)
+                        else -> shikimoriMetadata?.kind?.uppercase() ?: stringResource(MR.strings.not_applicable)
+                    },
                     label = "ТИП",
                     modifier = if (isCompleted) Modifier else Modifier.weight(1f),
+                    isLoading = isShikimoriLoading,
+                    error = shikimoriError,
+                    onRetry = onRetryShikimori,
+                    onLoginClick = onLoginClick,
                 )
 
-                // Status
+                // Status (from Shikimori if available, otherwise from source)
                 StatItem(
-                    value = AnimeStatusFormatter.formatStatus(anime.status),
+                    value = when {
+                        isShikimoriLoading -> "..."
+                        shikimoriError == AnimeScreenModel.ShikimoriError.NotAuthenticated -> AnimeStatusFormatter.formatStatus(anime.status)
+                        else -> shikimoriMetadata?.getFormattedStatus() ?: AnimeStatusFormatter.formatStatus(anime.status)
+                    },
                     label = "СТАТУС",
                     modifier = if (isCompleted) Modifier else Modifier.weight(1f),
+                    isLoading = isShikimoriLoading,
+                    error = shikimoriError,
+                    onRetry = onRetryShikimori,
                 )
 
                 // Next Update - only show if not completed
@@ -127,22 +198,19 @@ fun AnimeInfoCard(
             // Description
             Column(
                 verticalArrangement = Arrangement.Top,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .animateContentSize(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow,
-                        ),
-                    ),
+                modifier = Modifier.fillMaxWidth(),
             ) {
+                val filteredDescription = remember(anime.description) {
+                    filterDescription(anime.description)
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Top,
                 ) {
                     Text(
-                        text = anime.description ?: "Описание отсутствует",
+                        text = filteredDescription ?: "Описание отсутствует",
                         color = colors.textPrimary.copy(alpha = 0.9f),
                         fontSize = 14.sp,
                         lineHeight = 22.sp,
@@ -151,7 +219,7 @@ fun AnimeInfoCard(
                         modifier = Modifier.weight(1f),
                     )
 
-                    if ((anime.description?.length ?: 0) > 200) {
+                    if ((filteredDescription?.length ?: 0) > 200) {
                         Icon(
                             imageVector = if (descriptionExpanded) {
                                 Icons.Filled.KeyboardArrowUp
@@ -172,15 +240,9 @@ fun AnimeInfoCard(
             if (!anime.genre.isNullOrEmpty()) {
                 Column(
                     verticalArrangement = Arrangement.Top,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .animateContentSize(
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessLow,
-                            ),
-                        ),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -237,6 +299,10 @@ private fun StatItem(
     value: String,
     label: String,
     modifier: Modifier = Modifier,
+    isLoading: Boolean = false,
+    error: AnimeScreenModel.ShikimoriError? = null,
+    onRetry: () -> Unit = {},
+    onLoginClick: () -> Unit = {},
 ) {
     val colors = AuroraTheme.colors
 
@@ -244,12 +310,45 @@ private fun StatItem(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier,
     ) {
-        Text(
-            text = value,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = colors.textPrimary,
-        )
+        // Value with optional icon
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = value,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = colors.textPrimary,
+            )
+
+            // Show retry icon for NetworkError
+            if (error == AnimeScreenModel.ShikimoriError.NetworkError) {
+                Spacer(modifier = Modifier.padding(start = 4.dp))
+                Icon(
+                    imageVector = Icons.Filled.Refresh,
+                    contentDescription = "Retry",
+                    tint = colors.accent.copy(alpha = 0.7f),
+                    modifier = Modifier
+                        .size(14.dp)
+                        .clickable { onRetry() },
+                )
+            }
+
+            // Show info icon for Disabled (user not logged in) - clickable
+            if (error == AnimeScreenModel.ShikimoriError.NotAuthenticated && !isLoading) {
+                Spacer(modifier = Modifier.padding(start = 4.dp))
+                Icon(
+                    imageVector = Icons.Filled.Info,
+                    contentDescription = "Авторизуйтесь в Shikimori",
+                    tint = colors.textSecondary.copy(alpha = 0.6f),
+                    modifier = Modifier
+                        .size(14.dp)
+                        .clickable { onLoginClick() },
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label.uppercase(),
