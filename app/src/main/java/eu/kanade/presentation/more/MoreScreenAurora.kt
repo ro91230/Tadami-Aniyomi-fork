@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.QueryStats
@@ -58,6 +59,7 @@ fun MoreScreenAurora(
     onSettingsClick: () -> Unit,
     onAboutClick: () -> Unit,
     onStatsClick: () -> Unit,
+    onAchievementsClick: () -> Unit,
     onHelpClick: () -> Unit,
 ) {
     val colors = AuroraTheme.colors
@@ -100,6 +102,12 @@ fun MoreScreenAurora(
                     title = stringResource(AYMR.strings.aurora_statistics),
                     icon = Icons.Filled.QueryStats,
                     onClick = onStatsClick,
+                )
+
+                AuroraSettingItem(
+                    title = stringResource(AYMR.strings.aurora_achievements),
+                    icon = Icons.Filled.EmojiEvents,
+                    onClick = onAchievementsClick,
                 )
 
                 AuroraSettingItem(

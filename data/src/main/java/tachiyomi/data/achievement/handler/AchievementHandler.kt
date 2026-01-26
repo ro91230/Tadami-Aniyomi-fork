@@ -24,6 +24,12 @@ class AchievementHandler(
     private val streakChecker: StreakAchievementChecker,
 ) {
 
+    interface AchievementUnlockCallback {
+        fun onAchievementUnlocked(achievement: Achievement)
+    }
+
+    var unlockCallback: AchievementUnlockCallback? = null
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     fun start() {
@@ -210,6 +216,6 @@ class AchievementHandler(
 
     private fun onAchievementUnlocked(achievement: Achievement) {
         logcat(LogPriority.INFO) { "Achievement unlocked: ${achievement.title} (+${achievement.points} points)" }
-        // TODO: Show notification in Phase 4
+        unlockCallback?.onAchievementUnlocked(achievement)
     }
 }
