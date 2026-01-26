@@ -180,3 +180,15 @@ WHERE _id = :mangaId;
 
 selectLastInsertedRowId:
 SELECT last_insert_rowid();
+
+-- Get all genres from library manga
+getLibraryGenres:
+SELECT genre
+FROM mangas
+WHERE favorite = 1 AND genre IS NOT NULL;
+
+-- Get all sources from library manga
+getLibrarySources:
+SELECT source
+FROM mangas
+WHERE favorite = 1;

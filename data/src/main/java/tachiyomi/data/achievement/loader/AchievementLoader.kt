@@ -5,16 +5,20 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import tachiyomi.data.achievement.handler.AchievementCalculator
 import tachiyomi.data.achievement.model.AchievementDefinitions
 import tachiyomi.data.achievement.model.AchievementJson
 import tachiyomi.domain.achievement.model.Achievement
 import tachiyomi.domain.achievement.model.AchievementCategory
 import tachiyomi.domain.achievement.model.AchievementType
 import tachiyomi.domain.achievement.repository.AchievementRepository
+import logcat.LogPriority
+import logcat.logcat
 
 class AchievementLoader(
     private val context: Context,
     private val repository: AchievementRepository,
+    private val calculator: AchievementCalculator? = null,
     private val json: Json = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true
@@ -24,6 +28,7 @@ class AchievementLoader(
     companion object {
         private const val PREFS_NAME = "achievement_loader"
         private const val KEY_VERSION = "json_version"
+        private const val KEY_CALCULATION_VERSION = "calculation_version"
     }
 
     suspend fun loadAchievements(): Result<Int> {
@@ -47,6 +52,20 @@ class AchievementLoader(
             // Save version
             saveVersion(definitions.version)
 
+            // Trigger retroactive calculation on first load or version upgrade
+            if (shouldCalculateInitialProgress(definitions.version)) {
+                calculator?.let {
+                    logcat(LogPriority.INFO) { "Running retroactive achievement calculation..." }
+                    val result = it.calculateInitialProgress()
+                    if (result.success) {
+                        saveCalculationVersion(definitions.version)
+                        logcat(LogPriority.INFO) { "Retroactive calculation completed: ${result.achievementsUnlocked} achievements unlocked" }
+                    } else {
+                        logcat(LogPriority.ERROR) { "Retroactive calculation failed: ${result.error}" }
+                    }
+                }
+            }
+
             Result.success(inserted)
         } catch (e: Exception) {
             Result.failure(e)
@@ -66,6 +85,19 @@ class AchievementLoader(
 
     private fun saveVersion(version: Int) {
         getPreferences().edit().putInt(KEY_VERSION, version).apply()
+    }
+
+    private fun shouldCalculateInitialProgress(jsonVersion: Int): Boolean {
+        val calculationVersion = getCalculationVersion()
+        return calculationVersion < jsonVersion
+    }
+
+    private fun getCalculationVersion(): Int {
+        return getPreferences().getInt(KEY_CALCULATION_VERSION, 0)
+    }
+
+    private fun saveCalculationVersion(version: Int) {
+        getPreferences().edit().putInt(KEY_CALCULATION_VERSION, version).apply()
     }
 
     private fun getPreferences(): SharedPreferences {

@@ -13,14 +13,18 @@ class AchievementsDatabase(
     val achievementProgressQueries: Achievement_progressQueries
         get() = database.achievementProgressQueries
 
+    val achievementActivityLogQueries: Achievement_activity_logQueries
+        get() = database.achievementActivityLogQueries
+
     companion object {
         const val NAME = "achievements.db"
-        const val VERSION = 1L
+        const val VERSION = 2L
     }
 
     private val database = SqlDelightAchievementsDatabase(
         driver = driver,
         achievementsAdapter = AchievementsAdapter,
         achievement_progressAdapter = Achievement_progressAdapter,
+        achievement_activity_logAdapter = Achievement_activity_logAdapter,
     )
 }

@@ -203,6 +203,9 @@ import tachiyomi.domain.updates.anime.repository.AnimeUpdatesRepository
 import tachiyomi.domain.updates.manga.interactor.GetMangaUpdates
 import tachiyomi.domain.updates.manga.repository.MangaUpdatesRepository
 import tachiyomi.domain.achievement.repository.AchievementRepository
+import tachiyomi.data.achievement.handler.AchievementCalculator
+import tachiyomi.data.achievement.handler.checkers.DiversityAchievementChecker
+import tachiyomi.data.achievement.handler.checkers.StreakAchievementChecker
 import uy.kohesive.injekt.api.InjektModule
 import uy.kohesive.injekt.api.InjektRegistrar
 import uy.kohesive.injekt.api.addFactory
@@ -422,8 +425,11 @@ class DomainModule : InjektModule {
         addFactory { TrackSelect(get(), get()) }
 
         addSingletonFactory<AchievementRepository> { AchievementRepositoryImpl(get()) }
-        addSingletonFactory { AchievementLoader(get(), get(), get()) }
+        addSingletonFactory { DiversityAchievementChecker(get(), get()) }
+        addSingletonFactory { StreakAchievementChecker(get()) }
+        addSingletonFactory { AchievementCalculator(get(), get(), get(), get(), get()) }
+        addSingletonFactory { AchievementLoader(get(), get(), get(), get()) }
         addSingletonFactory { AchievementEventBus() }
-        addSingletonFactory { AchievementHandler(get(), get()) }
+        addSingletonFactory { AchievementHandler(get(), get(), get(), get()) }
     }
 }

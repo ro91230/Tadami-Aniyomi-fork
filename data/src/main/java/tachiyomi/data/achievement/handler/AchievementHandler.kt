@@ -6,6 +6,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import tachiyomi.data.achievement.handler.checkers.DiversityAchievementChecker
+import tachiyomi.data.achievement.handler.checkers.StreakAchievementChecker
 import tachiyomi.data.achievement.model.AchievementEvent
 import tachiyomi.domain.achievement.model.Achievement
 import tachiyomi.domain.achievement.model.AchievementCategory
@@ -18,6 +20,8 @@ import logcat.logcat
 class AchievementHandler(
     private val eventBus: AchievementEventBus,
     private val repository: AchievementRepository,
+    private val diversityChecker: DiversityAchievementChecker,
+    private val streakChecker: StreakAchievementChecker,
 ) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -50,6 +54,9 @@ class AchievementHandler(
     }
 
     private suspend fun handleChapterRead(event: AchievementEvent.ChapterRead) {
+        // Log activity for streak tracking
+        streakChecker.logChapterRead()
+
         val achievements = repository.getByCategory(AchievementCategory.MANGA)
             .first()
 
@@ -63,6 +70,9 @@ class AchievementHandler(
     }
 
     private suspend fun handleEpisodeWatched(event: AchievementEvent.EpisodeWatched) {
+        // Log activity for streak tracking
+        streakChecker.logEpisodeWatched()
+
         val achievements = repository.getByCategory(AchievementCategory.ANIME)
             .first()
 
@@ -172,12 +182,28 @@ class AchievementHandler(
                 }
             }
             AchievementType.DIVERSITY -> {
-                // TODO: Implement in Phase 3
-                currentProgress?.progress ?: 0
+                // Diversity achievements: calculate current diversity count
+                when {
+                    achievement.id.contains("genre", ignoreCase = true) -> {
+                        when {
+                            achievement.id.contains("manga", ignoreCase = true) -> diversityChecker.getMangaGenreDiversity()
+                            achievement.id.contains("anime", ignoreCase = true) -> diversityChecker.getAnimeGenreDiversity()
+                            else -> diversityChecker.getGenreDiversity()
+                        }
+                    }
+                    achievement.id.contains("source", ignoreCase = true) -> {
+                        when {
+                            achievement.id.contains("manga", ignoreCase = true) -> diversityChecker.getMangaSourceDiversity()
+                            achievement.id.contains("anime", ignoreCase = true) -> diversityChecker.getAnimeSourceDiversity()
+                            else -> diversityChecker.getSourceDiversity()
+                        }
+                    }
+                    else -> currentProgress?.progress ?: 0
+                }
             }
             AchievementType.STREAK -> {
-                // TODO: Implement in Phase 3
-                currentProgress?.progress ?: 0
+                // Streak achievements: calculate current streak
+                streakChecker.getCurrentStreak()
             }
         }
     }
