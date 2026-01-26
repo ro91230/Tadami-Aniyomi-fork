@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
@@ -27,13 +28,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.presentation.theme.AuroraTheme
+import tachiyomi.data.achievement.UnlockableManager
 import tachiyomi.domain.achievement.model.Achievement
 import tachiyomi.domain.achievement.model.AchievementProgress
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -43,6 +48,7 @@ fun AchievementDetailDialog(
     progress: AchievementProgress?,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    unlockableManager: UnlockableManager = Injekt.get(),
 ) {
     val colors = AuroraTheme.colors
     val isUnlocked = progress?.isUnlocked == true
@@ -63,35 +69,15 @@ fun AchievementDetailDialog(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 // Icon (large)
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .align(Alignment.CenterHorizontally)
-                        .clip(CircleShape)
-                        .background(
-                            if (isUnlocked) {
-                                colors.primary.copy(alpha = 0.2f)
-                            } else {
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                            },
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (achievement.isHidden && !isUnlocked) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = null,
-                            tint = colors.textSecondary,
-                            modifier = Modifier.size(40.dp),
-                        )
-                    } else if (isUnlocked) {
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = null,
-                            tint = colors.primary,
-                            modifier = Modifier.size(40.dp),
-                        )
-                    } else {
+                if (achievement.isHidden && !isUnlocked) {
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .align(Alignment.CenterHorizontally)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = null,
@@ -99,6 +85,16 @@ fun AchievementDetailDialog(
                             modifier = Modifier.size(40.dp),
                         )
                     }
+                } else {
+                    AchievementIcon(
+                        achievement = achievement,
+                        isUnlocked = isUnlocked,
+                        modifier = Modifier
+                            .size(80.dp)
+                            .align(Alignment.CenterHorizontally),
+                        size = 80.dp,
+                        useCircleShape = true,
+                    )
                 }
 
                 // Title
@@ -135,7 +131,7 @@ fun AchievementDetailDialog(
                 HorizontalDivider(color = colors.textSecondary.copy(alpha = 0.2f))
 
                 // Rewards
-                RewardSection(achievement, colors)
+                RewardSection(achievement, isUnlocked, unlockableManager, colors)
 
                 // Unlock date
                 if (progress?.unlockedAt != null) {
@@ -206,6 +202,8 @@ private fun ProgressSection(
 @Composable
 private fun RewardSection(
     achievement: Achievement,
+    isUnlocked: Boolean,
+    unlockableManager: UnlockableManager,
     colors: eu.kanade.presentation.theme.AuroraColors,
 ) {
     Column(
@@ -237,11 +235,35 @@ private fun RewardSection(
         }
 
         if (achievement.unlockableId != null) {
-            Text(
-                text = "Разблокировка: ${achievement.unlockableId}",
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.textSecondary,
-            )
+            val isUnlockableUnlocked = unlockableManager.isUnlockableUnlocked(achievement.unlockableId)
+            val unlockableName = unlockableManager.getUnlockableName(achievement.unlockableId)
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    imageVector = if (isUnlockableUnlocked) Icons.Default.Check else Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = if (isUnlockableUnlocked) Color(0xFF4CAF50) else colors.textSecondary,
+                    modifier = Modifier.size(18.dp),
+                )
+                Column {
+                    Text(
+                        text = unlockableName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (isUnlockableUnlocked) colors.textPrimary else colors.textSecondary,
+                        fontWeight = if (isUnlockableUnlocked) FontWeight.Bold else FontWeight.Normal,
+                    )
+                    if (!isUnlockableUnlocked) {
+                        Text(
+                            text = "Разблокируется при выполнении достижения",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.textSecondary.copy(alpha = 0.7f),
+                        )
+                    }
+                }
+            }
         }
     }
 }

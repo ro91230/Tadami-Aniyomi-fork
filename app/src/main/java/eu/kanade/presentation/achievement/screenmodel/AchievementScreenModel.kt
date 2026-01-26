@@ -13,12 +13,15 @@ import kotlinx.coroutines.launch
 import tachiyomi.domain.achievement.model.Achievement
 import tachiyomi.domain.achievement.model.AchievementCategory
 import tachiyomi.domain.achievement.model.AchievementProgress
+import tachiyomi.domain.achievement.model.UserPoints
 import tachiyomi.domain.achievement.repository.AchievementRepository
+import tachiyomi.data.achievement.handler.PointsManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 class AchievementScreenModel(
     private val repository: AchievementRepository = Injekt.get(),
+    private val pointsManager: PointsManager = Injekt.get(),
 ) : StateScreenModel<AchievementScreenState>(AchievementScreenState.Loading) {
 
     init {
@@ -26,10 +29,12 @@ class AchievementScreenModel(
             combine(
                 repository.getAll(),
                 repository.getAllProgress(),
-            ) { achievements, progress ->
+                pointsManager.subscribeToPoints(),
+            ) { achievements, progress, userPoints ->
                 AchievementScreenState.Success(
                     achievements = achievements,
                     progress = progress.associateBy { it.achievementId },
+                    userPoints = userPoints,
                     selectedCategory = AchievementCategory.BOTH,
                 )
             }.collect { state ->
@@ -75,6 +80,7 @@ sealed interface AchievementScreenState {
     data class Success(
         val achievements: List<Achievement> = emptyList(),
         val progress: Map<String, AchievementProgress> = emptyMap(),
+        val userPoints: UserPoints = UserPoints(),
         val selectedCategory: AchievementCategory = AchievementCategory.BOTH,
         val selectedAchievement: Achievement? = null,
     ) : AchievementScreenState {

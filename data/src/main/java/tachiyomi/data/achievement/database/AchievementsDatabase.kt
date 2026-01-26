@@ -16,9 +16,12 @@ class AchievementsDatabase(
     val achievementActivityLogQueries: Achievement_activity_logQueries
         get() = database.achievementActivityLogQueries
 
+    val userStatsQueries: User_statsQueries
+        get() = database.userStatsQueries
+
     companion object {
         const val NAME = "achievements.db"
-        const val VERSION = 2L
+        const val VERSION = 3L
     }
 
     private val database = SqlDelightAchievementsDatabase(
@@ -26,5 +29,6 @@ class AchievementsDatabase(
         achievementsAdapter = AchievementsAdapter,
         achievement_progressAdapter = Achievement_progressAdapter,
         achievement_activity_logAdapter = Achievement_activity_logAdapter,
+        user_statsAdapter = User_statsAdapter,
     )
 }

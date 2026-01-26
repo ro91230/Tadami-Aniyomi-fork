@@ -93,6 +93,8 @@ import tachiyomi.data.achievement.repository.AchievementRepositoryImpl
 import tachiyomi.data.achievement.loader.AchievementLoader
 import tachiyomi.data.achievement.handler.AchievementEventBus
 import tachiyomi.data.achievement.handler.AchievementHandler
+import tachiyomi.data.achievement.handler.PointsManager
+import tachiyomi.data.achievement.UnlockableManager
 import tachiyomi.domain.category.anime.interactor.CreateAnimeCategoryWithName
 import tachiyomi.domain.category.anime.interactor.DeleteAnimeCategory
 import tachiyomi.domain.category.anime.interactor.GetAnimeCategories
@@ -430,6 +432,8 @@ class DomainModule : InjektModule {
         addSingletonFactory { AchievementCalculator(get(), get(), get(), get(), get()) }
         addSingletonFactory { AchievementLoader(get(), get(), get(), get()) }
         addSingletonFactory { AchievementEventBus() }
-        addSingletonFactory { AchievementHandler(get(), get(), get(), get()) }
+        addSingletonFactory { PointsManager(get()) }
+        addSingletonFactory { UnlockableManager(get()) }
+        addSingletonFactory { AchievementHandler(get(), get(), get(), get(), get(), get()) }
     }
 }

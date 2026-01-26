@@ -125,11 +125,11 @@ private fun AchievementBannerItem(
         Row(
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = Icons.Filled.EmojiEvents,
-                contentDescription = null,
-                tint = Color.White,
+            AchievementIcon(
+                achievement = achievement,
+                isUnlocked = true,
                 modifier = Modifier.size(32.dp),
+                size = 32.dp,
             )
 
             Spacer(modifier = Modifier.size(16.dp))

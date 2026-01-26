@@ -6,6 +6,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import tachiyomi.data.achievement.UnlockableManager
 import tachiyomi.data.achievement.handler.checkers.DiversityAchievementChecker
 import tachiyomi.data.achievement.handler.checkers.StreakAchievementChecker
 import tachiyomi.data.achievement.model.AchievementEvent
@@ -22,6 +23,8 @@ class AchievementHandler(
     private val repository: AchievementRepository,
     private val diversityChecker: DiversityAchievementChecker,
     private val streakChecker: StreakAchievementChecker,
+    private val pointsManager: PointsManager,
+    private val unlockableManager: UnlockableManager,
 ) {
 
     interface AchievementUnlockCallback {
@@ -216,6 +219,24 @@ class AchievementHandler(
 
     private fun onAchievementUnlocked(achievement: Achievement) {
         logcat(LogPriority.INFO) { "Achievement unlocked: ${achievement.title} (+${achievement.points} points)" }
+
+        // Add points and increment counter
+        scope.launch {
+            try {
+                pointsManager.addPoints(achievement.points)
+                pointsManager.incrementUnlocked()
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "Failed to add points for achievement: ${achievement.title}" }
+            }
+
+            // Unlock achievement rewards (themes, badges, etc.)
+            try {
+                unlockableManager.unlockAchievementRewards(achievement)
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "Failed to unlock rewards for achievement: ${achievement.title}" }
+            }
+        }
+
         unlockCallback?.onAchievementUnlocked(achievement)
     }
 }

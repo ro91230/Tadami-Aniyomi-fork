@@ -85,34 +85,14 @@ fun AchievementCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // Achievement Icon
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(
-                            if (isUnlocked) {
-                                colors.primary.copy(alpha = 0.2f)
-                            } else {
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                            },
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (achievement.isHidden && !isUnlocked) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = null,
-                            tint = colors.textSecondary,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    } else if (isUnlocked) {
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = null,
-                            tint = colors.primary,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    } else {
+                if (achievement.isHidden && !isUnlocked) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = null,
@@ -120,6 +100,13 @@ fun AchievementCard(
                             modifier = Modifier.size(24.dp),
                         )
                     }
+                } else {
+                    AchievementIcon(
+                        achievement = achievement,
+                        isUnlocked = isUnlocked,
+                        modifier = Modifier.size(48.dp),
+                        size = 48.dp,
+                    )
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
