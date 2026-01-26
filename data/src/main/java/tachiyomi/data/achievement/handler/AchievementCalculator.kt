@@ -123,10 +123,10 @@ class AchievementCalculator(
                 duration = duration,
             )
         } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Achievement calculation failed: ${e.message}" }
+            logcat(LogPriority.ERROR) { "Achievement calculation failed: ${e.message}" }
             return CalculationResult(
                 success = false,
-                error = e.message,
+                error = e.message ?: "Unknown error",
             )
         }
     }
@@ -134,12 +134,12 @@ class AchievementCalculator(
     private suspend fun getTotalConsumed(): Pair<Long, Long> {
         // Get total chapters read from manga history
         val mangaCount = mangaHandler.awaitOneOrNull {
-            historyQueries.getTotalChaptersRead { count -> count ?: 0L }
+            historyQueries.getTotalChaptersRead()
         } ?: 0L
 
         // Get total episodes watched from anime history
         val animeCount = animeHandler.awaitOneOrNull {
-            animehistoryQueries.getTotalEpisodesWatched { count -> count ?: 0L }
+            animehistoryQueries.getTotalEpisodesWatched()
         } ?: 0L
 
         return Pair(mangaCount, animeCount)
@@ -174,15 +174,15 @@ class AchievementCalculator(
         return when {
             achievement.id.contains("genre", ignoreCase = true) -> {
                 when {
-                    achievement.id.contains("manga", ignoreCase = true) -> diversityChecker.getMangaGenreDiversity()
-                    achievement.id.contains("anime", ignoreCase = true) -> diversityChecker.getAnimeGenreDiversity()
+                    achievement.id.contains("manga", ignoreCase = true) -> genreCount
+                    achievement.id.contains("anime", ignoreCase = true) -> genreCount
                     else -> genreCount
                 }
             }
             achievement.id.contains("source", ignoreCase = true) -> {
                 when {
-                    achievement.id.contains("manga", ignoreCase = true) -> diversityChecker.getMangaSourceDiversity()
-                    achievement.id.contains("anime", ignoreCase = true) -> diversityChecker.getAnimeSourceDiversity()
+                    achievement.id.contains("manga", ignoreCase = true) -> sourceCount
+                    achievement.id.contains("anime", ignoreCase = true) -> sourceCount
                     else -> sourceCount
                 }
             }

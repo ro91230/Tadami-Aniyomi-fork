@@ -66,13 +66,13 @@ class AchievementHandler(
         scope.launch {
             eventBus.events
                 .catch { e ->
-                    logcat(LogPriority.ERROR, e) { "Error in achievement event stream" }
+                    logcat(LogPriority.ERROR) { "Error in achievement event stream: ${e.message}" }
                 }
                 .collect { event ->
                     try {
                         processEvent(event)
                     } catch (e: Exception) {
-                        logcat(LogPriority.ERROR, e) { "Error processing achievement event: $event" }
+                        logcat(LogPriority.ERROR) { "Error processing achievement event: $event, ${e.message}" }
                     }
                 }
         }
@@ -198,7 +198,7 @@ class AchievementHandler(
         }
     }
 
-    private fun calculateProgress(
+    private suspend fun calculateProgress(
         achievement: Achievement,
         event: AchievementEvent,
         currentProgress: AchievementProgress?,
@@ -265,14 +265,14 @@ class AchievementHandler(
                 pointsManager.addPoints(achievement.points)
                 pointsManager.incrementUnlocked()
             } catch (e: Exception) {
-                logcat(LogPriority.ERROR, e) { "Failed to add points for achievement: ${achievement.title}" }
+                logcat(LogPriority.ERROR) { "Failed to add points for achievement: ${achievement.title}, ${e.message}" }
             }
 
             // Unlock achievement rewards (themes, badges, etc.)
             try {
                 unlockableManager.unlockAchievementRewards(achievement)
             } catch (e: Exception) {
-                logcat(LogPriority.ERROR, e) { "Failed to unlock rewards for achievement: ${achievement.title}" }
+                logcat(LogPriority.ERROR) { "Failed to unlock rewards for achievement: ${achievement.title}, ${e.message}" }
             }
         }
 

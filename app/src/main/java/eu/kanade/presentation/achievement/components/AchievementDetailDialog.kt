@@ -112,9 +112,10 @@ fun AchievementDetailDialog(
 
                 // Description
                 if (!achievement.isHidden || isUnlocked) {
-                    if (!achievement.description.isNullOrBlank()) {
+                    val description = achievement.description
+                    if (!description.isNullOrBlank()) {
                         Text(
-                            text = achievement.description,
+                            text = description,
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.align(Alignment.CenterHorizontally),
                             color = colors.textSecondary,
@@ -134,10 +135,11 @@ fun AchievementDetailDialog(
                 RewardSection(achievement, isUnlocked, unlockableManager, colors)
 
                 // Unlock date
-                if (progress?.unlockedAt != null) {
+                val unlockedAt = progress?.unlockedAt
+                if (unlockedAt != null) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Разблокировано: ${formatDate(progress.unlockedAt)}",
+                        text = "Разблокировано: ${formatDate(unlockedAt)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = colors.textSecondary,
                         modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -176,7 +178,7 @@ private fun ProgressSection(
                 .fillMaxWidth()
                 .height(8.dp)
                 .clip(RoundedCornerShape(4.dp)),
-            color = colors.primary,
+            color = colors.accent,
             trackColor = MaterialTheme.colorScheme.surfaceVariant,
         )
 
@@ -193,7 +195,7 @@ private fun ProgressSection(
                 text = "${(progressFraction * 100).toInt()}%",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
-                color = colors.primary,
+                color = colors.accent,
             )
         }
     }
@@ -223,20 +225,21 @@ private fun RewardSection(
             Icon(
                 imageVector = Icons.Default.Star,
                 contentDescription = null,
-                tint = colors.primary,
+                tint = colors.accent,
                 modifier = Modifier.size(16.dp),
             )
             Text(
                 text = "+${achievement.points} очков",
                 style = MaterialTheme.typography.bodyMedium,
-                color = colors.primary,
+                color = colors.accent,
                 fontWeight = FontWeight.Bold,
             )
         }
 
-        if (achievement.unlockableId != null) {
-            val isUnlockableUnlocked = unlockableManager.isUnlockableUnlocked(achievement.unlockableId)
-            val unlockableName = unlockableManager.getUnlockableName(achievement.unlockableId)
+        val unlockableId = achievement.unlockableId
+        if (unlockableId != null) {
+            val isUnlockableUnlocked = unlockableManager.isUnlockableUnlocked(unlockableId)
+            val unlockableName = unlockableManager.getUnlockableName(unlockableId)
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,

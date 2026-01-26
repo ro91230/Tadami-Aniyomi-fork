@@ -7,28 +7,16 @@ class AchievementsDatabase(
     private val driver: AndroidSqliteDriver,
 ) {
 
-    val achievementsQueries: AchievementsQueries
+    val achievementsQueries
         get() = database.achievementsQueries
 
-    val achievementProgressQueries: Achievement_progressQueries
-        get() = database.achievementProgressQueries
-
-    val achievementActivityLogQueries: Achievement_activity_logQueries
-        get() = database.achievementActivityLogQueries
-
-    val userStatsQueries: User_statsQueries
-        get() = database.userStatsQueries
+    val achievementProgressQueries
+        get() = database.achievement_progressQueries
 
     companion object {
         const val NAME = "achievements.db"
         const val VERSION = 4L
     }
 
-    private val database = SqlDelightAchievementsDatabase(
-        driver = driver,
-        achievementsAdapter = AchievementsAdapter,
-        achievement_progressAdapter = Achievement_progressAdapter,
-        achievement_activity_logAdapter = Achievement_activity_logAdapter,
-        user_statsAdapter = User_statsAdapter,
-    )
+    private val database = SqlDelightAchievementsDatabase(driver)
 }

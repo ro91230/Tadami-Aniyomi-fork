@@ -75,10 +75,10 @@ class AchievementLoader(
     }
 
     private suspend fun loadJsonFromAssets(): AchievementDefinitions = withContext(Dispatchers.IO) {
-        val json = context.assets.open("achievements/achievements.json")
+        val jsonString = context.assets.open("achievements/achievements.json")
             .bufferedReader()
             .use { it.readText() }
-        json.decodeFromString<AchievementDefinitions>(json)
+        json.decodeFromString<AchievementDefinitions>(jsonString)
     }
 
     private fun getCurrentVersion(): Int {

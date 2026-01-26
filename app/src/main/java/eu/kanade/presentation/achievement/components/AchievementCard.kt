@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -58,20 +59,14 @@ fun AchievementCard(
                 colors.glass.copy(alpha = 0.4f)
             },
         ),
-        border = CardDefaults.cardBorder(
-            border = if (colors.isDark) {
-                androidx.compose.foundation.BorderStroke(
-                    width = 1.dp,
-                    color = if (isUnlocked) {
-                        colors.primary.copy(alpha = 0.3f)
-                    } else {
-                        Color.Transparent
-                    },
-                )
-            } else {
-                null
-            },
-        ),
+        border = if (colors.isDark && isUnlocked) {
+            BorderStroke(
+                width = 1.dp,
+                color = colors.accent.copy(alpha = 0.3f),
+            )
+        } else {
+            null
+        },
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
@@ -136,7 +131,7 @@ fun AchievementCard(
                             Icon(
                                 imageVector = Icons.Default.Star,
                                 contentDescription = null,
-                                tint = colors.primary,
+                                tint = colors.accent,
                                 modifier = Modifier.size(12.dp),
                             )
                             Spacer(modifier = Modifier.width(4.dp))
@@ -154,12 +149,12 @@ fun AchievementCard(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(12.dp))
-                            .background(colors.primary.copy(alpha = 0.2f))
+                            .background(colors.accent.copy(alpha = 0.2f))
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                     ) {
                         Text(
                             text = "Получено",
-                            color = colors.primary,
+                            color = colors.accent,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                         )
@@ -186,6 +181,7 @@ fun AchievementCard(
             if (!isUnlocked && achievement.threshold != null && progress != null) {
                 Spacer(modifier = Modifier.height(12.dp))
 
+                val thresholdValue = achievement.threshold
                 Column {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -197,7 +193,7 @@ fun AchievementCard(
                             fontSize = 12.sp,
                         )
                         Text(
-                            text = "${progress.progress}/${achievement.threshold}",
+                            text = "${progress.progress}/$thresholdValue",
                             color = colors.textSecondary,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -207,12 +203,12 @@ fun AchievementCard(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     LinearProgressIndicator(
-                        progress = { progress.progress.toFloat() / achievement.threshold.toFloat() },
+                        progress = { progress.progress.toFloat() / (thresholdValue ?: progress.maxProgress).toFloat() },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(6.dp)
                             .clip(RoundedCornerShape(3.dp)),
-                        color = colors.primary,
+                        color = colors.accent,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant,
                     )
                 }

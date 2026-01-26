@@ -54,15 +54,11 @@ class DiversityAchievementChecker(
         }
 
         val mangaGenres = mangaHandler.awaitList {
-            mangasQueries.getLibraryGenres { genre ->
-                genre
-            }
+            mangasQueries.getLibraryGenres()
         }
 
         val animeGenres = animeHandler.awaitList {
-            animesQueries.getLibraryGenres { genre ->
-                genre
-            }
+            animesQueries.getLibraryGenres()
         }
 
         // Combine and parse unique genres from both manga and anime
@@ -84,15 +80,11 @@ class DiversityAchievementChecker(
         }
 
         val mangaSources = mangaHandler.awaitList {
-            mangasQueries.getLibrarySources { source ->
-                source
-            }
+            mangasQueries.getLibrarySources()
         }
 
         val animeSources = animeHandler.awaitList {
-            animesQueries.getLibrarySources { source ->
-                source
-            }
+            animesQueries.getLibrarySources()
         }
 
         // Combine and get unique sources from both manga and anime
@@ -113,9 +105,7 @@ class DiversityAchievementChecker(
         }
 
         val mangaGenres = mangaHandler.awaitList {
-            mangasQueries.getLibraryGenres { genre ->
-                genre
-            }
+            mangasQueries.getLibraryGenres()
         }
 
         val count = parseAndGetUniqueGenres(mangaGenres)
@@ -135,9 +125,7 @@ class DiversityAchievementChecker(
         }
 
         val animeGenres = animeHandler.awaitList {
-            animesQueries.getLibraryGenres { genre ->
-                genre
-            }
+            animesQueries.getLibraryGenres()
         }
 
         val count = parseAndGetUniqueGenres(animeGenres)
@@ -157,9 +145,7 @@ class DiversityAchievementChecker(
         }
 
         val mangaSources = mangaHandler.awaitList {
-            mangasQueries.getLibrarySources { source ->
-                source
-            }
+            mangasQueries.getLibrarySources()
         }
 
         val count = mangaSources.distinct().size
@@ -179,9 +165,7 @@ class DiversityAchievementChecker(
         }
 
         val animeSources = animeHandler.awaitList {
-            animesQueries.getLibrarySources { source ->
-                source
-            }
+            animesQueries.getLibrarySources()
         }
 
         val count = animeSources.distinct().size
@@ -204,8 +188,9 @@ class DiversityAchievementChecker(
     /**
      * Parse genre strings (comma-separated) and return count of unique genres
      */
-    private fun parseAndGetUniqueGenres(genreStrings: List<String?>): Int {
-        return genreStrings
+    private fun parseAndGetUniqueGenres(genreLists: List<List<String?>>): Int {
+        return genreLists
+            .flatten()
             .filterNotNull()
             .flatMap { genreString ->
                 // Parse comma-separated genre strings

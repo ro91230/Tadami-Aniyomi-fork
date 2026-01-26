@@ -80,5 +80,5 @@ FROM chapters C
 WHERE C._id = :chapterId;
 
 getTotalChaptersRead:
-SELECT COUNT(*) as total
+SELECT COUNT(*)
 FROM history;

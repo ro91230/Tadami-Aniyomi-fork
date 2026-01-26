@@ -72,5 +72,5 @@ FROM episodes EP
 WHERE EP._id = :episodeId;
 
 getTotalEpisodesWatched:
-SELECT COUNT(*) as total
+SELECT COUNT(*)
 FROM animehistory;

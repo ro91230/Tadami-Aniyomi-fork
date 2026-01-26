@@ -3,6 +3,7 @@ package tachiyomi.data.achievement.repository
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emitAll
@@ -37,7 +38,7 @@ class AchievementRepositoryImpl(
                     database.achievementsQueries
                         .selectAll()
                         .asFlow()
-                        .mapToList()
+                        .mapToList(Dispatchers.IO)
                         .map { list -> list.map { it.toDomainModel() } }
                         .onEach { achievementsCache.value = it },
                 )
@@ -48,7 +49,7 @@ class AchievementRepositoryImpl(
         return database.achievementsQueries
             .getByCategory(category.name)
             .asFlow()
-            .mapToList()
+            .mapToList(Dispatchers.IO)
             .map { list -> list.map { it.toDomainModel() } }
     }
 
@@ -56,7 +57,7 @@ class AchievementRepositoryImpl(
         return database.achievementProgressQueries
             .getById(achievementId)
             .asFlow()
-            .mapToOneOrNull()
+            .mapToOneOrNull(Dispatchers.IO)
             .map { it?.toDomainModel() }
     }
 
@@ -68,7 +69,7 @@ class AchievementRepositoryImpl(
                     database.achievementProgressQueries
                         .selectAll()
                         .asFlow()
-                        .mapToList()
+                        .mapToList(Dispatchers.IO)
                         .map { list ->
                             list.map { it.toDomainModel() }
                         }
@@ -89,8 +90,8 @@ class AchievementRepositoryImpl(
             title = achievement.title,
             description = achievement.description,
             badge_icon = achievement.badgeIcon,
-            is_hidden = achievement.isHidden.toLong(),
-            is_secret = achievement.isSecret.toLong(),
+            is_hidden = if (achievement.isHidden) 1L else 0L,
+            is_secret = if (achievement.isSecret) 1L else 0L,
             unlockable_id = achievement.unlockableId,
             version = achievement.version.toLong(),
             created_at = achievement.createdAt,
@@ -101,7 +102,7 @@ class AchievementRepositoryImpl(
         database.achievementProgressQueries.update(
             progress = progress.progress.toLong(),
             max_progress = progress.maxProgress.toLong(),
-            is_unlocked = progress.isUnlocked.toLong(),
+            is_unlocked = if (progress.isUnlocked) 1L else 0L,
             unlocked_at = progress.unlockedAt,
             last_updated = progress.lastUpdated,
             achievement_id = progress.achievementId,
@@ -113,7 +114,7 @@ class AchievementRepositoryImpl(
             achievement_id = progress.achievementId,
             progress = progress.progress.toLong(),
             max_progress = progress.maxProgress.toLong(),
-            is_unlocked = progress.isUnlocked.toLong(),
+            is_unlocked = if (progress.isUnlocked) 1L else 0L,
             unlocked_at = progress.unlockedAt,
             last_updated = progress.lastUpdated,
         )

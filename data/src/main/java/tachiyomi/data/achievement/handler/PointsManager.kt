@@ -1,9 +1,10 @@
 package tachiyomi.data.achievement.handler
 
 import app.cash.sqldelight.coroutines.asFlow
+import app.cash.sqldelight.coroutines.mapToOneOrNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.mapOnNotNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import tachiyomi.data.achievement.database.AchievementsDatabase
 import tachiyomi.domain.achievement.model.UserPoints
@@ -19,13 +20,13 @@ class PointsManager(
     }
 
     private fun initializeStats() {
-        database.userStatsQueries.initUserStats()
+        database.achievementProgressQueries.initUserStats()
     }
 
     suspend fun addPoints(points: Int) {
         if (points > 0) {
             withContext(Dispatchers.IO) {
-                database.userStatsQueries.addPoints(points.toLong())
+                database.achievementProgressQueries.addPoints(points.toLong())
                 recalculateLevel()
             }
         }
@@ -33,28 +34,27 @@ class PointsManager(
 
     suspend fun incrementUnlocked() {
         withContext(Dispatchers.IO) {
-            database.userStatsQueries.incrementUnlocked()
+            database.achievementProgressQueries.incrementUnlocked()
         }
     }
 
     fun subscribeToPoints(): Flow<UserPoints> {
-        return database.userStatsQueries.getUserStats()
+        return database.achievementProgressQueries.getUserStats()
             .asFlow()
-            .mapOnNotNull { query ->
-                query.executeAsOneOrNull()?.let {
-                    UserPoints(
-                        totalPoints = it.total_points.toInt(),
-                        level = it.level.toInt(),
-                        achievementsUnlocked = it.achievements_unlocked.toInt(),
-                    )
-                } ?: UserPoints()
-            }
+            .mapToOneOrNull(Dispatchers.IO)
+            .map { it?.let { stats ->
+                UserPoints(
+                    totalPoints = stats.total_points.toInt(),
+                    level = stats.level.toInt(),
+                    achievementsUnlocked = stats.achievements_unlocked.toInt(),
+                )
+            } ?: UserPoints() }
     }
 
     suspend fun getCurrentPoints(): UserPoints {
         return withContext(Dispatchers.IO) {
             try {
-                database.userStatsQueries.getUserStats()
+                database.achievementProgressQueries.getUserStats()
                     .executeAsOne()
                     .let {
                         UserPoints(
@@ -73,7 +73,7 @@ class PointsManager(
     private suspend fun recalculateLevel() {
         val current = getCurrentPoints()
         val newLevel = calculateLevel(current.totalPoints)
-        database.userStatsQueries.setLevel(newLevel.toLong())
+        database.achievementProgressQueries.setLevel(newLevel.toLong())
     }
 
     fun calculateLevel(points: Int): Int {

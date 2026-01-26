@@ -87,7 +87,7 @@ class StreakAchievementChecker(
      */
     suspend fun logChapterRead() {
         val today = getTodayDate()
-        database.achievementActivityLogQueries.upsertActivityLog(
+        database.achievementProgressQueries.upsertActivityLog(
             date = today,
             chapter_count = 1,
             episode_count = 0,
@@ -100,7 +100,7 @@ class StreakAchievementChecker(
      */
     suspend fun logEpisodeWatched() {
         val today = getTodayDate()
-        database.achievementActivityLogQueries.upsertActivityLog(
+        database.achievementProgressQueries.upsertActivityLog(
             date = today,
             chapter_count = 0,
             episode_count = 1,
@@ -112,10 +112,10 @@ class StreakAchievementChecker(
      * Get the activity record for a specific date.
      */
     private suspend fun getActivityForDate(date: Long): ActivityLog? {
-        return database.achievementActivityLogQueries.getActivityForDate(
-            date,
-            ::mapActivityLog,
-        ).executeAsOneOrNull()
+        return database.achievementProgressQueries
+            .getActivityForDate(date)
+            .executeAsOneOrNull()
+            ?.let { mapActivityLog(it.date, it.chapter_count, it.episode_count, it.last_updated) }
     }
 
     /**

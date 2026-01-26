@@ -3,7 +3,7 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <circle android:fillColor="#FF6B6B" android:cx="12" android:cy="6" android:r="5"/>
-    <circle android:fillColor="#4ECDC4" android:cx="7" android:cy="17" android:r="5"/>
-    <circle android:fillColor="#FFE66D" android:cx="17" android:cy="17" android:r="5"/>
+    <path
+        android:fillColor="#FF6B6B"
+        android:pathData="M12,6A5,5 0,1,0 7,6 5,5 0,0,0 5,-5zM7,12A5,5 0,1,0 12,17 5,5 0,0,0 -5,-5zM17,12A5,5 0,1,0 22,17 5,5 0,0,0 -5,-5z"/>
 </vector>
