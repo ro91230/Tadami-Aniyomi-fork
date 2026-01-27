@@ -218,6 +218,7 @@
     <string name="pref_general_summary">Язык приложения, уведомления</string>
     <string name="theme_cloudflare">Cloudflare</string>
     <string name="theme_sapphire">Сапфир</string>
+    <string name="theme_aurora">Aurora</string>
     <string name="theme_doom">Doom</string>
     <string name="theme_matrix">Матрица</string>
     <string name="pref_library_rows">Размер списка</string>
@@ -654,6 +655,7 @@
     <string name="aurora_incognito_mode">Режим инкогнито</string>
     <string name="aurora_downloads">Загрузки</string>
     <string name="aurora_about">О приложении</string>
+    <string name="aurora_achievements">Достижения</string>
     <string name="aurora_help">Помощь</string>
     <string name="aurora_statistics">Статистика</string>
     <string name="aurora_more">Ещё</string>
@@ -691,4 +693,11 @@
     <string name="pref_use_shikimori_rating_summary">Отображать рейтинг и тип аниме из базы данных Shikimori.one</string>
     <string name="pref_use_shikimori_covers">Использовать постеры Shikimori</string>
     <string name="pref_use_shikimori_covers_summary">Заменять постеры аниме на высококачественные версии из Shikimori.one</string>
+
+    <!-- Achievements -->
+    <string name="label_achievements">Достижения</string>
+    <string name="pref_achievements_summary">Отслеживайте прогресс и получайте награды</string>
+    <string name="achievement_stats_points">Очки • %d%%</string>
+    <string name="achievement_stats_unlocked">Открыто • %d%%</string>
+    <string name="achievement_back">Назад</string>
 </resources>

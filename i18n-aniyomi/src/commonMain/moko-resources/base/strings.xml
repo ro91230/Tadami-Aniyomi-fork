@@ -352,6 +352,7 @@
     <string name="pref_general_summary">App language, notifications</string>
     <string name="theme_cloudflare">Cloudflare</string>
     <string name="theme_sapphire">Sapphire</string>
+    <string name="theme_aurora">Aurora</string>
     <string name="theme_doom">Doom</string>
     <string name="theme_matrix">Matrix</string>
     <string name="pref_library_rows">List size</string>
@@ -757,4 +758,11 @@
     <string name="pref_use_shikimori_covers_summary">Replace anime covers with high-quality images from Shikimori.one</string>
     <string name="pref_show_original_title">Show original title</string>
     <string name="pref_show_original_title_summary">Display original title from description in parentheses</string>
+
+    <!-- Achievements -->
+    <string name="label_achievements">Achievements</string>
+    <string name="pref_achievements_summary">Track your progress and unlock rewards</string>
+    <string name="achievement_stats_points">Points • %d%%</string>
+    <string name="achievement_stats_unlocked">Unlocked • %d%%</string>
+    <string name="achievement_back">Back</string>
 </resources>
