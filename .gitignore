@@ -35,3 +35,8 @@ icon-ai-social-1-*.png
 
 # Tools
 .claude/
+
+# Ignored by Agent
+.gradle-user/
+build_errors.txt
+build_errors_utf8.txt
