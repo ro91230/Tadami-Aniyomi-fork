@@ -40,3 +40,5 @@ icon-ai-social-1-*.png
 .gradle-user/
 build_errors.txt
 build_errors_utf8.txt
+.agents/
+.omc/
