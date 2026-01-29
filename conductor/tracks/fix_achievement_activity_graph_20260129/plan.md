@@ -1,6 +1,6 @@
 # Implementation Plan: Fix and Refine Achievement Activity Graph
 
-## Phase 1: Data Infrastructure & Tracking Fix
+## Phase 1: Data Infrastructure & Tracking Fix [checkpoint: 544376b]
 Goal: Ensure activity data is correctly recorded and retrieved.
 
 - [x] Task: Create unit tests for `ActivityDataRepository` to verify day-to-day activity aggregation.
