@@ -339,6 +339,168 @@ app/src/main/res/drawable/ic_badge_your_achievement.xml
 | `MangaCompleted` | Манга помечена как прочитанная | `event` |
 | `AnimeCompleted` | Аниме помечено как просмотренное | `event` |
 
+---
+
+## Pattern Matching для EVENT достижений
+
+### Как это работает
+
+EVENT-тип достижений использует **pattern matching** на ID достижения для определения того, на какие события он должен реагировать. Это происходит в методе `isEventMatch()` в `AchievementHandler.kt`.
+
+### Правила по типам событий
+
+#### 1. ChapterRead события
+
+Совпадают с ID, содержащими:
+- `"chapter"` ИЛИ
+- `"read"`
+
+**Примеры:**
+- ✅ `first_chapter` - содержит "chapter"
+- ✅ `read_something` - содержит "read"
+- ❌ `read_long_manga` - содержит "read", но **должен быть исключён** из handleChapterRead
+
+**Важно:** Достижения, которые должны срабатывать только при завершении манги (например, `read_long_manga`), должны быть явно отфильтрованы в `handleChapterRead()` чтобы предотвратить случайное срабатывание.
+
+#### 2. MangaCompleted события
+
+Совпадают с ID, содержащими:
+- `"manga_complete"` ИЛИ
+- `"completed_manga"` ИЛИ
+- `"manga_completed"` ИЛИ
+- `("complete"` И `"_manga"`) ИЛИ
+- Специальный случай: `"read_long_manga"`
+
+**Примеры:**
+- ✅ `complete_1_manga` - содержит "complete" И "_manga"
+- ✅ `manga_complete_event` - содержит "manga_complete"
+- ✅ `read_long_manga` - специальный случай
+- ❌ `complete_manga_series` - не подходит ни под один паттерн (нет "_manga")
+
+**Рекомендация:** Используйте формат `complete_N_manga` для достижений завершения.
+
+#### 3. AnimeCompleted события
+
+Совпадают с ID, содержащими:
+- `"anime_complete"` ИЛИ
+- `"completed_anime"` ИЛИ
+- `"anime_completed"` ИЛИ
+- `("complete"` И `"_anime"`)`
+
+**Примеры:**
+- ✅ `complete_1_anime` - содержит "complete" И "_anime"
+- ✅ `anime_complete_event` - содержит "anime_complete"
+- ❌ `complete_anime_series` - не подходит (нет "_anime")
+
+**Рекомендация:** Используйте формат `complete_N_anime` для достижений завершения.
+
+#### 4. EpisodeWatched события
+
+Совпадают с ID, содержащими:
+- `"episode"` ИЛИ
+- `"watch"`
+
+**Примеры:**
+- ✅ `first_episode` - содержит "episode"
+- ✅ `watch_something` - содержит "watch"
+
+#### 5. LibraryAdded события
+
+Совпадают с ID, содержащими:
+- `"library"` ИЛИ
+- `"favorite"` ИЛИ
+- `"collect"` ИЛИ
+- `"added"`
+
+### Лучшие практики
+
+1. **Избегайте общих слов в ID**
+   - ❌ Плохо: `"read_achievement"` - сработает на любой ChapterRead
+   - ✅ Хорошо: `"first_chapter"` - более конкретный
+
+2. **Используйте понятные префиксы**
+   - Для завершения: `complete_N_manga` / `complete_N_anime`
+   - Для первого действия: `first_chapter` / `first_episode`
+   - Для специфических условий: описывайте в названии, например `long_manga_completed`
+
+3. **Документируйте специальную логику**
+   - Если достижение требует особой проверки (например, `read_long_manga` требует 200+ прочитанных глав), добавьте dedicated checker method
+   - Документируйте это в комментарии к методу
+
+4. **Тестируйте паттерны**
+   - После добавления достижения убедитесь, что его ID корректно совпадает с событием
+   - Проверьте, что достижение НЕ срабатывает на неправильных событиях
+
+### Пример добавления EVENT достижения
+
+**Правильный пример:**
+
+```json
+{
+  "id": "complete_5_manga",
+  "type": "event",
+  "category": "manga",
+  "threshold": 1,
+  "points": 100,
+  "title": "Завершитель",
+  "description": "Завершите 5 манг"
+}
+```
+
+Это достижение будет корректно срабатывать на событии `MangaCompleted` потому что:
+- ID содержит `"complete"`
+- ID содержит `"_manga"`
+- Паттерн `(id.contains("complete") && id.contains("_manga"))` совпадёт
+
+**Неправильный пример:**
+
+```json
+{
+  "id": "read_200_chapters_manga",
+  "type": "event",
+  "category": "manga",
+  "threshold": 1,
+  "title": "Манго-читатель"
+}
+```
+
+Проблемы:
+- ID содержит `"read"` → будет срабатывать на **каждую** прочитанную главу
+- Должен использовать тип `quantity` вместо `event`
+
+### Специальные случаи
+
+**Достижения с дополнительной валидацией:**
+
+Некоторые EVENT достижения требуют проверки дополнительных условий:
+
+```kotlin
+// В AchievementHandler.kt
+private suspend fun handleMangaCompleted(event: AchievementEvent.MangaCompleted) {
+    val achievements = getAchievementsForCategory(AchievementCategory.MANGA)
+        .filter { it.type == AchievementType.EVENT }
+
+    achievements.forEach { achievement ->
+        if (achievement.id == "read_long_manga") {
+            // Специальная проверка: 200+ прочитанных глав
+            if (checkLongMangaAchievement(event)) {
+                val currentProgress = repository.getProgress(achievement.id).first()
+                applyProgressUpdate(achievement, currentProgress, 1)
+            }
+        } else {
+            checkAndUpdateProgress(achievement, event)
+        }
+    }
+}
+```
+
+Для таких достижений:
+1. Создайте dedicated checker method (например, `checkLongMangaAchievement()`)
+2. Обработайте в соответствующем handler method
+3. Задокументируйте требования в комментарии
+
+---
+
 ### Ручная проверка
 
 Для проверки достижений вручную (например, для тестирования):
@@ -646,4 +808,5 @@ logcat(LogPriority.DEBUG) { "Achievement progress: $progress" }
 
 | Версия | Дата | Описание |
 |--------|------|----------|
+| 1.1 | 2026-01-30 | Добавлена секция про pattern matching для EVENT достижений |
 | 1.0 | 2025-01-26 | Первая версия документации |

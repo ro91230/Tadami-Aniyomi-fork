@@ -82,3 +82,9 @@ WHERE C._id = :chapterId;
 getTotalChaptersRead:
 SELECT COUNT(*)
 FROM history;
+
+getChaptersReadByMangaId:
+SELECT COUNT(*)
+FROM history H
+INNER JOIN chapters C ON H.chapter_id = C._id
+WHERE C.manga_id = :mangaId;
