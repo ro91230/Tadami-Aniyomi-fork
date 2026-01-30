@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -35,8 +36,8 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
@@ -58,7 +59,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.relocation.BringIntoViewRequester
+import eu.kanade.domain.ui.model.AnimeMetadataSource
 import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.presentation.components.EntryDownloadDropdownMenu
 import eu.kanade.presentation.entries.DownloadAction
@@ -72,15 +73,14 @@ import eu.kanade.presentation.entries.anime.components.aurora.FullscreenPosterBa
 import eu.kanade.presentation.theme.AuroraTheme
 import eu.kanade.tachiyomi.ui.entries.anime.AnimeScreenModel
 import eu.kanade.tachiyomi.ui.entries.anime.EpisodeList
-import eu.kanade.domain.ui.model.AnimeMetadataSource
+import kotlinx.coroutines.launch
 import tachiyomi.domain.items.episode.model.Episode
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
-import java.time.Instant
-import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.time.Instant
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -174,21 +174,22 @@ fun AnimeScreenAuroraImpl(
         if (state.metadataError == AnimeScreenModel.MetadataError.NotAuthenticated &&
             !metadataAuthHintShown.get() &&
             !metadataHintDismissed &&
-            onTrackingClicked != null) {
+            onTrackingClicked != null
+        ) {
             val result = snackbarHostState.showSnackbar(
                 message = "Авторизуйтесь в сервисе для рейтинга, типа и обложки",
                 actionLabel = "Войти",
-                withDismissAction = true,  // Add dismiss button
+                withDismissAction = true, // Add dismiss button
                 duration = SnackbarDuration.Long,
             )
             when (result) {
                 SnackbarResult.ActionPerformed -> {
                     onTrackingClicked.invoke()
-                    metadataAuthHintShown.set(true)  // Don't show again
+                    metadataAuthHintShown.set(true) // Don't show again
                 }
                 SnackbarResult.Dismissed -> {
                     metadataHintDismissed = true
-                    metadataAuthHintShown.set(true)  // Don't show again
+                    metadataAuthHintShown.set(true) // Don't show again
                 }
             }
         }
@@ -521,7 +522,6 @@ fun AnimeScreenAuroraImpl(
                 .align(Alignment.BottomCenter)
                 .padding(WindowInsets.systemBars.asPaddingValues()),
         )
-
     }
 }
 

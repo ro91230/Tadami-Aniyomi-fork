@@ -42,13 +42,15 @@ class PointsManager(
         return database.achievementProgressQueries.getUserStats()
             .asFlow()
             .mapToOneOrNull(Dispatchers.IO)
-            .map { it?.let { stats ->
-                UserPoints(
-                    totalPoints = stats.total_points.toInt(),
-                    level = stats.level.toInt(),
-                    achievementsUnlocked = stats.achievements_unlocked.toInt(),
-                )
-            } ?: UserPoints() }
+            .map {
+                it?.let { stats ->
+                    UserPoints(
+                        totalPoints = stats.total_points.toInt(),
+                        level = stats.level.toInt(),
+                        achievementsUnlocked = stats.achievements_unlocked.toInt(),
+                    )
+                } ?: UserPoints()
+            }
     }
 
     suspend fun getCurrentPoints(): UserPoints {

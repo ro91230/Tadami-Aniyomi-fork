@@ -40,20 +40,30 @@ class AchievementLoader(
             // Check version migration
             val currentVersion = getCurrentVersion()
             logcat(LogPriority.INFO) { "[ACHIEVEMENTS] JSON version: ${definitions.version}, current: $currentVersion" }
-            logcat(LogPriority.INFO) { "[ACHIEVEMENTS] JSON definitions decoded: ${definitions.achievements.size} achievements found in file" }
+            logcat(LogPriority.INFO) {
+                "[ACHIEVEMENTS] JSON definitions decoded: ${definitions.achievements.size} achievements found in file"
+            }
 
             if (definitions.version <= currentVersion) {
-                logcat(LogPriority.INFO) { "[ACHIEVEMENTS] Achievements already up to date (version $currentVersion), skipping load" }
+                logcat(LogPriority.INFO) {
+                    "[ACHIEVEMENTS] Achievements already up to date (version $currentVersion), skipping load"
+                }
                 // Check if achievements exist in database
                 val existingCount = repository.getAll().first().size
-                logcat(LogPriority.INFO) { "[ACHIEVEMENTS] Existing achievements in database: $existingCount, JSON has: ${definitions.achievements.size}" }
+                logcat(LogPriority.INFO) {
+                    "[ACHIEVEMENTS] Existing achievements in database: $existingCount, JSON has: ${definitions.achievements.size}"
+                }
 
                 // Force reload if counts don't match (new achievements added)
                 if (existingCount < definitions.achievements.size) {
-                    logcat(LogPriority.WARN) { "[ACHIEVEMENTS] WARNING: Database has fewer achievements than JSON! Forcing reload..." }
+                    logcat(LogPriority.WARN) {
+                        "[ACHIEVEMENTS] WARNING: Database has fewer achievements than JSON! Forcing reload..."
+                    }
                     saveVersion(0)
                 } else if (existingCount == 0) {
-                    logcat(LogPriority.WARN) { "[ACHIEVEMENTS] WARNING: Version says up to date but database is empty! Forcing reload..." }
+                    logcat(LogPriority.WARN) {
+                        "[ACHIEVEMENTS] WARNING: Version says up to date but database is empty! Forcing reload..."
+                    }
                     saveVersion(0)
                 } else {
                     return Result.success(0)
@@ -66,7 +76,9 @@ class AchievementLoader(
                 val achievement = achievementJson.toDomainModel()
                 repository.insertAchievement(achievement)
                 inserted++
-                logcat(LogPriority.VERBOSE) { "[ACHIEVEMENTS] Inserted achievement: ${achievement.id} - ${achievement.title}" }
+                logcat(LogPriority.VERBOSE) {
+                    "[ACHIEVEMENTS] Inserted achievement: ${achievement.id} - ${achievement.title}"
+                }
             }
 
             logcat(LogPriority.INFO) { "[ACHIEVEMENTS] Inserted $inserted achievements from JSON" }

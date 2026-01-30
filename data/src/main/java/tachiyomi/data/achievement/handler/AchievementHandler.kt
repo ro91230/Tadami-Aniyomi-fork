@@ -1,5 +1,6 @@
 package tachiyomi.data.achievement.handler
 
+import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -11,9 +12,9 @@ import logcat.logcat
 import tachiyomi.data.achievement.UnlockableManager
 import tachiyomi.data.achievement.UserProfileManager
 import tachiyomi.data.achievement.handler.checkers.DiversityAchievementChecker
+import tachiyomi.data.achievement.handler.checkers.FeatureBasedAchievementChecker
 import tachiyomi.data.achievement.handler.checkers.StreakAchievementChecker
 import tachiyomi.data.achievement.handler.checkers.TimeBasedAchievementChecker
-import tachiyomi.data.achievement.handler.checkers.FeatureBasedAchievementChecker
 import tachiyomi.data.achievement.model.AchievementEvent
 import tachiyomi.data.handlers.anime.AnimeDatabaseHandler
 import tachiyomi.data.handlers.manga.MangaDatabaseHandler
@@ -22,13 +23,11 @@ import tachiyomi.domain.achievement.model.AchievementCategory
 import tachiyomi.domain.achievement.model.AchievementProgress
 import tachiyomi.domain.achievement.model.AchievementType
 import tachiyomi.domain.achievement.repository.AchievementRepository
+import tachiyomi.domain.achievement.repository.ActivityDataRepository
 import tachiyomi.domain.entries.anime.model.Anime
 import tachiyomi.domain.entries.anime.repository.AnimeRepository
 import tachiyomi.domain.entries.manga.model.Manga
 import tachiyomi.domain.entries.manga.repository.MangaRepository
-import eu.kanade.tachiyomi.source.model.SManga
-
-import tachiyomi.domain.achievement.repository.ActivityDataRepository
 
 class AchievementHandler(
     private val eventBus: AchievementEventBus,
@@ -57,7 +56,9 @@ class AchievementHandler(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     fun start() {
-        logcat(LogPriority.INFO) { "[ACHIEVEMENTS] AchievementHandler.start() called - subscribing to event bus (${eventBus.hashCode()})" }
+        logcat(LogPriority.INFO) {
+            "[ACHIEVEMENTS] AchievementHandler.start() called - subscribing to event bus (${eventBus.hashCode()})"
+        }
         scope.launch {
             eventBus.events
                 .catch { e ->
@@ -68,7 +69,9 @@ class AchievementHandler(
                         logcat(LogPriority.VERBOSE) { "[ACHIEVEMENTS] Event received: $event" }
                         processEvent(event)
                     } catch (e: Exception) {
-                        logcat(LogPriority.ERROR) { "[ACHIEVEMENTS] Error processing achievement event: $event, ${e.message}" }
+                        logcat(LogPriority.ERROR) {
+                            "[ACHIEVEMENTS] Error processing achievement event: $event, ${e.message}"
+                        }
                     }
                 }
         }
@@ -95,7 +98,9 @@ class AchievementHandler(
     }
 
     private suspend fun handleChapterRead(event: AchievementEvent.ChapterRead) {
-        logcat(LogPriority.INFO) { "[ACHIEVEMENTS] handleChapterRead: mangaId=${event.mangaId}, chapter=${event.chapterNumber}" }
+        logcat(LogPriority.INFO) {
+            "[ACHIEVEMENTS] handleChapterRead: mangaId=${event.mangaId}, chapter=${event.chapterNumber}"
+        }
         streakChecker.logChapterRead()
 
         val achievements = getAchievementsForCategory(AchievementCategory.MANGA)
@@ -193,8 +198,10 @@ class AchievementHandler(
         val achievements = repository.getAll().first()
             .filter {
                 it.type == AchievementType.EVENT &&
-                    (it.id.contains("time") || it.id.contains("owl") || it.id.contains("lark") ||
-                        it.id.contains("morning") || it.id.contains("night") || it.id.contains("early_bird"))
+                    (
+                        it.id.contains("time") || it.id.contains("owl") || it.id.contains("lark") ||
+                            it.id.contains("morning") || it.id.contains("night") || it.id.contains("early_bird")
+                        )
             }
 
         achievements.forEach { achievement ->
@@ -210,10 +217,12 @@ class AchievementHandler(
         val achievements = repository.getAll().first()
             .filter {
                 it.type == AchievementType.EVENT &&
-                    (it.id.contains("feature") || it.id.contains("download") ||
-                        it.id.contains("search") || it.id.contains("backup") ||
-                        it.id.contains("filter") || it.id.contains("collector") ||
-                        it.id.contains("explorer"))
+                    (
+                        it.id.contains("feature") || it.id.contains("download") ||
+                            it.id.contains("search") || it.id.contains("backup") ||
+                            it.id.contains("filter") || it.id.contains("collector") ||
+                            it.id.contains("explorer")
+                        )
             }
 
         achievements.forEach { achievement ->
@@ -264,7 +273,9 @@ class AchievementHandler(
         newProgress: Int,
     ) {
         val threshold = achievement.threshold ?: 1
-        logcat(LogPriority.INFO) { "[ACHIEVEMENTS] Checking ${achievement.id}: current=$currentProgress, new=$newProgress, threshold=$threshold" }
+        logcat(LogPriority.INFO) {
+            "[ACHIEVEMENTS] Checking ${achievement.id}: current=$currentProgress, new=$newProgress, threshold=$threshold"
+        }
 
         if (currentProgress == null) {
             logcat(LogPriority.INFO) { "[ACHIEVEMENTS] Creating new progress for ${achievement.id}" }
@@ -284,7 +295,9 @@ class AchievementHandler(
             }
         } else if (!currentProgress.isUnlocked) {
             val shouldUnlock = newProgress >= threshold
-            logcat(LogPriority.INFO) { "[ACHIEVEMENTS] Updating progress for ${achievement.id}: shouldUnlock=$shouldUnlock" }
+            logcat(LogPriority.INFO) {
+                "[ACHIEVEMENTS] Updating progress for ${achievement.id}: shouldUnlock=$shouldUnlock"
+            }
             repository.insertOrUpdateProgress(
                 currentProgress.copy(
                     progress = newProgress,
@@ -349,8 +362,11 @@ class AchievementHandler(
             tierProgress = tierProgress,
             tierMaxProgress = tierMaxProgress,
             isUnlocked = newCurrentTier > 0,
-            unlockedAt = if (newCurrentTier > 0 && previousTier == 0) System.currentTimeMillis()
-                else currentProgress?.unlockedAt,
+            unlockedAt = if (newCurrentTier > 0 && previousTier == 0) {
+                System.currentTimeMillis()
+            } else {
+                currentProgress?.unlockedAt
+            },
         )
 
         repository.insertOrUpdateProgress(progressToSave)
@@ -440,15 +456,27 @@ class AchievementHandler(
                 when {
                     achievement.id.contains("genre", ignoreCase = true) -> {
                         when {
-                            achievement.id.contains("manga", ignoreCase = true) -> diversityChecker.getMangaGenreDiversity()
-                            achievement.id.contains("anime", ignoreCase = true) -> diversityChecker.getAnimeGenreDiversity()
+                            achievement.id.contains(
+                                "manga",
+                                ignoreCase = true,
+                            ) -> diversityChecker.getMangaGenreDiversity()
+                            achievement.id.contains(
+                                "anime",
+                                ignoreCase = true,
+                            ) -> diversityChecker.getAnimeGenreDiversity()
                             else -> diversityChecker.getGenreDiversity()
                         }
                     }
                     achievement.id.contains("source", ignoreCase = true) -> {
                         when {
-                            achievement.id.contains("manga", ignoreCase = true) -> diversityChecker.getMangaSourceDiversity()
-                            achievement.id.contains("anime", ignoreCase = true) -> diversityChecker.getAnimeSourceDiversity()
+                            achievement.id.contains(
+                                "manga",
+                                ignoreCase = true,
+                            ) -> diversityChecker.getMangaSourceDiversity()
+                            achievement.id.contains(
+                                "anime",
+                                ignoreCase = true,
+                            ) -> diversityChecker.getAnimeSourceDiversity()
                             else -> diversityChecker.getSourceDiversity()
                         }
                     }
@@ -499,15 +527,15 @@ class AchievementHandler(
             is AchievementEvent.LibraryRemoved -> false
             is AchievementEvent.MangaCompleted ->
                 id.contains("manga_complete") ||
-                id.contains("completed_manga") ||
-                id.contains("manga_completed") ||
-                (id.contains("complete") && id.contains("_manga")) ||
-                id == "read_long_manga"
+                    id.contains("completed_manga") ||
+                    id.contains("manga_completed") ||
+                    (id.contains("complete") && id.contains("_manga")) ||
+                    id == "read_long_manga"
             is AchievementEvent.AnimeCompleted ->
                 id.contains("anime_complete") ||
-                id.contains("completed_anime") ||
-                id.contains("anime_completed") ||
-                (id.contains("complete") && id.contains("_anime"))
+                    id.contains("completed_anime") ||
+                    id.contains("anime_completed") ||
+                    (id.contains("complete") && id.contains("_anime"))
             is AchievementEvent.SessionEnd ->
                 id.contains("session") || id.contains("time")
             is AchievementEvent.AppStart -> {
@@ -636,7 +664,9 @@ class AchievementHandler(
             try {
                 unlockableManager.unlockAchievementRewards(achievement)
             } catch (e: Exception) {
-                logcat(LogPriority.ERROR) { "Failed to unlock rewards for achievement: ${achievement.title}, ${e.message}" }
+                logcat(LogPriority.ERROR) {
+                    "Failed to unlock rewards for achievement: ${achievement.title}, ${e.message}"
+                }
             }
 
             // Выдаем награды за достижение
@@ -674,7 +704,10 @@ class AchievementHandler(
 
             when (achievement.type) {
                 AchievementType.TIME_BASED -> {
-                    val shouldUnlock = timeBasedChecker.check(achievement, currentProgress ?: AchievementProgress.createStandard(achievement.id, 0, 0, false))
+                    val shouldUnlock = timeBasedChecker.check(
+                        achievement,
+                        currentProgress ?: AchievementProgress.createStandard(achievement.id, 0, 0, false),
+                    )
                     if (shouldUnlock && (currentProgress == null || !currentProgress.isUnlocked)) {
                         repository.insertOrUpdateProgress(
                             AchievementProgress.createStandard(
@@ -689,7 +722,10 @@ class AchievementHandler(
                     }
                 }
                 AchievementType.FEATURE_BASED -> {
-                    val shouldUnlock = featureBasedChecker.check(achievement, currentProgress ?: AchievementProgress.createStandard(achievement.id, 0, 0, false))
+                    val shouldUnlock = featureBasedChecker.check(
+                        achievement,
+                        currentProgress ?: AchievementProgress.createStandard(achievement.id, 0, 0, false),
+                    )
                     if (shouldUnlock && (currentProgress == null || !currentProgress.isUnlocked)) {
                         repository.insertOrUpdateProgress(
                             AchievementProgress.createStandard(

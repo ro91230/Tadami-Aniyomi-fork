@@ -10,16 +10,13 @@ import org.junit.jupiter.api.parallel.Execution
 import org.junit.jupiter.api.parallel.ExecutionMode
 import tachiyomi.data.achievement.handler.AchievementHandler
 import tachiyomi.data.achievement.handler.checkers.DiversityAchievementChecker
+import tachiyomi.data.achievement.handler.checkers.FeatureBasedAchievementChecker
 import tachiyomi.data.achievement.handler.checkers.StreakAchievementChecker
 import tachiyomi.data.achievement.handler.checkers.TimeBasedAchievementChecker
-import tachiyomi.data.achievement.handler.checkers.FeatureBasedAchievementChecker
 import tachiyomi.data.achievement.model.AchievementEvent
 import tachiyomi.data.achievement.repository.AchievementRepositoryImpl
 import tachiyomi.data.handlers.anime.AnimeDatabaseHandler
 import tachiyomi.data.handlers.manga.MangaDatabaseHandler
-import tachiyomi.domain.achievement.model.Achievement
-import tachiyomi.domain.achievement.model.AchievementCategory
-import tachiyomi.domain.achievement.model.AchievementType
 import tachiyomi.domain.achievement.repository.AchievementRepository
 import tachiyomi.domain.entries.anime.repository.AnimeRepository
 import tachiyomi.domain.entries.manga.repository.MangaRepository
@@ -213,7 +210,7 @@ class EventAchievementsTest : AchievementTestBase() {
         val method = handler.javaClass.getDeclaredMethod(
             "isEventMatch",
             String::class.java,
-            AchievementEvent::class.java
+            AchievementEvent::class.java,
         )
         method.isAccessible = true
         return method.invoke(handler, achievementId, event) as Boolean

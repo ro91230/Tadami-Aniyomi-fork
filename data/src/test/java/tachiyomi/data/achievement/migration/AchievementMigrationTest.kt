@@ -8,9 +8,9 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import tachiyomi.domain.achievement.model.Achievement
+import tachiyomi.domain.achievement.model.AchievementCategory
 import tachiyomi.domain.achievement.model.AchievementProgress
 import tachiyomi.domain.achievement.model.AchievementTier
-import tachiyomi.domain.achievement.model.AchievementCategory
 import tachiyomi.domain.achievement.model.AchievementType
 import tachiyomi.domain.achievement.repository.AchievementRepository
 

@@ -4,14 +4,14 @@ import eu.kanade.domain.download.manga.interactor.DeleteChapterDownload
 import logcat.LogPriority
 import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.data.achievement.handler.AchievementEventBus
+import tachiyomi.data.achievement.model.AchievementEvent
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.entries.manga.model.Manga
 import tachiyomi.domain.entries.manga.repository.MangaRepository
 import tachiyomi.domain.items.chapter.model.Chapter
 import tachiyomi.domain.items.chapter.model.ChapterUpdate
 import tachiyomi.domain.items.chapter.repository.ChapterRepository
-import tachiyomi.data.achievement.handler.AchievementEventBus
-import tachiyomi.data.achievement.model.AchievementEvent
 
 class SetReadStatus(
     private val downloadPreferences: DownloadPreferences,

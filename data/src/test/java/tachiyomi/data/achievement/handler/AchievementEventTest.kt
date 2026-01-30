@@ -1,6 +1,5 @@
 package tachiyomi.data.achievement.handler
 
-import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.jupiter.api.BeforeEach
@@ -36,9 +35,11 @@ class AchievementEventTest {
         sessionManager.onSessionStart()
 
         verify(exactly = 1) {
-            eventBus.tryEmit(match {
-                it is AchievementEvent.AppStart && it.hourOfDay in 0..23
-            })
+            eventBus.tryEmit(
+                match {
+                    it is AchievementEvent.AppStart && it.hourOfDay in 0..23
+                },
+            )
         }
     }
 

@@ -131,7 +131,7 @@ fun AchievementScreen(
                         item {
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
                                 AuroraStatsHeader(
                                     totalPoints = state.totalPoints,
@@ -182,7 +182,7 @@ fun AchievementScreen(
                         // Сетка достижений
                         items(
                             items = state.filteredAchievements,
-                            key = { it.id }
+                            key = { it.id },
                         ) { achievement ->
                             val progress = state.progress[achievement.id]
                             AchievementCard(

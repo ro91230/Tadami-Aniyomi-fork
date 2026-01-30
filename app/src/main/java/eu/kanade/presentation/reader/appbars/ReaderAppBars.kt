@@ -1,7 +1,11 @@
 package eu.kanade.presentation.reader.appbars
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -10,16 +14,28 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -37,6 +53,7 @@ import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 
 private val animationSpec = tween<IntOffset>(200)
+private val expandAnimationSpec = tween<IntSize>(200)
 
 @Composable
 fun ReaderAppBars(
@@ -79,6 +96,14 @@ fun ReaderAppBars(
     navigatorHeight: ReaderPreferences.NavigatorHeight = ReaderPreferences.NavigatorHeight.NORMAL,
     navigatorCornerRadius: Int = 24,
     navigatorShowTickMarks: Boolean = false,
+
+    // Auto-scroll options
+    autoScrollEnabled: Boolean = false,
+    autoScrollSpeed: Int = 50,
+    onToggleAutoScroll: () -> Unit = {},
+    onSpeedChange: (Int) -> Unit = {},
+    isAutoScrollExpanded: Boolean = false,
+    onToggleExpand: () -> Unit = {},
 ) {
     val isRtl = viewer is R2LPagerViewer
     val backgroundColor = MaterialTheme.colorScheme
@@ -105,17 +130,20 @@ fun ReaderAppBars(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(backgroundColor)
-                    .clickable(onClick = onClickTopAppBar)
+                    .clickable(onClick = onClickTopAppBar),
             ) {
-                AppBar(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding(),
-                    backgroundColor = androidx.compose.ui.graphics.Color.Transparent,
-                    title = mangaTitle,
-                    subtitle = chapterTitle,
-                    navigateUp = navigateUp,
-                    actions = {
+                ) {
+                    AppBar(
+                        modifier = Modifier.fillMaxWidth(),
+                        backgroundColor = androidx.compose.ui.graphics.Color.Transparent,
+                        title = mangaTitle,
+                        subtitle = chapterTitle,
+                        navigateUp = navigateUp,
+                        actions = {
                         AppBarActions(
                             actions = persistentListOf<AppBar.AppBarAction>().builder()
                                 .apply {
@@ -165,6 +193,97 @@ fun ReaderAppBars(
                         )
                     },
                 )
+
+                    // Expandable auto-scroll controls
+                    AnimatedVisibility(
+                        visible = isAutoScrollExpanded,
+                        enter = expandVertically(
+                            animationSpec = expandAnimationSpec,
+                        ) + slideInVertically(
+                            initialOffsetY = { -it / 2 },
+                            animationSpec = animationSpec,
+                        ),
+                        exit = shrinkVertically(
+                            animationSpec = expandAnimationSpec,
+                        ) + slideOutVertically(
+                            targetOffsetY = { -it / 2 },
+                            animationSpec = animationSpec,
+                        ),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = MaterialTheme.padding.medium),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.medium),
+                            ) {
+                                IconButton(
+                                    onClick = onToggleAutoScroll,
+                                    modifier = Modifier.padding(top = 16.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = if (autoScrollEnabled) {
+                                            Icons.Outlined.Pause
+                                        } else {
+                                            Icons.Outlined.PlayArrow
+                                        },
+                                        contentDescription = if (autoScrollEnabled) {
+                                            "Pause auto-scroll"
+                                        } else {
+                                            "Start auto-scroll"
+                                        },
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .align(Alignment.CenterVertically),
+                                ) {
+                                    Text(
+                                        text = "Скорость скролла: $autoScrollSpeed",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    Slider(
+                                        value = autoScrollSpeed.toFloat(),
+                                        onValueChange = { onSpeedChange(it.toInt()) },
+                                        valueRange = 1f..100f,
+                                        steps = 99,
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Expand/collapse arrow button
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        IconButton(
+                            onClick = onToggleExpand,
+                        ) {
+                            Icon(
+                                imageVector = if (isAutoScrollExpanded) {
+                                    Icons.Filled.KeyboardArrowUp
+                                } else {
+                                    Icons.Filled.KeyboardArrowDown
+                                },
+                                contentDescription = if (isAutoScrollExpanded) {
+                                    "Collapse auto-scroll"
+                                } else {
+                                    "Expand auto-scroll"
+                                },
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                }
             }
         }
 

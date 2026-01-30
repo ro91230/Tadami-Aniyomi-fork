@@ -88,6 +88,10 @@ class ReaderPreferences(
 
     fun webtoonDisableZoomOut() = preferenceStore.getBoolean("webtoon_disable_zoom_out", false)
 
+    fun autoScrollEnabled() = preferenceStore.getBoolean("pref_auto_scroll_enabled", false)
+
+    fun autoScrollSpeed() = preferenceStore.getInt("pref_auto_scroll_speed", 50)
+
     // endregion
 
     // region Split two page spread

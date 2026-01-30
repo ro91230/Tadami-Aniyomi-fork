@@ -235,17 +235,17 @@ private fun AuroraSemanticColorsPreviewContent(colors: AuroraColors, themeName: 
                 .fillMaxWidth()
                 .background(colors.background)
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
                 text = "AuroraColors - $themeName",
                 color = colors.textPrimary,
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium,
             )
             Text(
                 text = "Semantic Colors",
                 color = colors.textSecondary,
-                style = MaterialTheme.typography.labelMedium
+                style = MaterialTheme.typography.labelMedium,
             )
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -253,28 +253,28 @@ private fun AuroraSemanticColorsPreviewContent(colors: AuroraColors, themeName: 
             ColorPreviewRow(
                 name = "success",
                 color = colors.success,
-                textColor = colors.textPrimary
+                textColor = colors.textPrimary,
             )
 
             // Warning color
             ColorPreviewRow(
                 name = "warning",
                 color = colors.warning,
-                textColor = colors.textPrimary
+                textColor = colors.textPrimary,
             )
 
             // Error color
             ColorPreviewRow(
                 name = "error",
                 color = colors.error,
-                textColor = colors.textPrimary
+                textColor = colors.textPrimary,
             )
 
             // Achievement Gold color
             ColorPreviewRow(
                 name = "achievementGold",
                 color = colors.achievementGold,
-                textColor = colors.textPrimary
+                textColor = colors.textPrimary,
             )
         }
     }
@@ -284,26 +284,26 @@ private fun AuroraSemanticColorsPreviewContent(colors: AuroraColors, themeName: 
 private fun ColorPreviewRow(
     name: String,
     color: Color,
-    textColor: Color
+    textColor: Color,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .background(color, RoundedCornerShape(8.dp))
+                .background(color, RoundedCornerShape(8.dp)),
         )
         Text(
             text = name,
             color = textColor,
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodyMedium,
         )
         Text(
             text = color.toString().takeLast(9),
             color = textColor.copy(alpha = 0.7f),
-            style = MaterialTheme.typography.bodySmall
+            style = MaterialTheme.typography.bodySmall,
         )
     }
 }

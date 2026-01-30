@@ -59,7 +59,8 @@ class GetShikimoriMetadata(
                 if (line.contains("Original", ignoreCase = true) ||
                     line.contains("Оригинал", ignoreCase = true) ||
                     line.contains("Romaji", ignoreCase = true) ||
-                    line.contains("Японское", ignoreCase = true)) {
+                    line.contains("Японское", ignoreCase = true)
+                ) {
                     // Extract title after the colon
                     val colonIndex = line.indexOf(':')
                     if (colonIndex > 0) {
@@ -70,8 +71,8 @@ class GetShikimoriMetadata(
                     }
                 }
                 // Check if line contains mostly non-Cyrillic characters (Japanese/Latin)
-                val nonCyrillic = line.filter {
-                    char -> char.code < 0x400 || char.code > 0x4FF
+                val nonCyrillic = line.filter { char ->
+                    char.code < 0x400 || char.code > 0x4FF
                 }.trim()
                 if (nonCyrillic.length > 5 && nonCyrillic.length < 200) {
                     return nonCyrillic.trimEnd('.', ',', '"', '\'')
@@ -95,11 +96,11 @@ class GetShikimoriMetadata(
 
             // Remove common suffixes (case-insensitive)
             val suffixesToRemove = listOf(
-                "\\s+Сезон\\s*\\d*",        // Russian: "Сезон", "Сезон 2", etc.
-                "\\s+сезон\\s*\\d*",        // Russian lowercase
-                "\\s+Season\\s*\\d*",       // English: "Season", "Season 2", etc.
-                "\\s+season\\s*\\d*",       // English lowercase
-                "\\s+TV\\b",                // "TV" as word boundary
+                "\\s+Сезон\\s*\\d*", // Russian: "Сезон", "Сезон 2", etc.
+                "\\s+сезон\\s*\\d*", // Russian lowercase
+                "\\s+Season\\s*\\d*", // English: "Season", "Season 2", etc.
+                "\\s+season\\s*\\d*", // English lowercase
+                "\\s+TV\\b", // "TV" as word boundary
                 "\\s+tv\\b",
                 "\\s+Special\\b",
                 "\\s+special\\b",
@@ -209,7 +210,7 @@ class GetShikimoriMetadata(
 
                 logcat(LogPriority.DEBUG) {
                     "Searching Shikimori for: ${anime.title}" +
-                    (if (originalTitle != null) " (original: $originalTitle)" else "")
+                        (if (originalTitle != null) " (original: $originalTitle)" else "")
                 }
 
                 var firstResult: AnimeTrackSearch? = null
@@ -235,7 +236,7 @@ class GetShikimoriMetadata(
 
                 logcat(LogPriority.DEBUG) {
                     "Shikimori match: id=${firstResult.remote_id}, score=${firstResult.score}, " +
-                    "type=${firstResult.publishing_type}, cover=${firstResult.cover_url}, query=$usedQuery"
+                        "type=${firstResult.publishing_type}, cover=${firstResult.cover_url}, query=$usedQuery"
                 }
 
                 // Try to parse poster from HTML first (more reliable than API)
@@ -255,7 +256,9 @@ class GetShikimoriMetadata(
                     }
                     // Both failed - will fallback to anime.thumbnailUrl
                     else -> {
-                        logcat(LogPriority.WARN) { "HTML parsing failed and API returned placeholder, using local thumbnail" }
+                        logcat(LogPriority.WARN) {
+                            "HTML parsing failed and API returned placeholder, using local thumbnail"
+                        }
                         null
                     }
                 }
@@ -305,7 +308,8 @@ class GetShikimoriMetadata(
         while (current != null) {
             val message = current.message.orEmpty()
             if (message.contains("Not authenticated", ignoreCase = true) &&
-                message.contains("Shikimori", ignoreCase = true)) {
+                message.contains("Shikimori", ignoreCase = true)
+            ) {
                 return true
             }
             current = current.cause

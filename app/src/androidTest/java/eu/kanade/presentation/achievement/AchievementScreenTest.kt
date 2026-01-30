@@ -135,7 +135,7 @@ class AchievementScreenTest {
         // Then - perform long press on first bar
         composeTestRule.onAllNodes(hasContentDescription("Activity bar", substring = true))[0]
             .performTouchInput { longClick() }
-        
+
         // Tooltip should appear with month name
         composeTestRule.waitForIdle()
     }
@@ -169,7 +169,7 @@ class AchievementScreenTest {
         composeTestRule.onAllNodes(hasContentDescription("Activity bar", substring = true))[0]
             .performTouchInput { longClick() }
         composeTestRule.waitForIdle()
-        
+
         // Verify tooltip shows correct data
         composeTestRule.onNodeWithText("Всего: 8").assertExists()
         composeTestRule.onNodeWithText("Глав: 5").assertExists()
@@ -179,7 +179,7 @@ class AchievementScreenTest {
     private fun generateTestYearlyStats(): List<Pair<YearMonth, MonthStats>> {
         val stats = mutableListOf<Pair<YearMonth, MonthStats>>()
         val currentMonth = YearMonth.now()
-        
+
         for (i in 0..11) {
             val month = currentMonth.minusMonths(i.toLong())
             val monthStats = MonthStats(
@@ -190,7 +190,7 @@ class AchievementScreenTest {
             )
             stats.add(0, month to monthStats) // Add to beginning to maintain chronological order
         }
-        
+
         return stats
     }
 }

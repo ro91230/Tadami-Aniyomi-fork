@@ -4,7 +4,6 @@ import logcat.LogPriority
 import logcat.logcat
 import tachiyomi.data.achievement.handler.AchievementEventBus
 import tachiyomi.data.achievement.handler.FeatureUsageCollector
-import tachiyomi.data.achievement.model.AchievementEvent
 import tachiyomi.domain.achievement.model.Achievement
 import tachiyomi.domain.achievement.model.AchievementProgress
 import tachiyomi.domain.achievement.model.AchievementType

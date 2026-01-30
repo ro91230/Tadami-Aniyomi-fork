@@ -56,15 +56,15 @@ sealed class AchievementEvent {
     ) : AchievementEvent()
 
     enum class Feature {
-        SEARCH,           // Использование поиска
-        ADVANCED_SEARCH,  // Расширенный поиск
-        FILTER,           // Использование фильтров
-        DOWNLOAD,         // Скачивание глав/серий
-        BACKUP,           // Создание бэкапа
-        RESTORE,          // Восстановление из бэкапа
-        SETTINGS,         // Изменение настроек
-        STATS,            // Просмотр статистики
-        THEME_CHANGE,     // Смена темы
-        LOGO_CLICK,       // Нажатие на логотип (для секретных достижений)
+        SEARCH, // Использование поиска
+        ADVANCED_SEARCH, // Расширенный поиск
+        FILTER, // Использование фильтров
+        DOWNLOAD, // Скачивание глав/серий
+        BACKUP, // Создание бэкапа
+        RESTORE, // Восстановление из бэкапа
+        SETTINGS, // Изменение настроек
+        STATS, // Просмотр статистики
+        THEME_CHANGE, // Смена темы
+        LOGO_CLICK, // Нажатие на логотип (для секретных достижений)
     }
 }

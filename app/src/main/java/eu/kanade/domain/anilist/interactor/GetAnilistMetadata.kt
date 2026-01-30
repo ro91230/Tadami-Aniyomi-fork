@@ -2,7 +2,6 @@ package eu.kanade.domain.anilist.interactor
 
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.AnimeMetadataSource
-import eu.kanade.tachiyomi.data.track.anilist.Anilist
 import eu.kanade.tachiyomi.data.track.anilist.AnilistApi
 import eu.kanade.tachiyomi.data.track.model.AnimeTrackSearch
 import logcat.LogPriority
@@ -29,11 +28,11 @@ class GetAnilistMetadata(
 
         // Remove common suffixes (case-insensitive)
         val suffixesToRemove = listOf(
-            "\\s+Сезон\\s*\\d*",        // Russian: "Сезон", "Сезон 2", etc.
-            "\\s+сезон\\s*\\d*",        // Russian lowercase
-            "\\s+Season\\s*\\d*",       // English: "Season", "Season 2", etc.
-            "\\s+season\\s*\\d*",       // English lowercase
-            "\\s+TV\\b",                // "TV" as word boundary
+            "\\s+Сезон\\s*\\d*", // Russian: "Сезон", "Сезон 2", etc.
+            "\\s+сезон\\s*\\d*", // Russian lowercase
+            "\\s+Season\\s*\\d*", // English: "Season", "Season 2", etc.
+            "\\s+season\\s*\\d*", // English lowercase
+            "\\s+TV\\b", // "TV" as word boundary
             "\\s+tv\\b",
             "\\s+Special\\b",
             "\\s+special\\b",
@@ -153,7 +152,7 @@ class GetAnilistMetadata(
 
                 logcat(LogPriority.DEBUG) {
                     "Searching Anilist for: ${anime.title}" +
-                    (if (originalTitle != null) " (original: $originalTitle)" else "")
+                        (if (originalTitle != null) " (original: $originalTitle)" else "")
                 }
 
                 logcat(LogPriority.DEBUG) { "Search queries: $searchQueries" }
@@ -181,7 +180,7 @@ class GetAnilistMetadata(
 
                 logcat(LogPriority.INFO) {
                     "Anilist match: id=${firstResult!!.remote_id}, score=${firstResult.score}, " +
-                    "type=${firstResult.publishing_type}, cover=${firstResult.cover_url}, query=$usedQuery"
+                        "type=${firstResult.publishing_type}, cover=${firstResult.cover_url}, query=$usedQuery"
                 }
 
                 val metadata = AnilistMetadata(
@@ -218,7 +217,8 @@ class GetAnilistMetadata(
         while (current != null) {
             val message = current.message.orEmpty()
             if (message.contains("Not authenticated", ignoreCase = true) &&
-                message.contains("Anilist", ignoreCase = true)) {
+                message.contains("Anilist", ignoreCase = true)
+            ) {
                 return true
             }
             current = current.cause
@@ -264,7 +264,8 @@ class GetAnilistMetadata(
             if (line.contains("Original", ignoreCase = true) ||
                 line.contains("Оригинал", ignoreCase = true) ||
                 line.contains("Romaji", ignoreCase = true) ||
-                line.contains("Японское", ignoreCase = true)) {
+                line.contains("Японское", ignoreCase = true)
+            ) {
                 // Extract title after the colon
                 val colonIndex = line.indexOf(':')
                 if (colonIndex > 0) {
@@ -275,8 +276,8 @@ class GetAnilistMetadata(
                 }
             }
             // Check if line contains mostly non-Cyrillic characters (Japanese/Latin)
-            val nonCyrillic = line.filter {
-                char -> char.code < 0x400 || char.code > 0x4FF
+            val nonCyrillic = line.filter { char ->
+                char.code < 0x400 || char.code > 0x4FF
             }.trim()
             if (nonCyrillic.length > 5 && nonCyrillic.length < 200) {
                 return nonCyrillic.trimEnd('.', ',', '"', '\'')

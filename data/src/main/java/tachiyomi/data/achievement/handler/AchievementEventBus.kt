@@ -60,7 +60,9 @@ class AchievementEventBus {
      * @param event Событие для отправки
      */
     suspend fun emit(event: AchievementEvent) {
-        logcat(LogPriority.VERBOSE) { "[ACHIEVEMENTS] EventBus(${this.hashCode()}) emit: $event (subs=${_events.subscriptionCount.value})" }
+        logcat(LogPriority.VERBOSE) {
+            "[ACHIEVEMENTS] EventBus(${this.hashCode()}) emit: $event (subs=${_events.subscriptionCount.value})"
+        }
         _events.emit(event)
     }
 

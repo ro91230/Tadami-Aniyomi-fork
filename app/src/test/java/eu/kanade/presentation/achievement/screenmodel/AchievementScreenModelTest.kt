@@ -22,7 +22,6 @@ import tachiyomi.domain.achievement.model.UserPoints
 import tachiyomi.domain.achievement.repository.AchievementRepository
 import tachiyomi.domain.achievement.repository.ActivityDataRepository
 import java.time.LocalDate
-import java.time.YearMonth
 
 class AchievementScreenModelTest {
 
@@ -36,7 +35,7 @@ class AchievementScreenModelTest {
     @BeforeEach
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        
+
         coEvery { repository.getAll() } returns flowOf(emptyList())
         coEvery { repository.getAllProgress() } returns flowOf(emptyList())
         every { pointsManager.subscribeToPoints() } returns flowOf(UserPoints())
