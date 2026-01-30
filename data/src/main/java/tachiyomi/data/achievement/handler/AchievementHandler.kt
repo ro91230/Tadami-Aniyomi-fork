@@ -108,7 +108,7 @@ class AchievementHandler(
                 it.type == AchievementType.DIVERSITY ||
                 it.type == AchievementType.LIBRARY ||
                 it.type == AchievementType.META
-        }
+        }.filter { it.id != "read_long_manga" }
 
         relevantAchievements.forEach { achievement ->
             checkAndUpdateProgress(achievement, event)
@@ -157,7 +157,15 @@ class AchievementHandler(
             .filter { it.type == AchievementType.EVENT }
 
         achievements.forEach { achievement ->
-            checkAndUpdateProgress(achievement, event)
+            // Специальная обработка для read_long_manga
+            if (achievement.id == "read_long_manga") {
+                if (checkLongMangaAchievement(event)) {
+                    val currentProgress = repository.getProgress(achievement.id).first()
+                    applyProgressUpdate(achievement, currentProgress, 1)
+                }
+            } else {
+                checkAndUpdateProgress(achievement, event)
+            }
         }
     }
 
@@ -417,7 +425,16 @@ class AchievementHandler(
                 }
             }
             AchievementType.QUANTITY -> {
-                getTotalReadForCategory(achievement.category)
+                // Специальная обработка для достижений завершения
+                when {
+                    achievement.id.startsWith("complete_") && achievement.id.endsWith("_manga") -> {
+                        getCompletedMangaCount()
+                    }
+                    achievement.id.startsWith("complete_") && achievement.id.endsWith("_anime") -> {
+                        getCompletedAnimeCount()
+                    }
+                    else -> getTotalReadForCategory(achievement.category)
+                }
             }
             AchievementType.DIVERSITY -> {
                 when {
@@ -481,9 +498,16 @@ class AchievementHandler(
                 id.contains("library") || id.contains("favorite") || id.contains("collect") || id.contains("added")
             is AchievementEvent.LibraryRemoved -> false
             is AchievementEvent.MangaCompleted ->
-                id.contains("manga_complete") || id.contains("completed_manga") || id.contains("manga_completed")
+                id.contains("manga_complete") ||
+                id.contains("completed_manga") ||
+                id.contains("manga_completed") ||
+                (id.contains("complete") && id.contains("_manga")) ||
+                id == "read_long_manga"
             is AchievementEvent.AnimeCompleted ->
-                id.contains("anime_complete") || id.contains("completed_anime") || id.contains("anime_completed")
+                id.contains("anime_complete") ||
+                id.contains("completed_anime") ||
+                id.contains("anime_completed") ||
+                (id.contains("complete") && id.contains("_anime"))
             is AchievementEvent.SessionEnd ->
                 id.contains("session") || id.contains("time")
             is AchievementEvent.AppStart -> {
@@ -510,6 +534,36 @@ class AchievementHandler(
                 }
             }
         }
+    }
+
+    /**
+     * Специальная проверка для достижения "Долгостройщик"
+     * Требует: манга завершена И 200+ глав прочитано
+     */
+    private suspend fun checkLongMangaAchievement(event: AchievementEvent.MangaCompleted): Boolean {
+        // Check how many chapters were ACTUALLY READ (not total chapters)
+        val chaptersRead = mangaHandler.awaitOneOrNull {
+            historyQueries.getChaptersReadByMangaId(event.mangaId)
+        } ?: 0L
+        return chaptersRead >= 200
+    }
+
+    /**
+     * Получить количество завершенных манг в библиотеке
+     */
+    private suspend fun getCompletedMangaCount(): Int {
+        return mangaHandler.awaitOneOrNull {
+            mangasQueries.getCompletedMangaCount()
+        }?.toInt() ?: 0
+    }
+
+    /**
+     * Получить количество завершенных аниме в библиотеке
+     */
+    private suspend fun getCompletedAnimeCount(): Int {
+        return animeHandler.awaitOneOrNull {
+            animesQueries.getCompletedAnimeCount()
+        }?.toInt() ?: 0
     }
 
     private suspend fun getAchievementsForCategory(category: AchievementCategory): List<Achievement> {
