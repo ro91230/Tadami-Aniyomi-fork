@@ -17,10 +17,12 @@ import org.junit.jupiter.api.Test
 import tachiyomi.data.achievement.handler.PointsManager
 import tachiyomi.data.achievement.loader.AchievementLoader
 import tachiyomi.domain.achievement.model.DayActivity
+import tachiyomi.domain.achievement.model.MonthStats
 import tachiyomi.domain.achievement.model.UserPoints
 import tachiyomi.domain.achievement.repository.AchievementRepository
 import tachiyomi.domain.achievement.repository.ActivityDataRepository
 import java.time.LocalDate
+import java.time.YearMonth
 
 class AchievementScreenModelTest {
 
@@ -39,8 +41,9 @@ class AchievementScreenModelTest {
         coEvery { repository.getAllProgress() } returns flowOf(emptyList())
         every { pointsManager.subscribeToPoints() } returns flowOf(UserPoints())
         coEvery { activityDataRepository.getActivityData(any()) } returns flowOf(emptyList())
-        coEvery { activityDataRepository.getCurrentMonthStats() } returns mockk(relaxed = true)
-        coEvery { activityDataRepository.getPreviousMonthStats() } returns mockk(relaxed = true)
+        coEvery { activityDataRepository.getCurrentMonthStats() } returns MonthStats(0, 0, 0, 0)
+        coEvery { activityDataRepository.getPreviousMonthStats() } returns MonthStats(0, 0, 0, 0)
+        coEvery { activityDataRepository.getLastTwelveMonthsStats() } returns emptyList()
     }
 
     @AfterEach
