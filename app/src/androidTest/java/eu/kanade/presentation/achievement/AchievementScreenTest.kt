@@ -14,8 +14,8 @@ import eu.kanade.presentation.theme.AuroraColors
 import eu.kanade.presentation.theme.LocalAuroraColors
 import org.junit.Rule
 import org.junit.Test
-import tachiyomi.domain.achievement.model.*
-import java.time.LocalDate
+import tachiyomi.domain.achievement.model.MonthStats
+import java.time.YearMonth
 
 class AchievementScreenTest {
 
@@ -61,9 +61,9 @@ class AchievementScreenTest {
     }
 
     @Test
-    fun activityGraph_displaysTitleAndLegend() {
+    fun activityGraph_displaysTitleAndBars() {
         // Given
-        val activityData = generateTestActivityData()
+        val yearlyStats = generateTestYearlyStats()
 
         // When
         composeTestRule.setContent {
@@ -73,15 +73,14 @@ class AchievementScreenTest {
                         .background(AuroraColors.Dark.background)
                         .padding(16.dp)
                 ) {
-                    AchievementActivityGraph(activityData = activityData)
+                    AchievementActivityGraph(yearlyStats = yearlyStats)
                 }
             }
         }
 
         // Then
         composeTestRule.onNodeWithText("Активность за год").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Меньше").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Больше").assertIsDisplayed()
+        // Note: Legend removed as per design decision
     }
 
     @Test
@@ -115,31 +114,83 @@ class AchievementScreenTest {
         composeTestRule.onNodeWithText("1").assertIsDisplayed()
     }
 
-    private fun generateTestActivityData(): List<DayActivity> {
-        val data = mutableListOf<DayActivity>()
-        val endDate = LocalDate.now()
-        val startDate = endDate.minusDays(365)
+    @Test
+    fun activityGraph_tooltipShowsOnLongPress() {
+        // Given
+        val yearlyStats = generateTestYearlyStats()
 
-        var currentDate = startDate
-        while (!currentDate.isAfter(endDate)) {
-            val level = when {
-                currentDate.dayOfWeek.value >= 6 -> (0..4).random()
-                currentDate.isAfter(endDate.minusMonths(3)) -> (0..4).random()
-                else -> (0..3).random()
+        // When
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalAuroraColors provides AuroraColors.Dark) {
+                Box(
+                    modifier = Modifier
+                        .background(AuroraColors.Dark.background)
+                        .padding(16.dp)
+                ) {
+                    AchievementActivityGraph(yearlyStats = yearlyStats)
+                }
             }
-
-            if (level > 0) {
-                val type = listOf(
-                    ActivityType.READING,
-                    ActivityType.WATCHING,
-                    ActivityType.APP_OPEN
-                ).random()
-                data.add(DayActivity(date = currentDate, level = level, type = type))
-            }
-
-            currentDate = currentDate.plusDays(1)
         }
 
-        return data
+        // Then - perform long press on first bar
+        composeTestRule.onAllNodes(hasContentDescription("Activity bar", substring = true))[0]
+            .performTouchInput { longClick() }
+        
+        // Tooltip should appear with month name
+        composeTestRule.waitForIdle()
+    }
+
+    @Test
+    fun activityGraph_displaysCorrectMetricsInTooltip() {
+        // Given - stats with known values
+        val month = YearMonth.now().minusMonths(1)
+        val stats = MonthStats(
+            chaptersRead = 5,
+            episodesWatched = 3,
+            timeInAppMinutes = 120,
+            achievementsUnlocked = 2,
+        )
+        val yearlyStats = listOf(month to stats)
+
+        // When
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalAuroraColors provides AuroraColors.Dark) {
+                Box(
+                    modifier = Modifier
+                        .background(AuroraColors.Dark.background)
+                        .padding(16.dp)
+                ) {
+                    AchievementActivityGraph(yearlyStats = yearlyStats)
+                }
+            }
+        }
+
+        // Then - long press and verify tooltip content
+        composeTestRule.onAllNodes(hasContentDescription("Activity bar", substring = true))[0]
+            .performTouchInput { longClick() }
+        composeTestRule.waitForIdle()
+        
+        // Verify tooltip shows correct data
+        composeTestRule.onNodeWithText("Всего: 8").assertExists()
+        composeTestRule.onNodeWithText("Глав: 5").assertExists()
+        composeTestRule.onNodeWithText("Эпизодов: 3").assertExists()
+    }
+
+    private fun generateTestYearlyStats(): List<Pair<YearMonth, MonthStats>> {
+        val stats = mutableListOf<Pair<YearMonth, MonthStats>>()
+        val currentMonth = YearMonth.now()
+        
+        for (i in 0..11) {
+            val month = currentMonth.minusMonths(i.toLong())
+            val monthStats = MonthStats(
+                chaptersRead = (0..10).random(),
+                episodesWatched = (0..5).random(),
+                timeInAppMinutes = (0..300).random(),
+                achievementsUnlocked = (0..3).random(),
+            )
+            stats.add(0, month to monthStats) // Add to beginning to maintain chronological order
+        }
+        
+        return stats
     }
 }
