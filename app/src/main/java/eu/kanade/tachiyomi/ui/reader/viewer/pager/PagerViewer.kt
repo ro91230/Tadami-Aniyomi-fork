@@ -19,6 +19,7 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion
+import eu.kanade.tachiyomi.ui.reader.viewer.autoscroll.PagerAutoScrollManager
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import tachiyomi.core.common.util.system.logcat
@@ -45,6 +46,11 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
      * Configuration used by the pager, like allow taps, scale mode on images, page transitions...
      */
     val config = PagerConfig(this, scope)
+
+    /**
+     * Auto-scroll manager for automatic page advancement.
+     */
+    val autoScrollManager by lazy { PagerAutoScrollManager(this) }
 
     /**
      * Adapter of the pager.
@@ -98,6 +104,10 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
 
                 override fun onPageScrollStateChanged(state: Int) {
                     isIdle = state == ViewPager.SCROLL_STATE_IDLE
+                    // Pause auto-scroll when user is dragging the pager
+                    if (state == ViewPager.SCROLL_STATE_DRAGGING) {
+                        pauseAutoScroll()
+                    }
                 }
             },
         )
@@ -112,10 +122,22 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
             )
             when (config.navigator.getAction(pos)) {
                 NavigationRegion.MENU -> activity.toggleMenu()
-                NavigationRegion.NEXT -> moveToNext()
-                NavigationRegion.PREV -> moveToPrevious()
-                NavigationRegion.RIGHT -> moveRight()
-                NavigationRegion.LEFT -> moveLeft()
+                NavigationRegion.NEXT -> {
+                    pauseAutoScroll()
+                    moveToNext()
+                }
+                NavigationRegion.PREV -> {
+                    pauseAutoScroll()
+                    moveToPrevious()
+                }
+                NavigationRegion.RIGHT -> {
+                    pauseAutoScroll()
+                    moveRight()
+                }
+                NavigationRegion.LEFT -> {
+                    pauseAutoScroll()
+                    moveLeft()
+                }
             }
         }
         pager.longTapListener = f@{
@@ -147,7 +169,31 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
 
     override fun destroy() {
         super.destroy()
+        autoScrollManager.destroy()
         scope.cancel()
+    }
+
+    /**
+     * Starts auto-scroll with the specified speed.
+     *
+     * @param speed The speed value (1-100), where higher is faster.
+     */
+    fun startAutoScroll(speed: Int? = null) {
+        autoScrollManager.start(speed)
+    }
+
+    /**
+     * Stops auto-scroll completely.
+     */
+    fun stopAutoScroll() {
+        autoScrollManager.stop()
+    }
+
+    /**
+     * Pauses auto-scroll. Can be resumed later.
+     */
+    fun pauseAutoScroll() {
+        autoScrollManager.pause()
     }
 
     /**

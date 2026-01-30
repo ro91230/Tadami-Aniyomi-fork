@@ -25,13 +25,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import androidx.core.content.getSystemService
-import androidx.core.graphics.ColorUtils
 import androidx.core.net.toUri
 import androidx.core.transition.doOnEnd
 import androidx.core.view.WindowCompat
@@ -39,7 +39,6 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
-import com.google.android.material.elevation.SurfaceColors
 import com.google.android.material.transition.platform.MaterialContainerTransform
 import com.hippo.unifile.UniFile
 import dev.chrisbanes.insetter.applyInsetter
@@ -73,6 +72,8 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsScreenModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
+import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerViewer
+import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import eu.kanade.tachiyomi.util.system.isNightMode
@@ -257,6 +258,7 @@ class ReaderActivity : BaseActivity() {
 
     override fun onPause() {
         viewModel.flushReadTimer()
+        viewModel.pauseAutoScroll()
         super.onPause()
     }
 
@@ -390,6 +392,24 @@ class ReaderActivity : BaseActivity() {
             val navigatorCornerRadius by readerPreferences.navigatorCornerRadius().collectAsState()
             val navigatorShowTickMarks by readerPreferences.navigatorShowTickMarks().collectAsState()
 
+            // Auto-scroll effect - start/stop based on state
+            LaunchedEffect(state.autoScrollEnabled, state.autoScrollSpeed, state.viewer) {
+                val viewer = state.viewer
+                if (viewer != null && state.autoScrollEnabled) {
+                    // Hide menu when auto-scroll starts
+                    setMenuVisibility(false)
+                    when (viewer) {
+                        is PagerViewer -> viewer.startAutoScroll(state.autoScrollSpeed)
+                        is WebtoonViewer -> viewer.startAutoScroll(state.autoScrollSpeed)
+                    }
+                } else if (viewer != null) {
+                    when (viewer) {
+                        is PagerViewer -> viewer.stopAutoScroll()
+                        is WebtoonViewer -> viewer.stopAutoScroll()
+                    }
+                }
+            }
+
             ReaderContentOverlay(
                 brightness = state.brightnessOverlayValue,
                 color = colorOverlay.takeIf { colorOverlayEnabled },
@@ -438,6 +458,14 @@ class ReaderActivity : BaseActivity() {
                     menuToggleToast = toast(if (enabled) MR.strings.on else MR.strings.off)
                 },
                 onClickSettings = viewModel::openSettingsDialog,
+
+                // Auto-scroll options
+                autoScrollEnabled = state.autoScrollEnabled,
+                autoScrollSpeed = state.autoScrollSpeed,
+                onToggleAutoScroll = viewModel::toggleAutoScroll,
+                onSpeedChange = viewModel::setAutoScrollSpeed,
+                isAutoScrollExpanded = state.isAutoScrollExpanded,
+                onToggleExpand = viewModel::toggleAutoScrollExpand,
 
                 // Navigator customization options
                 showNavigator = showNavigator,
@@ -527,6 +555,8 @@ class ReaderActivity : BaseActivity() {
         if (visible) {
             windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
             window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            // Pause auto-scroll when menu is shown
+            viewModel.pauseAutoScroll()
         } else {
             if (readerPreferences.fullscreen().get()) {
                 windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())

@@ -1,7 +1,6 @@
 package tachiyomi.data.achievement.migration
 
 import kotlinx.coroutines.flow.first
-import tachiyomi.data.achievement.handler.AchievementCalculator
 import tachiyomi.domain.achievement.model.Achievement
 import tachiyomi.domain.achievement.model.AchievementProgress
 import tachiyomi.domain.achievement.model.AchievementTier

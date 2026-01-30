@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -38,24 +37,22 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import eu.kanade.presentation.theme.AuroraTheme
+import kotlinx.coroutines.launch
 import tachiyomi.domain.achievement.model.MonthStats
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import kotlin.math.max
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -282,13 +279,13 @@ private fun ActivityBar(
             }
         },
         state = tooltipState,
-        modifier = Modifier.width(24.dp)
+        modifier = Modifier.width(24.dp),
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.semantics {
                 contentDescription = "Activity bar for ${month.month.name}"
-            }
+            },
         ) {
             // The Bar with long-press gesture
             Box(
@@ -300,9 +297,9 @@ private fun ActivityBar(
                         brush = Brush.verticalGradient(
                             colors = listOf(
                                 barColor,
-                                barColor.copy(alpha = 0.3f)
-                            )
-                        )
+                                barColor.copy(alpha = 0.3f),
+                            ),
+                        ),
                     )
                     .pointerInput(Unit) {
                         detectTapGestures(
@@ -319,7 +316,7 @@ private fun ActivityBar(
                                 coroutineScope.launch {
                                     tooltipState.dismiss()
                                 }
-                            }
+                            },
                         )
                     },
             )
@@ -352,7 +349,7 @@ private fun ActivityTooltipContent(
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(8.dp)
+        modifier = Modifier.padding(8.dp),
     ) {
         // Month name
         Text(

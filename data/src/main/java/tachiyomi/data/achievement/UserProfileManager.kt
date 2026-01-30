@@ -2,7 +2,6 @@ package tachiyomi.data.achievement
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
 import logcat.LogPriority
 import logcat.logcat
 import tachiyomi.domain.achievement.model.Reward

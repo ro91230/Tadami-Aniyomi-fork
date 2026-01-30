@@ -3,7 +3,6 @@ package tachiyomi.data.achievement
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.BeforeEach
@@ -243,7 +242,6 @@ class AchievementCalculatorTest : AchievementTestBase() {
         coEvery { mangaHandler.awaitOneOrNull<Long>(any(), any()) } returns 10L
         coEvery { animeHandler.awaitOneOrNull<Long>(any(), any()) } returns 0L
 
-
         val result = calculator.calculateInitialProgress()
 
         result.success shouldBe true
@@ -268,7 +266,6 @@ class AchievementCalculatorTest : AchievementTestBase() {
         // No history
         coEvery { mangaHandler.awaitOneOrNull<Long>(any(), any()) } returns 0L
         coEvery { animeHandler.awaitOneOrNull<Long>(any(), any()) } returns 0L
-
 
         val result = calculator.calculateInitialProgress()
 

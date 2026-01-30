@@ -98,7 +98,9 @@ class MangaHistoryRepositoryImpl(
                             timestamp = System.currentTimeMillis(),
                         )
                         val emitted = eventBus.tryEmit(event)
-                        logcat(LogPriority.INFO) { "[ACHIEVEMENTS] Publishing ChapterRead event: mangaId=${chapterInfo.first}, chapter=${chapterInfo.second}, emitted=$emitted" }
+                        logcat(LogPriority.INFO) {
+                            "[ACHIEVEMENTS] Publishing ChapterRead event: mangaId=${chapterInfo.first}, chapter=${chapterInfo.second}, emitted=$emitted"
+                        }
                     }
                 } catch (e: Exception) {
                     // Don't let event publishing errors affect history operations

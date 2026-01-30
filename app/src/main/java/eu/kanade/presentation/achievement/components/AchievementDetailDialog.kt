@@ -1,6 +1,5 @@
 package eu.kanade.presentation.achievement.components
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -40,12 +39,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -93,7 +89,6 @@ fun AchievementDetailDialog(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight()
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
@@ -115,13 +110,13 @@ fun AchievementDetailDialog(
                         ),
                     )
                 }
-                .padding(top = 16.dp, bottom = 24.dp, start = 16.dp, end = 16.dp),
+                .padding(top = 12.dp, bottom = 16.dp, start = 16.dp, end = 16.dp),
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(scrollState),
-                verticalArrangement = Arrangement.spacedBy(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 // Close button
                 Row(
@@ -139,7 +134,7 @@ fun AchievementDetailDialog(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
                             tint = colors.textSecondary,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(24.dp),
                         )
                     }
                 }
@@ -148,7 +143,7 @@ fun AchievementDetailDialog(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(180.dp),
+                        .height(140.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     // Glow effect behind badge - FIXED: same size as badge
@@ -211,20 +206,20 @@ fun AchievementDetailDialog(
                             .align(Alignment.CenterHorizontally)
                             .clip(RoundedCornerShape(8.dp))
                             .background(colors.accent.copy(alpha = 0.1f))
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
                     ) {
                         Icon(
                             imageVector = Icons.Default.Star,
                             contentDescription = null,
                             tint = colors.accent,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(16.dp),
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "${achievement.points} очков",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = colors.accent
+                            color = colors.accent,
                         )
                     }
                 }
@@ -240,7 +235,7 @@ fun AchievementDetailDialog(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(Color.White.copy(alpha = 0.03f))
-                                .padding(16.dp),
+                                .padding(12.dp),
                             color = colors.textSecondary,
                             lineHeight = 22.sp,
                         )
@@ -252,8 +247,8 @@ fun AchievementDetailDialog(
                     AnimatedProgressSection(progress, achievement.threshold, colors)
                 }
 
-                // Divider with gradient - proper spacing
-                Spacer(modifier = Modifier.height(8.dp))
+                // Divider with gradient - compact spacing
+                Spacer(modifier = Modifier.height(4.dp))
 
                 Box(
                     modifier = Modifier
@@ -270,9 +265,9 @@ fun AchievementDetailDialog(
                         ),
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
-                // Rewards Section with proper spacing
+                // Rewards Section with compact spacing
                 AuroraRewardSection(achievement, isUnlocked, unlockableManager, colors)
 
                 // Unlock date
@@ -294,7 +289,7 @@ fun AchievementDetailDialog(
                                 imageVector = Icons.Default.Check,
                                 contentDescription = null,
                                 tint = Color(0xFF4CAF50),
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(18.dp),
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
@@ -308,20 +303,20 @@ fun AchievementDetailDialog(
                 }
 
                 // Spacer before close button for proper touch target
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Glowing Close Button - FIXED: proper rounded shape, clean styling
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp)
+                        .height(56.dp),
                 ) {
                     Button(
                         onClick = onDismiss,
                         modifier = Modifier
                             .fillMaxWidth()
                             .fillMaxHeight(),
-                        shape = RoundedCornerShape(16.dp), // FIXED: more rounded
+                        shape = RoundedCornerShape(28.dp), // FIXED: more rounded
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.Transparent,
                         ),
@@ -330,6 +325,7 @@ fun AchievementDetailDialog(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
+                                .clip(RoundedCornerShape(28.dp))
                                 .background(
                                     brush = Brush.horizontalGradient(
                                         colors = listOf(
@@ -337,8 +333,7 @@ fun AchievementDetailDialog(
                                             colors.progressCyan.copy(alpha = 0.8f),
                                         ),
                                     ),
-                                )
-                                .clip(RoundedCornerShape(16.dp)),
+                                ),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
@@ -608,7 +603,7 @@ private fun AuroraRewardItem(
                     )
                 } else {
                     Modifier
-                }
+                },
             )
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -631,7 +626,7 @@ private fun AuroraRewardItem(
         }
 
         Column(
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         ) {
             Text(
                 text = title,

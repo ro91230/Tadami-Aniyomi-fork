@@ -1,21 +1,17 @@
 package eu.kanade.presentation.achievement.screenmodel
 
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import cafe.adriel.voyager.core.model.StateScreenModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import cafe.adriel.voyager.core.model.screenModelScope
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import logcat.LogPriority
-import logcat.logcat
+import tachiyomi.data.achievement.handler.PointsManager
 import tachiyomi.data.achievement.loader.AchievementLoader
 import tachiyomi.domain.achievement.model.Achievement
 import tachiyomi.domain.achievement.model.AchievementCategory
@@ -25,10 +21,8 @@ import tachiyomi.domain.achievement.model.MonthStats
 import tachiyomi.domain.achievement.model.UserPoints
 import tachiyomi.domain.achievement.repository.AchievementRepository
 import tachiyomi.domain.achievement.repository.ActivityDataRepository
-import tachiyomi.data.achievement.handler.PointsManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import kotlinx.coroutines.flow.catch
 
 class AchievementScreenModel(
     private val repository: AchievementRepository = Injekt.get(),
@@ -115,8 +109,14 @@ sealed interface AchievementScreenState {
         val filteredAchievements: List<Achievement>
             get() = when (selectedCategory) {
                 AchievementCategory.BOTH -> achievements
-                AchievementCategory.ANIME -> achievements.filter { it.category == AchievementCategory.ANIME || it.category == AchievementCategory.BOTH }
-                AchievementCategory.MANGA -> achievements.filter { it.category == AchievementCategory.MANGA || it.category == AchievementCategory.BOTH }
+                AchievementCategory.ANIME -> achievements.filter {
+                    it.category == AchievementCategory.ANIME ||
+                        it.category == AchievementCategory.BOTH
+                }
+                AchievementCategory.MANGA -> achievements.filter {
+                    it.category == AchievementCategory.MANGA ||
+                        it.category == AchievementCategory.BOTH
+                }
                 AchievementCategory.SECRET -> achievements.filter { it.category == AchievementCategory.SECRET }
             }
 

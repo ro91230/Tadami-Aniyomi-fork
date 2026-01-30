@@ -1,19 +1,12 @@
 package eu.kanade.tachiyomi.ui.achievement
 
-import android.content.ComponentName
-import android.content.Intent
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.test.platform.app.InstrumentationRegistry
 import eu.kanade.presentation.achievement.screenmodel.AchievementScreenState
 import eu.kanade.presentation.achievement.ui.AchievementScreen
-import eu.kanade.tachiyomi.ui.base.Activity
 import eu.kanade.tachiyomi.ui.base.MainComposeActivity
 import org.junit.Before
 import org.junit.Rule

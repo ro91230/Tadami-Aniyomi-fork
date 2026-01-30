@@ -797,6 +797,34 @@ class ReaderViewModel @JvmOverloads constructor(
     }
 
     /**
+     * Toggles auto-scroll on/off.
+     */
+    fun toggleAutoScroll() {
+        mutableState.update { it.copy(autoScrollEnabled = !it.autoScrollEnabled) }
+    }
+
+    /**
+     * Sets the auto-scroll speed (1-100).
+     */
+    fun setAutoScrollSpeed(speed: Int) {
+        mutableState.update { it.copy(autoScrollSpeed = speed.coerceIn(1, 100)) }
+    }
+
+    /**
+     * Toggles the auto-scroll controls expansion.
+     */
+    fun toggleAutoScrollExpand() {
+        mutableState.update { it.copy(isAutoScrollExpanded = !it.isAutoScrollExpanded) }
+    }
+
+    /**
+     * Pauses auto-scroll (e.g., when menu is shown).
+     */
+    fun pauseAutoScroll() {
+        mutableState.update { it.copy(autoScrollEnabled = false) }
+    }
+
+    /**
      * Saves the image of this the selected page on the pictures directory and notifies the UI of the result.
      * There's also a notification to allow sharing the image somewhere else or deleting it.
      */
@@ -967,6 +995,11 @@ class ReaderViewModel @JvmOverloads constructor(
         val dialog: Dialog? = null,
         val menuVisible: Boolean = false,
         @IntRange(from = -100, to = 100) val brightnessOverlayValue: Int = 0,
+
+        // Auto-scroll state
+        val autoScrollEnabled: Boolean = false,
+        val autoScrollSpeed: Int = 50,
+        val isAutoScrollExpanded: Boolean = false,
     ) {
         val currentChapter: ReaderChapter?
             get() = viewerChapters?.currChapter

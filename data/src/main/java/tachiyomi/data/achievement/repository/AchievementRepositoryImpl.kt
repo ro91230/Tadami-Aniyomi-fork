@@ -26,9 +26,9 @@ class AchievementRepositoryImpl(
             .selectAll()
             .asFlow()
             .mapToList(Dispatchers.IO)
-            .map { list -> 
+            .map { list ->
                 logcat(LogPriority.INFO) { "[ACHIEVEMENTS] Repository.getAll() returning ${list.size} items from DB" }
-                list.map { it.toDomainModel() } 
+                list.map { it.toDomainModel() }
             }
     }
 

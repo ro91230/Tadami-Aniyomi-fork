@@ -6,8 +6,10 @@ package eu.kanade.domain.ui.model
 enum class AnimeMetadataSource {
     /** Use Anilist.co for metadata (default) */
     ANILIST,
+
     /** Use Shikimori.one for metadata */
     SHIKIMORI,
+
     /** Don't fetch external metadata */
     NONE,
 }

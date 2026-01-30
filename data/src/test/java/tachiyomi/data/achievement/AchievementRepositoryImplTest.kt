@@ -7,11 +7,11 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.parallel.Execution
 import org.junit.jupiter.api.parallel.ExecutionMode
+import tachiyomi.data.achievement.repository.AchievementRepositoryImpl
 import tachiyomi.domain.achievement.model.Achievement
 import tachiyomi.domain.achievement.model.AchievementCategory
 import tachiyomi.domain.achievement.model.AchievementProgress
 import tachiyomi.domain.achievement.model.AchievementType
-import tachiyomi.data.achievement.repository.AchievementRepositoryImpl
 
 @Execution(ExecutionMode.CONCURRENT)
 class AchievementRepositoryImplTest : AchievementTestBase() {
@@ -179,8 +179,20 @@ class AchievementRepositoryImplTest : AchievementTestBase() {
     @Test
     fun `get all progress returns multiple progress entries`() = runTest {
         val achievements = listOf(
-            Achievement(id = "ach1", type = AchievementType.QUANTITY, category = AchievementCategory.MANGA, points = 10, title = "A1"),
-            Achievement(id = "ach2", type = AchievementType.QUANTITY, category = AchievementCategory.ANIME, points = 20, title = "A2"),
+            Achievement(
+                id = "ach1",
+                type = AchievementType.QUANTITY,
+                category = AchievementCategory.MANGA,
+                points = 10,
+                title = "A1",
+            ),
+            Achievement(
+                id = "ach2",
+                type = AchievementType.QUANTITY,
+                category = AchievementCategory.ANIME,
+                points = 20,
+                title = "A2",
+            ),
         )
 
         achievements.forEach { repository.insertAchievement(it) }
@@ -221,8 +233,20 @@ class AchievementRepositoryImplTest : AchievementTestBase() {
     @Test
     fun `delete all achievements`() = runTest {
         val achievements = listOf(
-            Achievement(id = "del1", type = AchievementType.QUANTITY, category = AchievementCategory.MANGA, points = 10, title = "D1"),
-            Achievement(id = "del2", type = AchievementType.DIVERSITY, category = AchievementCategory.ANIME, points = 20, title = "D2"),
+            Achievement(
+                id = "del1",
+                type = AchievementType.QUANTITY,
+                category = AchievementCategory.MANGA,
+                points = 10,
+                title = "D1",
+            ),
+            Achievement(
+                id = "del2",
+                type = AchievementType.DIVERSITY,
+                category = AchievementCategory.ANIME,
+                points = 20,
+                title = "D2",
+            ),
         )
 
         achievements.forEach { repository.insertAchievement(it) }

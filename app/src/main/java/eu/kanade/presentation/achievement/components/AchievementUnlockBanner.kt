@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.animateOffsetAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -29,13 +28,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -52,7 +49,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -187,7 +183,7 @@ private fun FireworksAnimation(
 ) {
     val context = LocalContext.current
     val composition by rememberLottieComposition(
-        LottieCompositionSpec.RawRes(R.raw.fireworks)
+        LottieCompositionSpec.RawRes(R.raw.fireworks),
     )
 
     val progress by animateLottieCompositionAsState(
@@ -342,7 +338,13 @@ private fun AchievementBannerItem(
                 elevation = if (isRare) 20.dp else 16.dp,
                 shape = RoundedCornerShape(20.dp),
                 ambientColor = if (isRare) colors.accent.copy(alpha = 0.6f) else colors.accent.copy(alpha = 0.5f),
-                spotColor = if (isRare) colors.progressCyan.copy(alpha = 0.5f) else colors.progressCyan.copy(alpha = 0.3f),
+                spotColor = if (isRare) {
+                    colors.progressCyan.copy(
+                        alpha = 0.5f,
+                    )
+                } else {
+                    colors.progressCyan.copy(alpha = 0.3f)
+                },
             )
             .clip(RoundedCornerShape(20.dp))
             .background(
@@ -529,7 +531,9 @@ private fun AchievementBannerItem(
                                     color = Color(0xFFFF6B00).copy(alpha = 0.5f),
                                     blurRadius = 8f,
                                 )
-                            } else null,
+                            } else {
+                                null
+                            },
                         ),
                     )
                 }

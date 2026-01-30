@@ -3,20 +3,17 @@ package eu.kanade.presentation.achievement.components
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -28,13 +25,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.theme.AuroraTheme
@@ -99,36 +91,36 @@ fun AchievementIcon(
             .scale(unlockScale * pulseScale),
         contentAlignment = Alignment.Center,
     ) {
-        // Outer glow effect for unlocked
+        // Outer glow effect for unlocked - centered behind the hexagon
         if (isUnlocked) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(4.dp)
-                    .clip(shape)
                     .drawBehind {
+                        // Use hexagon's actual proportions for proper centering
                         val drawSize = this.size
+                        val hexHeight = drawSize.width * 0.866f
+                        val verticalOffset = (drawSize.height - hexHeight) / 2
                         drawPath(
-                            path = createHexagonPath(drawSize.width),
+                            path = createHexagonPath(drawSize.width, verticalOffset),
                             brush = Brush.radialGradient(
                                 colors = listOf(
                                     colors.accent.copy(alpha = glowAlpha),
                                     colors.progressCyan.copy(alpha = glowAlpha * 0.5f),
                                     Color.Transparent,
                                 ),
-                                center = center,
-                                radius = drawSize.width * 0.6f,
+                                center = Offset(drawSize.width / 2, drawSize.height / 2),
+                                radius = drawSize.width * 0.55f,
                             ),
                         )
                     },
             )
         }
 
-        // Main icon container
+        // Main icon container - centered without extra padding
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(if (isUnlocked) 4.dp else 0.dp)
                 .clip(shape)
                 .background(
                     if (isUnlocked) {
@@ -174,7 +166,6 @@ fun AchievementIcon(
                 contentDescription = null,
                 modifier = Modifier
                     .size(size * 0.5f)
-                    .offset(y = -(size * 0.06f))
                     .alpha(if (isUnlocked) 1f else 0.5f),
                 tint = if (isUnlocked) colors.accent else colors.textSecondary.copy(alpha = 0.5f),
             )
@@ -185,7 +176,6 @@ fun AchievementIcon(
             ScanlineOverlay(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(if (isUnlocked) 4.dp else 0.dp)
                     .clip(shape),
             )
         }
@@ -202,22 +192,23 @@ private fun ScanlineOverlay(
     Box(
         modifier = modifier
             .drawBehind {
+                val drawSize = this.size
                 val lineCount = 6
-                val lineHeight = size.height / (lineCount * 2)
+                val lineHeight = drawSize.height / (lineCount * 2)
 
                 for (i in 0 until lineCount) {
                     drawRect(
                         color = Color.Black.copy(alpha = 0.2f),
                         topLeft = Offset(0f, i * 2 * lineHeight),
-                        size = androidx.compose.ui.geometry.Size(size.width, lineHeight),
+                        size = androidx.compose.ui.geometry.Size(drawSize.width, lineHeight),
                     )
                 }
 
                 // Diagonal scan line
                 drawLine(
                     color = Color.White.copy(alpha = 0.1f),
-                    start = Offset(0f, size.height),
-                    end = Offset(size.width, 0f),
+                    start = Offset(0f, drawSize.height),
+                    end = Offset(drawSize.width, 0f),
                     strokeWidth = 1f,
                 )
             },
@@ -225,21 +216,23 @@ private fun ScanlineOverlay(
 }
 
 /**
- * Hexagon shape for achievement icons
+ * Hexagon shape for achievement icons - vertically centered in the bounds
  */
-private val HexagonShape = GenericShape { size, _ ->
-    val path = createHexagonPath(size.width)
+private val HexagonShape = GenericShape { drawSize, _ ->
+    val hexHeight = drawSize.width * 0.866f
+    val verticalOffset = (drawSize.height - hexHeight) / 2
+    val path = createHexagonPath(drawSize.width, verticalOffset)
     addPath(path)
 }
 
 /**
- * Creates a hexagon path
+ * Creates a hexagon path with optional vertical offset for centering
  */
-private fun createHexagonPath(width: Float): Path {
+private fun createHexagonPath(width: Float, verticalOffset: Float = 0f): Path {
     val height = width * 0.866f // sqrt(3)/2
     val radius = width / 2
     val centerX = width / 2
-    val centerY = height / 2
+    val centerY = height / 2 + verticalOffset
 
     return Path().apply {
         for (i in 0 until 6) {

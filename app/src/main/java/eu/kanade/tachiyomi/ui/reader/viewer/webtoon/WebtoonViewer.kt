@@ -19,8 +19,11 @@ import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion
+import eu.kanade.tachiyomi.ui.reader.viewer.autoscroll.WebtoonAutoScrollManager
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import tachiyomi.core.common.util.system.logcat
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -72,6 +75,13 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
      */
     private var currentPage: Any? = null
 
+    /**
+     * Auto-scroll manager for automatic scrolling functionality.
+     */
+    val autoScrollManager: WebtoonAutoScrollManager by lazy {
+        WebtoonAutoScrollManager(this)
+    }
+
     private val threshold: Int =
         Injekt.get<ReaderPreferences>()
             .readerHideThreshold()
@@ -112,6 +122,9 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
             },
         )
         recycler.tapListener = { event ->
+            // Pause auto-scroll on user tap
+            pauseAutoScroll()
+
             val viewPosition = IntArray(2)
             recycler.getLocationOnScreen(viewPosition)
             val viewPositionRelativeToWindow = IntArray(2)
@@ -162,6 +175,15 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
             activity.binding.navigationOverlay.setNavigation(config.navigator, showOnStart)
         }
 
+        // Monitor zoom state and pause auto-scroll when zoomed in
+        scope.launch {
+            autoScrollManager.state.collectLatest { state ->
+                if (state.isActive && !state.isPaused && isZoomedIn()) {
+                    pauseAutoScroll()
+                }
+            }
+        }
+
         frame.layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
         frame.addView(recycler)
     }
@@ -198,7 +220,56 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
      */
     override fun destroy() {
         super.destroy()
+        autoScrollManager.destroy()
         scope.cancel()
+    }
+
+    /**
+     * Starts auto-scroll with the given [speed].
+     *
+     * @param speed The scroll speed (1-100). If null, uses the current speed.
+     */
+    fun startAutoScroll(speed: Int? = null) {
+        autoScrollManager.start(speed)
+    }
+
+    /**
+     * Stops auto-scroll completely.
+     */
+    fun stopAutoScroll() {
+        autoScrollManager.stop()
+    }
+
+    /**
+     * Pauses auto-scroll temporarily.
+     */
+    fun pauseAutoScroll() {
+        autoScrollManager.pause()
+    }
+
+    /**
+     * Resumes auto-scroll from a paused state.
+     */
+    fun resumeAutoScroll() {
+        autoScrollManager.resume()
+    }
+
+    /**
+     * Sets the auto-scroll speed.
+     *
+     * @param speed The new scroll speed (1-100).
+     */
+    fun setAutoScrollSpeed(speed: Int) {
+        autoScrollManager.setSpeed(speed)
+    }
+
+    /**
+     * Checks if the webtoon is currently zoomed in.
+     *
+     * @return true if zoomed in (scale > 1), false otherwise.
+     */
+    fun isZoomedIn(): Boolean {
+        return recycler.scaleX > 1f
     }
 
     /**
