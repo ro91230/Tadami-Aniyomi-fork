@@ -119,7 +119,7 @@ object HomeScreen : Screen() {
                                 NavigationBar(
                                     containerColor = if (isAurora) {
                                         // Aniview: Frosted glass effect with blur
-                                        auroraColors!!.surface.copy(alpha = 0.85f)
+                                        auroraColors!!.surface.copy(alpha = 0.75f)
                                     } else {
                                         MaterialTheme.colorScheme.surfaceContainer
                                     },

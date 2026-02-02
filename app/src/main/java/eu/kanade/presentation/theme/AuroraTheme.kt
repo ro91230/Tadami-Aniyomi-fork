@@ -95,7 +95,7 @@ data class AuroraColors(
             val effectiveSurface = if (isDark && isAmoled) {
                 Color(0xFF0C0C0C)
             } else {
-                colorScheme.surface
+                effectiveBackground  // Используем тот же цвет, что и background для блендинга
             }
 
             // Generate gradient colors based on theme's primary color
@@ -153,7 +153,7 @@ data class AuroraColors(
             accent = AuroraColorScheme.aniviewElectricBlue,
             accentVariant = AuroraColorScheme.aniviewElectricBlue,
             background = AuroraColorScheme.aniviewDarkBg,
-            surface = AuroraColorScheme.aniviewSurface,
+            surface = AuroraColorScheme.aniviewDarkBg,
             gradientStart = AuroraColorScheme.auroraDarkGradientStart,
             gradientEnd = AuroraColorScheme.aniviewDarkBg,
             glass = AuroraColorScheme.auroraGlass,

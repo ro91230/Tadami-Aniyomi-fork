@@ -703,12 +703,12 @@ private fun HeroSection(
 ) {
     val colors = AuroraTheme.colors
     val overlayGradient = remember(colors) {
-        Brush.verticalGradient(listOf(Color.Transparent, colors.gradientEnd), startY = 0f, endY = 1000f)
+        Brush.verticalGradient(listOf(Color.Transparent, colors.gradientEnd.copy(alpha = 0.8f)), startY = 0f, endY = 1000f)
     }
 
     Box(
         modifier = Modifier.fillMaxWidth().height(
-            500.dp,
+            440.dp,
         ).padding(16.dp).clip(RoundedCornerShape(24.dp)).clickable(onClick = onEntryClick),
     ) {
         AsyncImage(
@@ -738,7 +738,7 @@ private fun HeroSection(
                 hero.title,
                 color = colors.textPrimary,
                 fontSize = 28.sp,
-                fontWeight = FontWeight.ExtraBold,
+                fontWeight = FontWeight.Bold,
                 lineHeight = 34.sp,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
@@ -839,7 +839,7 @@ private fun HistoryRow(
         Spacer(Modifier.height(16.dp))
         LazyRow(
             contentPadding = PaddingValues(horizontal = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             items(history, key = { it.entryId }) { item ->
                 AuroraCard(
@@ -890,7 +890,7 @@ private fun RecommendationsGrid(
 
         // Horizontal scrollable row instead of grid
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             items(recommendations, key = { it.entryId }) { item ->
                 AuroraCard(
