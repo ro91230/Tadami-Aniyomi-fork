@@ -566,18 +566,20 @@ private fun HomeHubScreen(
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
-                        Box(
-                            modifier = Modifier.align(
-                                Alignment.BottomEnd,
-                            ).size(16.dp).background(colors.accent, CircleShape),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                Icons.Filled.CameraAlt,
-                                null,
-                                tint = colors.textOnAccent,
-                                modifier = Modifier.size(10.dp),
-                            )
+                        if (state.userAvatar.isEmpty()) {
+                            Box(
+                                modifier = Modifier.align(
+                                    Alignment.BottomEnd,
+                                ).size(16.dp).background(colors.accent, CircleShape),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    Icons.Filled.CameraAlt,
+                                    null,
+                                    tint = colors.textOnAccent,
+                                    modifier = Modifier.size(10.dp),
+                                )
+                            }
                         }
                     }
                 }
