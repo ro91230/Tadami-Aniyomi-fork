@@ -276,6 +276,7 @@ object HomeHubTab : Tab {
             onAvatarClick = { photoPickerLauncher.launch("image/*") },
             onNameClick = { showNameDialog = true },
             showTabs = false,
+            applyStatusBarsPadding = false,
         )
     }
 }
