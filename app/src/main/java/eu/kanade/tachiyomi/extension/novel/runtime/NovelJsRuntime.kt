@@ -61,10 +61,6 @@ class NovelJsRuntime(
                     this.__formDataEntries.push({ key: String(key), value: String(value) });
                   };
                   global.FormData = FormData;
-                  global.setTimeout = function(fn, delay) {
-                    if (typeof fn === "function") fn();
-                    return 0;
-                  };
                   function URLSearchParams(init) {
                     this._entries = [];
                     if (typeof init === "string") {
@@ -204,28 +200,14 @@ class NovelJsModuleRegistry {
 
     private val fetchModule = """
         __defineModule("@libs/fetch", function(module, exports) {
-          function immediate(value) {
-            return {
-              then: function(onFulfilled, onRejected) {
-                try {
-                  if (onFulfilled) return immediate(onFulfilled(value));
-                  return immediate(value);
-                } catch (e) {
-                  if (onRejected) return immediate(onRejected(e));
-                  throw e;
-                }
-              },
-              catch: function(onRejected) { return this.then(null, onRejected); }
-            };
-          }
           function makeResponse(response) {
             return {
               ok: response.status >= 200 && response.status < 300,
               status: response.status,
               url: response.url || "",
               headers: response.headers || {},
-              text: function() { return immediate(response.body || ""); },
-              json: function() { return immediate(response.body ? JSON.parse(response.body) : null); }
+              text: function() { return Promise.resolve(response.body || ""); },
+              json: function() { return Promise.resolve(response.body ? JSON.parse(response.body) : null); }
             };
           }
           function normalizeInit(init) {
@@ -253,7 +235,7 @@ class NovelJsModuleRegistry {
           function fetchApi(url, options) {
             var payload = JSON.stringify(normalizeInit(options));
             var response = JSON.parse(__native.fetch(String(url), payload));
-            return immediate(makeResponse(response));
+            return Promise.resolve(makeResponse(response));
           }
           function fetchText(url, options, encoding) {
             return fetchApi(url, options).then(function(res) { return res.text(); });
