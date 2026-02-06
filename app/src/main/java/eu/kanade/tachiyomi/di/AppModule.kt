@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.os.Build
+import android.util.Log
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
@@ -102,6 +103,9 @@ import uy.kohesive.injekt.api.get
 import java.io.File
 
 class AppModule(val app: Application) : InjektModule {
+    companion object {
+        private const val LOG_TAG = "AppModule"
+    }
 
     /**
      * We use a separate SqlDelight database for ranobe. If a previous/dev build created an
@@ -126,7 +130,20 @@ class AppModule(val app: Application) : InjektModule {
         }.getOrElse { true }
 
         if (shouldDelete) {
-            context.deleteDatabase(dbName)
+            // `Context.deleteDatabase()` can fail if the DB is locked/open in another process.
+            // Be aggressive: try deleteDatabase first, then delete DB/WAL/SHM files directly.
+            Log.w(LOG_TAG, "Novel DB missing required tables, recreating: ${dbFile.absolutePath}")
+
+            runCatching { context.deleteDatabase(dbName) }
+
+            // Defensive cleanup to avoid the "no such table" crash loop.
+            runCatching { dbFile.delete() }
+            runCatching { File(dbFile.absolutePath + "-wal").delete() }
+            runCatching { File(dbFile.absolutePath + "-shm").delete() }
+
+            if (dbFile.exists()) {
+                Log.e(LOG_TAG, "Failed to delete novel DB file; app may crash. path=${dbFile.absolutePath}")
+            }
         }
     }
 
