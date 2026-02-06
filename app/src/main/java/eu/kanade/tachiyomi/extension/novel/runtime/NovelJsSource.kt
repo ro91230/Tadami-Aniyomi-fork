@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.extension.novel.runtime
 
+import android.util.Log
 import eu.kanade.tachiyomi.extension.novel.NovelPluginId
 import eu.kanade.tachiyomi.novelsource.NovelCatalogueSource
 import eu.kanade.tachiyomi.novelsource.model.NovelFilterList
@@ -37,6 +38,10 @@ class NovelJsSource(
     private val scriptBuilder: NovelPluginScriptBuilder,
     private val filterMapper: NovelPluginFilterMapper,
 ) : NovelCatalogueSource {
+    companion object {
+        private const val LOG_TAG = "NovelJsSource"
+    }
+
     override val id: Long = NovelPluginId.toSourceId(plugin.id)
     override val name: String = plugin.name
     override val lang: String = plugin.lang
@@ -167,7 +172,12 @@ class NovelJsSource(
         val moduleName = plugin.id
         val moduleLiteral = toJsString(moduleName)
         val wrappedScript = scriptBuilder.wrap(script, moduleName)
-        instance.evaluate(wrappedScript, "${plugin.id}.js")
+        try {
+            instance.evaluate(wrappedScript, "${plugin.id}.js")
+        } catch (t: Throwable) {
+            Log.e(LOG_TAG, "Plugin bootstrap failed id=${plugin.id}", t)
+            throw t
+        }
         instance.evaluate(
             """
             var __plugin = require($moduleLiteral);
@@ -188,8 +198,16 @@ class NovelJsSource(
                 "JSON.stringify(__resolve(__plugin.$functionName($joinedArgs)))"
             }
         }
-        val result = runtime.evaluate(call, "novel-plugin-call.js")
-        return result as? String ?: ""
+        return try {
+            val result = runtime.evaluate(call, "novel-plugin-call.js")
+            result as? String ?: ""
+        } catch (t: Throwable) {
+            // We need actionable evidence for plugin/runtime issues. QuickJS stack overflows can be
+            // swallowed by UI without a useful stack trace in logcat otherwise.
+            val argsPreview = args.joinToString(", ").take(500)
+            Log.e(LOG_TAG, "Plugin call failed id=${plugin.id} fn=$functionName args=$argsPreview", t)
+            throw t
+        }
     }
 
     private fun parseNovelItems(payload: String): List<PluginNovelItem> {
