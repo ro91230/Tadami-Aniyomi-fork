@@ -1,5 +1,6 @@
 package mihon.domain.extensionrepo.novel.interactor
 
+import eu.kanade.tachiyomi.util.lang.Hash
 import logcat.LogPriority
 import mihon.domain.extensionrepo.exception.SaveExtensionRepoException
 import mihon.domain.extensionrepo.model.ExtensionRepo
@@ -12,16 +13,34 @@ class CreateNovelExtensionRepo(
     private val repository: NovelExtensionRepoRepository,
     private val service: ExtensionRepoService,
 ) {
-    private val repoRegex = """^https://.*/index\.min\.json$""".toRegex()
+    private val indexSuffix = "/index.min.json"
+    private val pluginsSuffix = "/plugins.min.json"
 
-    suspend fun await(indexUrl: String): Result {
-        val formattedIndexUrl = indexUrl.toHttpUrlOrNull()
-            ?.toString()
-            ?.takeIf { it.matches(repoRegex) }
-            ?: return Result.InvalidUrl
+    suspend fun await(url: String): Result {
+        val normalizedUrl = url.toHttpUrlOrNull()?.toString() ?: return Result.InvalidUrl
 
-        val baseUrl = formattedIndexUrl.removeSuffix("/index.min.json")
-        return service.fetchRepoDetails(baseUrl)?.let { insert(it) } ?: Result.InvalidUrl
+        return when {
+            normalizedUrl.endsWith(indexSuffix) -> {
+                // Mihon-style extension repo (expects repo.json at baseUrl)
+                val baseUrl = normalizedUrl.removeSuffix(indexSuffix)
+                service.fetchRepoDetails(baseUrl)?.let { insert(it) } ?: Result.InvalidUrl
+            }
+            normalizedUrl.endsWith(pluginsSuffix) -> {
+                // LNReader-style novel plugin index repo (plugins.min.json)
+                val baseUrl = normalizedUrl.removeSuffix(pluginsSuffix)
+                val fingerprint = "NOFINGERPRINT-${Hash.sha256(baseUrl)}"
+                insert(
+                    ExtensionRepo(
+                        baseUrl = baseUrl,
+                        name = baseUrl,
+                        shortName = null,
+                        website = baseUrl,
+                        signingKeyFingerprint = fingerprint,
+                    ),
+                )
+            }
+            else -> Result.InvalidUrl
+        }
     }
 
     private suspend fun insert(repo: ExtensionRepo): Result {

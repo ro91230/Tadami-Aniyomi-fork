@@ -1,5 +1,6 @@
 package mihon.domain.extensionrepo.novel.interactor
 
+import eu.kanade.tachiyomi.util.lang.Hash
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -50,5 +51,30 @@ class CreateNovelExtensionRepoTest {
                 repo.signingKeyFingerprint,
             )
         }
+    }
+
+    @Test
+    fun `plugins min json url inserts legacy repo with NOFINGERPRINT`() = runTest {
+        val repository = mockk<NovelExtensionRepoRepository>(relaxed = true)
+        val service = mockk<ExtensionRepoService>(relaxed = true)
+        val interactor = CreateNovelExtensionRepo(repository, service)
+
+        val indexUrl = "https://example.org/.dist/plugins.min.json"
+        val baseUrl = "https://example.org/.dist"
+        val fingerprint = "NOFINGERPRINT-${Hash.sha256(baseUrl)}"
+
+        val result = interactor.await(indexUrl)
+
+        result shouldBe CreateNovelExtensionRepo.Result.Success
+        coVerify {
+            repository.insertRepo(
+                baseUrl,
+                baseUrl,
+                null,
+                baseUrl,
+                fingerprint,
+            )
+        }
+        coVerify(exactly = 0) { service.fetchRepoDetails(any()) }
     }
 }
