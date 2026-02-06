@@ -192,10 +192,10 @@ class NovelJsSource(
 
     private fun callPlugin(runtime: NovelJsRuntime, functionName: String, vararg args: String): String {
         val call = when (functionName) {
-            "filters" -> "JSON.stringify(__plugin && __plugin.filters ? __plugin.filters : {})"
+            "filters" -> "JSON.stringify(__normalizePluginResult(\"filters\", (__plugin && __plugin.filters ? __plugin.filters : {})))"
             else -> {
                 val joinedArgs = args.joinToString(", ")
-                "JSON.stringify(__resolve(__plugin.$functionName($joinedArgs)))"
+                "JSON.stringify(__normalizePluginResult(\"$functionName\", __resolve(__plugin.$functionName($joinedArgs))))"
             }
         }
         return try {

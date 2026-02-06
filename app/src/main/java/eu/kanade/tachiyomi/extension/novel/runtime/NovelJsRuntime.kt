@@ -96,6 +96,114 @@ class NovelJsRuntime(
                   global.URL = URL;
                 })(this);
             """.trimIndent(),
+            // Plugins are authored for LNReader's Node-like runtime. They generally return plain
+            // objects, but when they don't (e.g. accidental circular refs, large objects), doing a
+            // raw JSON.stringify() can overflow QuickJS. Normalize return values into small,
+            // JSON-safe shapes before serializing back to Kotlin.
+            """
+                (function(global) {
+                  function asString(value) {
+                    if (value == null) return null;
+                    try { return String(value); } catch (e) { return null; }
+                  }
+                  function asNumber(value) {
+                    if (value == null) return null;
+                    var n = Number(value);
+                    return isFinite(n) ? n : null;
+                  }
+
+                  function normalizeNovel(item) {
+                    if (!item || typeof item !== "object") return null;
+                    var name = asString(item.name) || asString(item.title) || "";
+                    var path = asString(item.path) || asString(item.url) || "";
+                    var cover = asString(item.cover) || asString(item.thumbnail) || asString(item.thumbnail_url);
+                    if (!name || !path) return null;
+                    return { name: name, path: path, cover: cover };
+                  }
+
+                  function normalizeNovelsPage(value) {
+                    if (value == null) return [];
+                    var list = value;
+                    if (value && typeof value === "object" && Array.isArray(value.novels)) {
+                      list = value.novels;
+                    }
+                    if (!Array.isArray(list)) return [];
+                    var out = [];
+                    for (var i = 0; i < list.length; i++) {
+                      var normalized = normalizeNovel(list[i]);
+                      if (normalized) out.push(normalized);
+                    }
+                    return out;
+                  }
+
+                  function normalizeChapter(item) {
+                    if (!item || typeof item !== "object") return null;
+                    var name = asString(item.name) || "";
+                    var path = asString(item.path) || asString(item.url) || "";
+                    if (!name || !path) return null;
+                    var releaseTime = asString(item.releaseTime) || null;
+                    var chapterNumber = asNumber(item.chapterNumber);
+                    var page = asString(item.page) || null;
+                    return {
+                      name: name,
+                      path: path,
+                      releaseTime: releaseTime,
+                      chapterNumber: chapterNumber,
+                      page: page
+                    };
+                  }
+
+                  function normalizeChapters(value) {
+                    if (!Array.isArray(value)) return [];
+                    var out = [];
+                    for (var i = 0; i < value.length; i++) {
+                      var normalized = normalizeChapter(value[i]);
+                      if (normalized) out.push(normalized);
+                    }
+                    return out;
+                  }
+
+                  function normalizeNovelDetails(value) {
+                    if (!value || typeof value !== "object") return null;
+                    var out = {};
+                    out.name = asString(value.name) || asString(value.title) || "";
+                    out.path = asString(value.path) || asString(value.url) || "";
+                    out.cover = asString(value.cover) || asString(value.thumbnail_url) || null;
+                    out.genres = asString(value.genres) || null;
+                    out.summary = asString(value.summary) || asString(value.description) || null;
+                    out.author = asString(value.author) || null;
+                    out.artist = asString(value.artist) || null;
+                    out.status = asString(value.status) || null;
+                    out.rating = asNumber(value.rating);
+
+                    if (Array.isArray(value.chapters)) {
+                      out.chapters = normalizeChapters(value.chapters);
+                    }
+                    if (value.totalPages != null) {
+                      out.totalPages = Math.max(0, Math.floor(asNumber(value.totalPages) || 0));
+                    }
+                    return out.path ? out : null;
+                  }
+
+                  global.__normalizePluginResult = function(fn, value) {
+                    switch (String(fn || "")) {
+                      case "filters":
+                        return value || {};
+                      case "popularNovels":
+                      case "searchNovels":
+                        return normalizeNovelsPage(value);
+                      case "parseNovel":
+                        return normalizeNovelDetails(value);
+                      case "parsePage":
+                        return { chapters: normalizeChapters(value && value.chapters) };
+                      case "parseChapter":
+                        return asString(value) || "";
+                      default:
+                        return value;
+                    }
+                  };
+                })(this);
+            """.trimIndent(),
         ).joinToString("\n")
     }
 }
