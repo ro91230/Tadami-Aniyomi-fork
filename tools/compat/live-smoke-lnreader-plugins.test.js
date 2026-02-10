@@ -89,8 +89,8 @@ test('runLiveSmokeForPlugin reports empty chapters', async () => {
   assert.equal(result.stages.novel.status, 'pass');
   assert.equal(result.stages.chapters.status, 'fail');
   assert.equal(result.stages.chapters.code, 'empty_chapters');
-  assert.equal(result.stages.chapterText.status, 'fail');
-  assert.equal(result.stages.chapterText.code, 'empty_chapters');
+  assert.equal(result.stages.chapterText.status, 'skip');
+  assert.equal(result.stages.chapterText.code, 'chapters_unavailable');
 });
 
 test('runLiveSmokeForPlugin passes all stages when chapter text loads', async () => {
@@ -157,7 +157,9 @@ test('runLiveSmokeForPlugin marks search stage as skipped when handler is missin
   };
   const scriptText = `
     exports.default = {
-      popularNovels() {}
+      popularNovels() {},
+      parseNovel() {},
+      parseChapter() {}
     };
   `;
 
@@ -177,6 +179,12 @@ test('runLiveSmokeForPlugin marks search stage as skipped when handler is missin
   assert.equal(result.stages.popular.status, 'pass');
   assert.equal(result.stages.search.status, 'skip');
   assert.equal(result.stages.search.code, 'missing_handler');
+  assert.equal(result.stages.novel.status, 'skip');
+  assert.equal(result.stages.novel.code, 'search_unavailable');
+  assert.equal(result.stages.chapters.status, 'skip');
+  assert.equal(result.stages.chapters.code, 'novel_unavailable');
+  assert.equal(result.stages.chapterText.status, 'skip');
+  assert.equal(result.stages.chapterText.code, 'chapters_unavailable');
 });
 
 test('runLiveSmokeForPlugin falls back to next search template when first is invalid', async () => {
@@ -229,7 +237,7 @@ test('runLiveSmokeForPlugin falls back to next search template when first is inv
   assert.equal(result.stages.chapters.status, 'pass');
 });
 
-test('runLiveSmokeForPlugin propagates missing novel candidate to dependent stages', async () => {
+test('runLiveSmokeForPlugin skips dependent stages when search has no candidates', async () => {
   const plugin = {
     id: 'demo',
     site: 'https://example.org',
@@ -277,10 +285,14 @@ test('runLiveSmokeForPlugin propagates missing novel candidate to dependent stag
     fetcher,
   });
 
+  assert.equal(result.stages.search.status, 'fail');
   assert.equal(result.stages.search.code, 'empty_search_results');
-  assert.equal(result.stages.novel.code, 'missing_novel_candidate');
-  assert.equal(result.stages.chapters.code, 'missing_novel_candidate');
-  assert.equal(result.stages.chapterText.code, 'missing_novel_candidate');
+  assert.equal(result.stages.novel.status, 'skip');
+  assert.equal(result.stages.novel.code, 'search_unavailable');
+  assert.equal(result.stages.chapters.status, 'skip');
+  assert.equal(result.stages.chapters.code, 'novel_unavailable');
+  assert.equal(result.stages.chapterText.status, 'skip');
+  assert.equal(result.stages.chapterText.code, 'chapters_unavailable');
 });
 
 function mkTmpDir(name) {
@@ -374,5 +386,57 @@ test('runLiveSmoke aggregates report with injected fetcher', async () => {
   assert.equal(result.summary.passedAllStages, 1);
   assert.equal(result.summary.failedPlugins, 1);
   assert.equal(result.stageFailures.search, 1);
-  assert.equal(result.failureCodes.missing_novel_candidate, 3);
+  assert.equal(result.failureCodes.empty_search_results, 1);
+});
+
+test('runLiveSmoke aggregates failure codes once per plugin per code', async () => {
+  const tempDir = mkTmpDir('live-smoke-codes');
+  const pluginRoot = path.join(tempDir, '.js', 'plugins', 'english');
+  fs.mkdirSync(pluginRoot, { recursive: true });
+
+  fs.writeFileSync(
+    path.join(pluginRoot, 'dupe.js'),
+    'Object.defineProperty(exports,"__esModule",{value:!0});exports.default={popularNovels(){},searchNovels(){}};',
+    'utf8',
+  );
+
+  const indexPath = path.join(tempDir, '.dist', 'plugins.min.json');
+  writeJson(indexPath, [
+    {
+      id: 'dupe',
+      name: 'Dupe',
+      site: 'https://dupe.example',
+      lang: 'English',
+      version: '1.0.0',
+      url: 'https://raw.githubusercontent.com/acme/lnreader-plugins/plugins/v3.0.0/.js/src/plugins/english/dupe.js',
+    },
+  ]);
+
+  const fetcher = async (url) => {
+    if (url === 'https://dupe.example') {
+      return makeResponse({ ok: false, status: 503 });
+    }
+    if (url.startsWith('https://dupe.example/search')) {
+      return makeResponse({ ok: false, status: 503 });
+    }
+    throw new Error(`Unexpected URL ${url}`);
+  };
+
+  const result = await runLiveSmoke({
+    indexPath,
+    pluginBaseDir: path.join(tempDir, '.js', 'plugins'),
+    query: 'love',
+    timeoutMs: 5000,
+    limit: 0,
+    concurrency: 1,
+    fetcher,
+  });
+
+  assert.equal(result.summary.totalPlugins, 1);
+  assert.equal(result.summary.failedPlugins, 1);
+  assert.equal(result.stageFailures.popular, 1);
+  assert.equal(result.stageFailures.search, 1);
+  assert.equal(result.plugins[0].stages.popular.code, 'request_failed');
+  assert.equal(result.plugins[0].stages.search.code, 'request_failed');
+  assert.equal(result.failureCodes.request_failed, 1);
 });

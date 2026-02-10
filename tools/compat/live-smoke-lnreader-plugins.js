@@ -263,21 +263,19 @@ async function runLiveSmokeForPlugin({
   timeoutMs = 15000,
 }) {
   const site = String(plugin.site || '').trim();
-  const stages = {
-    popular: stageFail('missing_handler'),
-    search: stageFail('missing_handler'),
-    novel: stageFail('missing_handler'),
-    chapters: stageFail('missing_handler'),
-    chapterText: stageFail('missing_handler'),
-  };
 
   const hasPopular = hasFunction(scriptText, 'popularNovels');
   const hasSearch = hasFunction(scriptText, 'searchNovels');
   const hasParseNovel = hasFunction(scriptText, 'parseNovel');
   const hasParseChapter = hasFunction(scriptText, 'parseChapter');
 
-  if (hasParseNovel) stages.chapters = stageFail('unreached');
-  if (hasParseChapter) stages.chapterText = stageFail('unreached');
+  const stages = {
+    popular: hasPopular ? stageSkip('site_unavailable') : stageSkip('missing_handler'),
+    search: hasSearch ? stageSkip('search_unavailable') : stageSkip('missing_handler'),
+    novel: hasParseNovel ? stageSkip('search_unavailable') : stageSkip('missing_handler'),
+    chapters: stageSkip('novel_unavailable'),
+    chapterText: hasParseChapter ? stageSkip('chapters_unavailable') : stageSkip('missing_handler'),
+  };
 
   let chapterCount = 0;
   let sampleChapterTextLength = 0;
@@ -364,20 +362,20 @@ async function runLiveSmokeForPlugin({
   }
 
   if (hasParseNovel) {
-    if (searchCandidates.length === 0) {
-      stages.novel = stageFail('missing_novel_candidate');
-      stages.chapters = stageFail('missing_novel_candidate');
+    if (stages.search.status !== 'pass' || searchCandidates.length === 0) {
+      stages.novel = stageSkip('search_unavailable');
+      stages.chapters = stageSkip('novel_unavailable');
     } else {
       novelUrl = resolveUrl(site, searchCandidates[0]);
       if (!novelUrl) {
         stages.novel = stageFail('invalid_novel_url');
-        stages.chapters = stageFail('invalid_novel_url');
+        stages.chapters = stageSkip('novel_unavailable');
       } else {
         try {
           const response = await fetchWithTimeout(novelUrl, fetcher, timeoutMs);
           if (!response.ok) {
             stages.novel = stageFail('request_failed', { httpStatus: response.status });
-            stages.chapters = stageFail('request_failed', { httpStatus: response.status });
+            stages.chapters = stageSkip('novel_unavailable');
           } else {
             stages.novel = stagePass({ httpStatus: response.status });
             const html = await response.text();
@@ -393,7 +391,7 @@ async function runLiveSmokeForPlugin({
         } catch (error) {
           const code = classifyFetchError(error);
           stages.novel = stageFail(code);
-          stages.chapters = stageFail(code);
+          stages.chapters = stageSkip('novel_unavailable');
         }
       }
     }
@@ -401,7 +399,7 @@ async function runLiveSmokeForPlugin({
 
   if (hasParseChapter) {
     if (stages.chapters.status !== 'pass' || !sampleChapterUrl) {
-      stages.chapterText = stageFail(stages.chapters.code || 'empty_chapters');
+      stages.chapterText = stageSkip('chapters_unavailable');
     } else {
       try {
         const response = await fetchWithTimeout(sampleChapterUrl, fetcher, timeoutMs);
@@ -518,6 +516,7 @@ async function runLiveSmoke({
 
   for (const plugin of plugins) {
     let hasFailure = false;
+    const pluginFailureCodes = new Set();
     for (const [stageName, stage] of Object.entries(plugin.stages)) {
       if (stage.status === 'fail') {
         hasFailure = true;
@@ -525,9 +524,12 @@ async function runLiveSmoke({
           stageFailures[stageName] += 1;
         }
         if (stage.code) {
-          failureCodes[stage.code] = (failureCodes[stage.code] || 0) + 1;
+          pluginFailureCodes.add(stage.code);
         }
       }
+    }
+    for (const code of pluginFailureCodes) {
+      failureCodes[code] = (failureCodes[code] || 0) + 1;
     }
     if (hasFailure) {
       failedPlugins += 1;
