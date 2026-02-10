@@ -12,13 +12,27 @@ class NetworkNovelPluginIndexFetcher(
     override suspend fun fetch(repoUrl: String): String {
         return withContext(Dispatchers.IO) {
             val baseUrl = repoUrl.trimEnd('/')
-            val targetUrl = if (baseUrl.endsWith(".json")) {
-                baseUrl
+            val candidates = if (baseUrl.endsWith(".json", ignoreCase = true)) {
+                listOf(baseUrl)
             } else {
-                "$baseUrl/plugins.min.json"
+                listOf(
+                    "$baseUrl/plugins.min.json",
+                    "$baseUrl/index.min.json",
+                )
             }
-            val response = client.newCall(GET(targetUrl)).awaitSuccess()
-            response.body?.string().orEmpty()
+
+            var lastError: Exception? = null
+
+            for (candidate in candidates) {
+                try {
+                    val response = client.newCall(GET(candidate)).awaitSuccess()
+                    return@withContext response.body?.string().orEmpty()
+                } catch (error: Exception) {
+                    lastError = error
+                }
+            }
+
+            throw checkNotNull(lastError)
         }
     }
 }
