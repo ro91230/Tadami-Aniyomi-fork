@@ -14,6 +14,7 @@ Scenario: live runtime smoke against converted plugin scripts (`popular -> searc
 
 - Before (earlier static compatibility check report): total `251`, compatible `251`, incompatible `0`.
 - After (regenerated live smoke on 2026-02-10): total plugins `251`, passed all stages `0`, failed plugins `251`.
+- Aggregation note: `failureCodes` in the live smoke summary are counted once per plugin per code (deduplicated), not per stage occurrence.
 
 ## Live Smoke Summary (Regenerated)
 
@@ -24,6 +25,8 @@ Scenario: live runtime smoke against converted plugin scripts (`popular -> searc
   - `chapters`: `0`
   - `chapterText`: `0`
 - Top failure codes (`failureCodes` in live smoke artifact):
+  - Semantics: deduplicated per plugin+code pair (single plugin can contribute at most `1` count to a given code, even if multiple stages emit that code).
+  - Because of this deduplication, these values will not equal the raw sum of `plugins[*].stages[*].code` occurrences.
   - `request_failed`: `141`
   - `network_error`: `76`
   - `invalid_json`: `44`
