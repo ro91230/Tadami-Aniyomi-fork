@@ -35,6 +35,7 @@ class NovelLibraryScreenModel(
         startedFilter = libraryPreferences.filterStartedNovel().get(),
         bookmarkedFilter = libraryPreferences.filterBookmarkedNovel().get(),
         completedFilter = libraryPreferences.filterCompletedNovel().get(),
+        filterIntervalCustom = libraryPreferences.filterIntervalCustom().get(),
         sort = libraryPreferences.novelSortingMode().get(),
         randomSortSeed = libraryPreferences.randomNovelSortSeed().get(),
     ),
@@ -63,6 +64,7 @@ class NovelLibraryScreenModel(
                                 startedFilter = current.startedFilter,
                                 bookmarkedFilter = current.bookmarkedFilter,
                                 completedFilter = current.completedFilter,
+                                filterIntervalCustom = current.filterIntervalCustom,
                                 sort = current.sort,
                                 randomSortSeed = current.randomSortSeed,
                             ),
@@ -86,8 +88,12 @@ class NovelLibraryScreenModel(
                     startedFilter = startedFilter,
                     bookmarkedFilter = bookmarkedFilter,
                     completedFilter = TriState.DISABLED,
+                    filterIntervalCustom = TriState.DISABLED,
                 )
             }
+                .combine(libraryPreferences.filterIntervalCustom().changes()) { prefs, filterIntervalCustom ->
+                    prefs.copy(filterIntervalCustom = filterIntervalCustom)
+                }
                 .combine(libraryPreferences.filterCompletedNovel().changes()) { prefs, completedFilter ->
                     prefs.copy(completedFilter = completedFilter)
                 }
@@ -110,6 +116,7 @@ class NovelLibraryScreenModel(
                             startedFilter = prefs.startedFilter,
                             bookmarkedFilter = prefs.bookmarkedFilter,
                             completedFilter = prefs.completedFilter,
+                            filterIntervalCustom = prefs.filterIntervalCustom,
                             downloadedNovelIds = downloadedNovelIds,
                             items = filterItems(
                                 novels = current.rawItems,
@@ -120,6 +127,7 @@ class NovelLibraryScreenModel(
                                 startedFilter = prefs.startedFilter,
                                 bookmarkedFilter = prefs.bookmarkedFilter,
                                 completedFilter = prefs.completedFilter,
+                                filterIntervalCustom = prefs.filterIntervalCustom,
                                 sort = current.sort,
                                 randomSortSeed = current.randomSortSeed,
                             ),
@@ -149,6 +157,7 @@ class NovelLibraryScreenModel(
                                 startedFilter = current.startedFilter,
                                 bookmarkedFilter = current.bookmarkedFilter,
                                 completedFilter = current.completedFilter,
+                                filterIntervalCustom = current.filterIntervalCustom,
                                 sort = sort,
                                 randomSortSeed = randomSortSeed,
                             ),
@@ -172,6 +181,7 @@ class NovelLibraryScreenModel(
                     startedFilter = current.startedFilter,
                     bookmarkedFilter = current.bookmarkedFilter,
                     completedFilter = current.completedFilter,
+                    filterIntervalCustom = current.filterIntervalCustom,
                     sort = current.sort,
                     randomSortSeed = current.randomSortSeed,
                 ),
@@ -227,6 +237,14 @@ class NovelLibraryScreenModel(
         libraryPreferences.filterCompletedNovel().set(filter)
     }
 
+    fun toggleIntervalCustomFilter() {
+        setIntervalCustomFilter(state.value.filterIntervalCustom.next())
+    }
+
+    fun setIntervalCustomFilter(filter: TriState) {
+        libraryPreferences.filterIntervalCustom().set(filter)
+    }
+
     fun setSort(type: MangaLibrarySort.Type, direction: MangaLibrarySort.Direction) {
         libraryPreferences.novelSortingMode().set(MangaLibrarySort(type, direction))
         if (type == MangaLibrarySort.Type.Random) {
@@ -249,6 +267,7 @@ class NovelLibraryScreenModel(
         startedFilter: TriState,
         bookmarkedFilter: TriState,
         completedFilter: TriState,
+        filterIntervalCustom: TriState,
         sort: MangaLibrarySort,
         randomSortSeed: Int,
     ): List<LibraryNovel> {
@@ -263,6 +282,7 @@ class NovelLibraryScreenModel(
         filtered = applyFilter(filtered, completedFilter) {
             it.novel.status.toInt() == SManga.COMPLETED
         }
+        filtered = applyFilter(filtered, filterIntervalCustom) { it.novel.fetchInterval < 0 }
 
         return sortItems(filtered, sort, randomSortSeed)
     }
@@ -342,6 +362,7 @@ class NovelLibraryScreenModel(
         val startedFilter: TriState = TriState.DISABLED,
         val bookmarkedFilter: TriState = TriState.DISABLED,
         val completedFilter: TriState = TriState.DISABLED,
+        val filterIntervalCustom: TriState = TriState.DISABLED,
         val downloadedNovelIds: Set<Long> = emptySet(),
         val sort: MangaLibrarySort = MangaLibrarySort.default,
         val randomSortSeed: Int = 0,
@@ -358,7 +379,8 @@ class NovelLibraryScreenModel(
                 unreadFilter != TriState.DISABLED ||
                 startedFilter != TriState.DISABLED ||
                 bookmarkedFilter != TriState.DISABLED ||
-                completedFilter != TriState.DISABLED
+                completedFilter != TriState.DISABLED ||
+                filterIntervalCustom != TriState.DISABLED
     }
 
     private data class FilterPreferences(
@@ -368,6 +390,7 @@ class NovelLibraryScreenModel(
         val startedFilter: TriState,
         val bookmarkedFilter: TriState,
         val completedFilter: TriState,
+        val filterIntervalCustom: TriState,
     )
 
     sealed interface Dialog {

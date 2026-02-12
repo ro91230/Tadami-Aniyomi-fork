@@ -156,6 +156,27 @@ class NovelLibraryScreenModelTest {
         screenModel.state.value.items.shouldContainExactly(newer, older)
     }
 
+    @Test
+    fun `interval custom filter keeps only custom interval entries`() = runTest {
+        val custom = libraryNovel(id = 1L, title = "Custom Interval", fetchInterval = -1)
+        val regular = libraryNovel(id = 2L, title = "Regular Interval", fetchInterval = 0)
+        libraryFlow.value = listOf(custom, regular)
+
+        val screenModel = NovelLibraryScreenModel(
+            getLibraryNovel = getLibraryNovel,
+            basePreferences = basePreferences,
+            libraryPreferences = libraryPreferences,
+            hasDownloadedChapters = { false },
+        )
+
+        testDispatcher.scheduler.advanceUntilIdle()
+        screenModel.toggleIntervalCustomFilter()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        screenModel.state.value.items.shouldContainExactly(custom)
+        screenModel.state.value.hasActiveFilters shouldBe true
+    }
+
     private fun libraryNovel(
         id: Long,
         title: String,
@@ -163,6 +184,7 @@ class NovelLibraryScreenModelTest {
         read: Long = 1L,
         status: Long = 0L,
         lastRead: Long = 0L,
+        fetchInterval: Int = 0,
     ): LibraryNovel {
         return LibraryNovel(
             novel = Novel.create().copy(
@@ -172,6 +194,7 @@ class NovelLibraryScreenModelTest {
                 source = 1L,
                 favorite = true,
                 status = status,
+                fetchInterval = fetchInterval,
             ),
             category = 0L,
             totalChapters = total,

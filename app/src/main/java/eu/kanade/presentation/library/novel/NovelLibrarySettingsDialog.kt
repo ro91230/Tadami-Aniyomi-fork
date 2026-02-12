@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
+import eu.kanade.tachiyomi.util.system.isReleaseBuildType
 import eu.kanade.tachiyomi.ui.library.novel.NovelLibraryScreenModel
 import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.domain.library.model.LibraryDisplayMode
@@ -59,7 +60,7 @@ fun NovelLibrarySettingsDialog(
                 .verticalScroll(rememberScrollState()),
         ) {
             when (page) {
-                0 -> FilterPage(screenModel)
+                0 -> FilterPage(screenModel, libraryPreferences)
                 1 -> SortPage(screenModel)
                 2 -> DisplayPage(libraryPreferences)
             }
@@ -70,8 +71,10 @@ fun NovelLibrarySettingsDialog(
 @Composable
 private fun ColumnScope.FilterPage(
     screenModel: NovelLibraryScreenModel,
+    libraryPreferences: LibraryPreferences,
 ) {
     val state by screenModel.state.collectAsState()
+    val autoUpdateRestrictions by libraryPreferences.autoUpdateItemRestrictions().collectAsState()
 
     TriStateItem(
         label = stringResource(MR.strings.label_downloaded),
@@ -99,6 +102,14 @@ private fun ColumnScope.FilterPage(
         state = state.completedFilter,
         onClick = screenModel::setCompletedFilter,
     )
+    // TODO: re-enable when custom intervals are ready for stable
+    if ((!isReleaseBuildType) && LibraryPreferences.ENTRY_OUTSIDE_RELEASE_PERIOD in autoUpdateRestrictions) {
+        TriStateItem(
+            label = stringResource(MR.strings.action_filter_interval_custom),
+            state = state.filterIntervalCustom,
+            onClick = screenModel::setIntervalCustomFilter,
+        )
+    }
 }
 
 @Composable
