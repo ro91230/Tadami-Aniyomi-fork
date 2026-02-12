@@ -238,6 +238,7 @@
     <string name="manga_categories">Категории манги</string>
     <string name="general_categories">Категории</string>
     <string name="anime_categories">Категории аниме</string>
+    <string name="novel_categories">Категории ранобэ</string>
     <string name="entries">Тайтлы в библиотеке</string>
     <string name="chapters_episodes">Главы и эпизоды</string>
     <string name="episodes">Эпизоды</string>
@@ -360,6 +361,7 @@
     <string name="action_remove_bookmark_episode">Удалить эпизод из закладок</string>
     <string name="action_edit_anime_categories">Редактировать категории аниме</string>
     <string name="action_edit_manga_categories">Редактировать категории манги</string>
+    <string name="action_edit_novel_categories">Редактировать категории ранобэ</string>
     <string name="action_view_episodes">Просмотреть эпизоды</string>
     <string name="action_previous_episode">Предыдущий эпизод</string>
     <string name="action_play">Смотреть</string>
@@ -372,6 +374,7 @@
     <string name="pref_search_pinned_manga_sources_only">Искать мангу в глобальном поиске только по закреплённым источникам</string>
     <string name="pref_search_pinned_anime_sources_only">Искать аниме в глобальном поиске только по закреплённым источникам</string>
     <string name="pref_hide_in_manga_library_items">Скрыть мангу, которая уже есть в библиотеке</string>
+    <string name="pref_hide_in_novel_library_items">Скрыть ранобэ, которое уже есть в библиотеке</string>
     <string name="pref_hide_in_anime_library_items">Скрыть аниме, которое уже есть в библиотеке</string>
     <string name="action_order_by_episode_number">По номеру эпизода</string>
     <string name="action_start_download_externally">Использовать внешний загрузчик</string>
@@ -386,18 +389,23 @@
     <string name="pref_default_home_tab_library">Сделать вкладку манги начальным экраном</string>
     <string name="default_manga_category">Категория манги по умолчанию</string>
     <string name="default_anime_category">Категория аниме по умолчанию</string>
+    <string name="default_novel_category">Категория ранобэ по умолчанию</string>
     <string name="pref_manga_library_update_categories_details">Манга в исключённых категориях не обновляется, даже если она также находится во включённых категориях.</string>
     <string name="pref_anime_library_update_categories_details">Аниме в исключённых категориях не обновляется, даже если она также находится во включённых категориях.</string>
+    <string name="pref_novel_library_update_categories_details">Ранобэ в исключённых категориях не обновляется, даже если оно также находится во включённых категориях.</string>
     <string name="unofficial_extension_message_aniyomi">Это расширение не входит в официальный список расширений Aniyomi.</string>
     <string name="unofficial_anime_extension_message">Это расширение не входит в официальный список расширений Aniyomi.</string>
     <string name="episode_download_progress">%1$d%%</string>
     <string name="pref_remove_exclude_categories_manga">Исключённые категории манги</string>
     <string name="pref_remove_exclude_categories_anime">Исключённые категории аниме</string>
+    <string name="pref_remove_exclude_categories_novel">Исключённые категории ранобэ</string>
     <string name="pref_category_external_downloader">Внешний загрузчик</string>
     <string name="pref_use_external_downloader">Всегда использовать внешний загрузчик для аниме</string>
     <string name="pref_external_downloader_selection">Настройка загрузчика</string>
     <string name="pref_download_new_episodes">Скачать новые эпизоды</string>
+    <string name="pref_download_new_novel_chapters">Скачать новые главы ранобэ</string>
     <string name="pref_download_new_unseen_episodes_only">Пропуск загрузки дублированных просмотренных эпизодов</string>
+    <string name="pref_download_new_unread_novel_chapters_only">Пропуск загрузки дублированных прочитанных глав ранобэ</string>
     <string name="auto_download_while_watching">Автоматическая загрузка во время просмотра</string>
     <string name="download_ahead_info_anime">Работает только для эпизодов в библиотеке и если текущий и следующий эпизоды уже загружены</string>
     <string name="pref_track_on_add_library">Открывать меню отслеживания при добавлении в библиотеку</string>
@@ -435,6 +443,7 @@
     <string name="download_unseen">Не просмотрено</string>
     <string name="confirm_delete_episodes">Вы уверены, что хотите удалить выбранные эпизоды?</string>
     <string name="also_set_episode_settings_for_library">Также применить ко всем аниме в моей библиотеке</string>
+    <string name="also_set_novel_chapter_settings_for_library">Также применить ко всем ранобэ в моей библиотеке</string>
     <string name="no_episodes_error">Эпизоды не найдены</string>
     <string name="watching">Смотрю</string>
     <string name="currently_reading">Сейчас читается</string>
