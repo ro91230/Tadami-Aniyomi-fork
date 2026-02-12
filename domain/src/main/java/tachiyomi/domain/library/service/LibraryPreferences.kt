@@ -138,6 +138,21 @@ class LibraryPreferences(
     fun filterCompletedManga() =
         preferenceStore.getEnum("pref_filter_library_completed_v2", TriState.DISABLED)
 
+    fun filterDownloadedNovel() =
+        preferenceStore.getEnum("pref_filter_novellib_downloaded_v2", TriState.DISABLED)
+
+    fun filterUnreadNovel() =
+        preferenceStore.getEnum("pref_filter_novellib_unread_v2", TriState.DISABLED)
+
+    fun filterStartedNovel() =
+        preferenceStore.getEnum("pref_filter_novellib_started_v2", TriState.DISABLED)
+
+    fun filterBookmarkedNovel() =
+        preferenceStore.getEnum("pref_filter_novellib_bookmarked_v2", TriState.DISABLED)
+
+    fun filterCompletedNovel() =
+        preferenceStore.getEnum("pref_filter_novellib_completed_v2", TriState.DISABLED)
+
     fun filterTrackedAnime(id: Int) =
         preferenceStore.getEnum("pref_filter_animelib_tracked_${id}_v2", TriState.DISABLED)
 

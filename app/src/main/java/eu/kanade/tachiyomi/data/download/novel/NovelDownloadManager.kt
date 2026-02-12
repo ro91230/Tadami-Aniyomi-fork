@@ -39,6 +39,22 @@ class NovelDownloadManager(
             legacyChapterFile(novel, chapterId)?.exists() == true
     }
 
+    fun getDownloadCount(novel: Novel): Int {
+        val scopedCount = novelDirectory(novel)?.listFiles()?.size ?: 0
+        if (scopedCount > 0) return scopedCount
+
+        val legacyNovelDir = legacyNovelDirectory(novel)
+        return if (legacyNovelDir?.exists() == true) {
+            legacyNovelDir.listFiles()?.size ?: 0
+        } else {
+            0
+        }
+    }
+
+    fun hasAnyDownloadedChapter(novel: Novel): Boolean {
+        return getDownloadCount(novel) > 0
+    }
+
     suspend fun downloadChapter(novel: Novel, chapter: NovelChapter): Boolean {
         val source = sourceManager?.get(novel.source) ?: return false
         val text = source.getChapterText(chapter.toSNovelChapter())
@@ -94,17 +110,7 @@ class NovelDownloadManager(
         chapterId: Long,
         create: Boolean = false,
     ): UniFile? {
-        val baseDir = rootDir ?: return null
-        val sourceDir = if (create) {
-            baseDir.createDirectory(getSourceDirName(novel))
-        } else {
-            baseDir.findFile(getSourceDirName(novel))
-        } ?: return null
-        val novelDir = if (create) {
-            sourceDir.createDirectory(getNovelDirName(novel))
-        } else {
-            sourceDir.findFile(getNovelDirName(novel))
-        } ?: return null
+        val novelDir = novelDirectory(novel, create = create) ?: return null
         val chapterName = "$chapterId.html"
         return if (create) {
             novelDir.findFile(chapterName) ?: novelDir.createFile(chapterName)
@@ -113,9 +119,27 @@ class NovelDownloadManager(
         }
     }
 
+    private fun novelDirectory(novel: Novel, create: Boolean = false): UniFile? {
+        val baseDir = rootDir ?: return null
+        val sourceDir = if (create) {
+            baseDir.createDirectory(getSourceDirName(novel))
+        } else {
+            baseDir.findFile(getSourceDirName(novel))
+        } ?: return null
+        return if (create) {
+            sourceDir.createDirectory(getNovelDirName(novel))
+        } else {
+            sourceDir.findFile(getNovelDirName(novel))
+        }
+    }
+
     private fun legacyChapterFile(novel: Novel, chapterId: Long): File? {
+        return legacyNovelDirectory(novel)?.let { File(it, "$chapterId.html") }
+    }
+
+    private fun legacyNovelDirectory(novel: Novel): File? {
         val baseDir = legacyRootDir ?: return null
-        return File(baseDir, "${novel.source}/${novel.id}/$chapterId.html")
+        return File(baseDir, "${novel.source}/${novel.id}")
     }
 
     private fun cleanupDirectories(novel: Novel) {

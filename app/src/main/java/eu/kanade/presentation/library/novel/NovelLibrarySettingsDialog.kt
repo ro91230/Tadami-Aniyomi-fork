@@ -13,8 +13,8 @@ import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.library.novel.NovelLibraryScreenModel
 import kotlinx.collections.immutable.persistentListOf
-import tachiyomi.presentation.core.components.TriStateItem
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.components.TriStateItem
 import tachiyomi.presentation.core.i18n.stringResource
 
 @Composable
@@ -44,6 +44,12 @@ private fun ColumnScope.FilterPage(
 ) {
     val state by screenModel.state.collectAsState()
 
+    TriStateItem(
+        label = stringResource(MR.strings.label_downloaded),
+        state = state.effectiveDownloadedFilter,
+        enabled = !state.downloadedOnly,
+        onClick = screenModel::setDownloadedFilter,
+    )
     TriStateItem(
         label = stringResource(MR.strings.action_filter_unread),
         state = state.unreadFilter,

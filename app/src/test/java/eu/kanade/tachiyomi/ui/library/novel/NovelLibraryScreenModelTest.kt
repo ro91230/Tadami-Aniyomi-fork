@@ -1,10 +1,15 @@
 package eu.kanade.tachiyomi.ui.library.novel
 
+import android.content.Context
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import eu.kanade.domain.base.BasePreferences
+import eu.kanade.tachiyomi.source.model.SManga
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -13,9 +18,11 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import eu.kanade.tachiyomi.source.model.SManga
+import tachiyomi.core.common.preference.Preference
+import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.domain.entries.novel.interactor.GetLibraryNovel
 import tachiyomi.domain.entries.novel.model.Novel
+import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.library.novel.LibraryNovel
 
 class NovelLibraryScreenModelTest {
@@ -23,11 +30,19 @@ class NovelLibraryScreenModelTest {
     private val getLibraryNovel: GetLibraryNovel = mockk()
     private val libraryFlow = MutableStateFlow<List<LibraryNovel>>(emptyList())
     private val testDispatcher = StandardTestDispatcher()
+    private lateinit var basePreferences: BasePreferences
+    private lateinit var libraryPreferences: LibraryPreferences
 
     @BeforeEach
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         every { getLibraryNovel.subscribe() } returns libraryFlow
+        val preferenceStore = FakePreferenceStore()
+        basePreferences = BasePreferences(
+            context = mockk<Context>(relaxed = true),
+            preferenceStore = preferenceStore,
+        )
+        libraryPreferences = LibraryPreferences(preferenceStore)
     }
 
     @AfterEach
@@ -41,7 +56,12 @@ class NovelLibraryScreenModelTest {
         val second = libraryNovel(id = 2L, title = "Second Story")
         libraryFlow.value = listOf(first, second)
 
-        val screenModel = NovelLibraryScreenModel(getLibraryNovel = getLibraryNovel)
+        val screenModel = NovelLibraryScreenModel(
+            getLibraryNovel = getLibraryNovel,
+            basePreferences = basePreferences,
+            libraryPreferences = libraryPreferences,
+            hasDownloadedChapters = { false },
+        )
 
         testDispatcher.scheduler.advanceUntilIdle()
         screenModel.search("Second")
@@ -56,7 +76,12 @@ class NovelLibraryScreenModelTest {
         val read = libraryNovel(id = 2L, title = "Read", total = 10L, read = 10L)
         libraryFlow.value = listOf(unread, read)
 
-        val screenModel = NovelLibraryScreenModel(getLibraryNovel = getLibraryNovel)
+        val screenModel = NovelLibraryScreenModel(
+            getLibraryNovel = getLibraryNovel,
+            basePreferences = basePreferences,
+            libraryPreferences = libraryPreferences,
+            hasDownloadedChapters = { false },
+        )
 
         testDispatcher.scheduler.advanceUntilIdle()
         screenModel.toggleUnreadFilter()
@@ -72,13 +97,39 @@ class NovelLibraryScreenModelTest {
         val completed = libraryNovel(id = 2L, title = "Completed", status = SManga.COMPLETED.toLong())
         libraryFlow.value = listOf(ongoing, completed)
 
-        val screenModel = NovelLibraryScreenModel(getLibraryNovel = getLibraryNovel)
+        val screenModel = NovelLibraryScreenModel(
+            getLibraryNovel = getLibraryNovel,
+            basePreferences = basePreferences,
+            libraryPreferences = libraryPreferences,
+            hasDownloadedChapters = { false },
+        )
 
         testDispatcher.scheduler.advanceUntilIdle()
         screenModel.toggleCompletedFilter()
         testDispatcher.scheduler.advanceUntilIdle()
 
         screenModel.state.value.items.shouldContainExactly(completed)
+    }
+
+    @Test
+    fun `downloaded filter keeps only downloaded entries`() = runTest {
+        val downloaded = libraryNovel(id = 1L, title = "Downloaded")
+        val notDownloaded = libraryNovel(id = 2L, title = "Not Downloaded")
+        libraryFlow.value = listOf(downloaded, notDownloaded)
+
+        val screenModel = NovelLibraryScreenModel(
+            getLibraryNovel = getLibraryNovel,
+            basePreferences = basePreferences,
+            libraryPreferences = libraryPreferences,
+            hasDownloadedChapters = { it.id == downloaded.id },
+        )
+
+        testDispatcher.scheduler.advanceUntilIdle()
+        screenModel.toggleDownloadedFilter()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        screenModel.state.value.items.shouldContainExactly(downloaded)
+        screenModel.state.value.hasActiveFilters shouldBe true
     }
 
     private fun libraryNovel(
@@ -105,5 +156,72 @@ class NovelLibraryScreenModelTest {
             chapterFetchedAt = 0L,
             lastRead = 0L,
         )
+    }
+
+    private class FakePreferenceStore : PreferenceStore {
+        private val strings = mutableMapOf<String, Preference<String>>()
+        private val longs = mutableMapOf<String, Preference<Long>>()
+        private val ints = mutableMapOf<String, Preference<Int>>()
+        private val floats = mutableMapOf<String, Preference<Float>>()
+        private val booleans = mutableMapOf<String, Preference<Boolean>>()
+        private val stringSets = mutableMapOf<String, Preference<Set<String>>>()
+        private val objects = mutableMapOf<String, Preference<Any>>()
+
+        override fun getString(key: String, defaultValue: String): Preference<String> =
+            strings.getOrPut(key) { FakePreference(key, defaultValue) }
+
+        override fun getLong(key: String, defaultValue: Long): Preference<Long> =
+            longs.getOrPut(key) { FakePreference(key, defaultValue) }
+
+        override fun getInt(key: String, defaultValue: Int): Preference<Int> =
+            ints.getOrPut(key) { FakePreference(key, defaultValue) }
+
+        override fun getFloat(key: String, defaultValue: Float): Preference<Float> =
+            floats.getOrPut(key) { FakePreference(key, defaultValue) }
+
+        override fun getBoolean(key: String, defaultValue: Boolean): Preference<Boolean> =
+            booleans.getOrPut(key) { FakePreference(key, defaultValue) }
+
+        override fun getStringSet(key: String, defaultValue: Set<String>): Preference<Set<String>> =
+            stringSets.getOrPut(key) { FakePreference(key, defaultValue) }
+
+        @Suppress("UNCHECKED_CAST")
+        override fun <T> getObject(
+            key: String,
+            defaultValue: T,
+            serializer: (T) -> String,
+            deserializer: (String) -> T,
+        ): Preference<T> {
+            return objects.getOrPut(key) { FakePreference(key, defaultValue as Any) } as Preference<T>
+        }
+
+        override fun getAll(): Map<String, *> {
+            return emptyMap<String, Any>()
+        }
+    }
+
+    private class FakePreference<T>(
+        private val preferenceKey: String,
+        defaultValue: T,
+    ) : Preference<T> {
+        private val state = MutableStateFlow(defaultValue)
+
+        override fun key(): String = preferenceKey
+
+        override fun get(): T = state.value
+
+        override fun set(value: T) {
+            state.value = value
+        }
+
+        override fun isSet(): Boolean = true
+
+        override fun delete() = Unit
+
+        override fun defaultValue(): T = state.value
+
+        override fun changes(): Flow<T> = state
+
+        override fun stateIn(scope: CoroutineScope) = state
     }
 }
