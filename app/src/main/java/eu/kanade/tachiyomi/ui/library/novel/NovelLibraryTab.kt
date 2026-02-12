@@ -6,10 +6,15 @@ import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -25,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
@@ -46,13 +52,18 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.novel.LibraryNovel
+import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
+import tachiyomi.presentation.core.util.collectAsState
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 data object NovelLibraryTab : Tab {
 
@@ -79,6 +90,17 @@ data object NovelLibraryTab : Tab {
         val scope = rememberCoroutineScope()
         val screenModel = rememberScreenModel { NovelLibraryScreenModel() }
         val state by screenModel.state.collectAsState()
+        val libraryPreferences = remember { Injekt.get<LibraryPreferences>() }
+        val displayMode by libraryPreferences.displayMode().collectAsState()
+        val configuration = LocalConfiguration.current
+        val columnPreference = remember(configuration.orientation) {
+            if (configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+                libraryPreferences.novelLandscapeColumns()
+            } else {
+                libraryPreferences.novelPortraitColumns()
+            }
+        }
+        val columns by columnPreference.collectAsState()
         val snackbarHostState = remember { SnackbarHostState() }
 
         val onClickRefresh: () -> Unit = {
@@ -121,21 +143,46 @@ data object NovelLibraryTab : Tab {
                     )
                 }
                 else -> {
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 140.dp),
-                        modifier = Modifier.padding(contentPadding),
-                        contentPadding = PaddingValues(
-                            horizontal = MaterialTheme.padding.medium,
-                            vertical = MaterialTheme.padding.small,
-                        ),
-                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
-                        verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
-                    ) {
-                        items(state.items, key = { it.id }) { item ->
-                            NovelLibraryGridItem(
-                                item = item,
-                                onClick = { navigator.push(NovelScreen(item.novel.id)) },
-                            )
+                    if (displayMode == LibraryDisplayMode.List) {
+                        LazyColumn(
+                            modifier = Modifier.padding(contentPadding),
+                            contentPadding = PaddingValues(
+                                horizontal = MaterialTheme.padding.medium,
+                                vertical = MaterialTheme.padding.small,
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+                        ) {
+                            items(state.items, key = { it.id }) { item ->
+                                NovelLibraryListItem(
+                                    item = item,
+                                    onClick = { navigator.push(NovelScreen(item.novel.id)) },
+                                )
+                            }
+                        }
+                    } else {
+                        val gridCells = when {
+                            columns > 0 -> GridCells.Fixed(columns)
+                            displayMode == LibraryDisplayMode.ComfortableGrid -> GridCells.Adaptive(minSize = 180.dp)
+                            else -> GridCells.Adaptive(minSize = 140.dp)
+                        }
+
+                        LazyVerticalGrid(
+                            columns = gridCells,
+                            modifier = Modifier.padding(contentPadding),
+                            contentPadding = PaddingValues(
+                                horizontal = MaterialTheme.padding.medium,
+                                vertical = MaterialTheme.padding.small,
+                            ),
+                            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+                            verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+                        ) {
+                            items(state.items, key = { it.id }) { item ->
+                                NovelLibraryGridItem(
+                                    item = item,
+                                    showMetadata = displayMode != LibraryDisplayMode.CoverOnlyGrid,
+                                    onClick = { navigator.push(NovelScreen(item.novel.id)) },
+                                )
+                            }
                         }
                     }
                 }
@@ -164,6 +211,7 @@ data object NovelLibraryTab : Tab {
 @Composable
 private fun NovelLibraryGridItem(
     item: LibraryNovel,
+    showMetadata: Boolean,
     onClick: () -> Unit,
 ) {
     val progressText = if (item.totalChapters > 0) {
@@ -187,17 +235,66 @@ private fun NovelLibraryGridItem(
                     .fillMaxWidth()
                     .height(170.dp),
             )
-            Text(
-                text = item.novel.title,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 2,
-            )
-            if (progressText != null) {
+            if (showMetadata) {
                 Text(
-                    text = progressText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = item.novel.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
                 )
+                if (progressText != null) {
+                    Text(
+                        text = progressText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NovelLibraryListItem(
+    item: LibraryNovel,
+    onClick: () -> Unit,
+) {
+    val progressText = if (item.totalChapters > 0) {
+        "${item.unreadCount}/${item.totalChapters}"
+    } else {
+        null
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+    ) {
+        Row(
+            modifier = Modifier.padding(MaterialTheme.padding.small),
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+        ) {
+            ItemCover.Book(
+                data = item.novel.thumbnailUrl,
+                modifier = Modifier
+                    .height(112.dp)
+                    .aspectRatio(0.68f),
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = item.novel.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 2,
+                )
+                if (progressText != null) {
+                    Text(
+                        text = progressText,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }

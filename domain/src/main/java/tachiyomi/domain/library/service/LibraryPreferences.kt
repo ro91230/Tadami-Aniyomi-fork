@@ -102,9 +102,11 @@ class LibraryPreferences(
 
     fun animePortraitColumns() = preferenceStore.getInt("pref_animelib_columns_portrait_key", 0)
     fun mangaPortraitColumns() = preferenceStore.getInt("pref_library_columns_portrait_key", 0)
+    fun novelPortraitColumns() = preferenceStore.getInt("pref_novellib_columns_portrait_key", 0)
 
     fun animeLandscapeColumns() = preferenceStore.getInt("pref_animelib_columns_landscape_key", 0)
     fun mangaLandscapeColumns() = preferenceStore.getInt("pref_library_columns_landscape_key", 0)
+    fun novelLandscapeColumns() = preferenceStore.getInt("pref_novellib_columns_landscape_key", 0)
 
     // Mixture Filter
 
