@@ -7,10 +7,10 @@ import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.yield
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 import mihon.domain.extensionrepo.model.ExtensionRepo
 import mihon.domain.extensionrepo.novel.interactor.CreateNovelExtensionRepo
 import mihon.domain.extensionrepo.novel.interactor.DeleteNovelExtensionRepo
@@ -43,26 +43,26 @@ class NovelExtensionReposScreenModelTest {
     fun `loads repos into success state`() {
         runBlocking {
             val repo = ExtensionRepo(
-            baseUrl = "https://example.org",
-            name = "Repo",
-            shortName = "repo",
-            website = "https://example.org",
-            signingKeyFingerprint = "fingerprint",
+                baseUrl = "https://example.org",
+                name = "Repo",
+                shortName = "repo",
+                website = "https://example.org",
+                signingKeyFingerprint = "fingerprint",
             )
             every { getExtensionRepo.subscribeAll() } returns flowOf(listOf(repo))
 
             val screenModel = NovelExtensionReposScreenModel(
-            getExtensionRepo = getExtensionRepo,
-            createExtensionRepo = createExtensionRepo,
-            deleteExtensionRepo = deleteExtensionRepo,
-            replaceExtensionRepo = replaceExtensionRepo,
-            updateExtensionRepo = updateExtensionRepo,
+                getExtensionRepo = getExtensionRepo,
+                createExtensionRepo = createExtensionRepo,
+                deleteExtensionRepo = deleteExtensionRepo,
+                replaceExtensionRepo = replaceExtensionRepo,
+                updateExtensionRepo = updateExtensionRepo,
             )
 
             withTimeout(1_000) {
-            while (screenModel.state.value !is RepoScreenState.Success) {
-            yield()
-            }
+                while (screenModel.state.value !is RepoScreenState.Success) {
+                    yield()
+                }
             }
 
             val state = screenModel.state.value
@@ -70,4 +70,4 @@ class NovelExtensionReposScreenModelTest {
             (state as RepoScreenState.Success).repos.first() shouldBe repo
         }
     }
-    }
+}

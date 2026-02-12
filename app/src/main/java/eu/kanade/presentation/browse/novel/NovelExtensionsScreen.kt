@@ -1,5 +1,6 @@
-﻿package eu.kanade.presentation.browse.novel
+package eu.kanade.presentation.browse.novel
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -10,9 +11,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.GetApp
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,6 +53,10 @@ import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.plus
 
+internal fun shouldLoadNovelPluginIcon(iconUrl: String?): Boolean {
+    return !iconUrl.isNullOrBlank()
+}
+
 @Composable
 fun NovelExtensionScreen(
     state: NovelExtensionsScreenModel.State,
@@ -58,10 +65,13 @@ fun NovelExtensionScreen(
     onInstallExtension: (NovelPlugin.Available) -> Unit,
     onCancelInstall: (NovelPlugin.Available) -> Unit,
     onUpdateExtension: (NovelPlugin.Installed) -> Unit,
+    onUninstallExtension: (NovelPlugin.Installed) -> Unit,
     onUpdateAll: () -> Unit,
     onRefresh: () -> Unit,
+    onToggleSection: (String) -> Unit,
 ) {
     val navigator = LocalNavigator.currentOrThrow
+
     PullRefresh(
         refreshing = state.isRefreshing,
         onRefresh = onRefresh,
@@ -94,7 +104,9 @@ fun NovelExtensionScreen(
                     onInstallExtension = onInstallExtension,
                     onCancelInstall = onCancelInstall,
                     onUpdateExtension = onUpdateExtension,
+                    onUninstallExtension = onUninstallExtension,
                     onUpdateAll = onUpdateAll,
+                    onToggleSection = onToggleSection,
                 )
             }
         }
@@ -108,9 +120,12 @@ private fun NovelExtensionContent(
     onInstallExtension: (NovelPlugin.Available) -> Unit,
     onCancelInstall: (NovelPlugin.Available) -> Unit,
     onUpdateExtension: (NovelPlugin.Installed) -> Unit,
+    onUninstallExtension: (NovelPlugin.Installed) -> Unit,
     onUpdateAll: () -> Unit,
+    onToggleSection: (String) -> Unit,
 ) {
     val grouped = state.items.groupBy { it.status }
+    val context = LocalContext.current
 
     FastScrollLazyColumn(
         contentPadding = contentPadding + topSmallPaddingValues,
@@ -138,6 +153,7 @@ private fun NovelExtensionContent(
                     item = item,
                     onCancelInstall = onCancelInstall,
                     onUpdateExtension = onUpdateExtension,
+                    onUninstallExtension = onUninstallExtension,
                 )
             }
         }
@@ -154,24 +170,53 @@ private fun NovelExtensionContent(
                 NovelExtensionItemRow(
                     item = item,
                     onCancelInstall = onCancelInstall,
+                    onUninstallExtension = onUninstallExtension,
                 )
             }
         }
 
         val available = grouped[NovelExtensionItem.Status.Available].orEmpty()
-        if (available.isNotEmpty()) {
+        if (state.availableLanguages.isNotEmpty()) {
             item(key = "novel-ext-available-header") {
                 ExtensionHeader(textRes = MR.strings.ext_available)
             }
-            items(
-                items = available,
-                key = { item -> "novel-ext-available-${item.plugin.id}" },
-            ) { item ->
-                NovelExtensionItemRow(
-                    item = item,
-                    onInstallExtension = onInstallExtension,
-                    onCancelInstall = onCancelInstall,
-                )
+            state.availableLanguages.forEach { language ->
+                val displayName = LocaleHelper.getSourceDisplayName(language, context)
+                val isCollapsed = language in state.collapsedLanguages
+                val languageItems = if (isCollapsed && state.searchQuery.isNullOrEmpty()) {
+                    emptyList()
+                } else {
+                    available.filter { it.plugin.lang == language }
+                }
+
+                item(key = "novel-ext-language-$language") {
+                    ExtensionHeader(
+                        text = displayName,
+                        action = {
+                            IconButton(onClick = { onToggleSection(language) }) {
+                                Icon(
+                                    imageVector = if (isCollapsed) {
+                                        Icons.Outlined.ExpandMore
+                                    } else {
+                                        Icons.Outlined.ExpandLess
+                                    },
+                                    contentDescription = null,
+                                )
+                            }
+                        },
+                    )
+                }
+
+                items(
+                    items = languageItems,
+                    key = { item -> "novel-ext-available-$language-${item.plugin.id}" },
+                ) { item ->
+                    NovelExtensionItemRow(
+                        item = item,
+                        onInstallExtension = onInstallExtension,
+                        onCancelInstall = onCancelInstall,
+                    )
+                }
             }
         }
     }
@@ -183,6 +228,7 @@ private fun NovelExtensionItemRow(
     onInstallExtension: ((NovelPlugin.Available) -> Unit)? = null,
     onCancelInstall: ((NovelPlugin.Available) -> Unit)? = null,
     onUpdateExtension: ((NovelPlugin.Installed) -> Unit)? = null,
+    onUninstallExtension: ((NovelPlugin.Installed) -> Unit)? = null,
 ) {
     val plugin = item.plugin
     val onItemClick: () -> Unit = {
@@ -200,6 +246,7 @@ private fun NovelExtensionItemRow(
             }
         }
     }
+
     BaseBrowseItem(
         onClickItem = onItemClick,
         icon = {
@@ -214,13 +261,21 @@ private fun NovelExtensionItemRow(
                         strokeWidth = 2.dp,
                     )
                 }
-                AsyncImage(
-                    model = plugin.iconUrl,
-                    contentDescription = null,
-                    placeholder = ColorPainter(Color(0x1F888888)),
-                    error = painterResource(R.mipmap.ic_default_source),
-                    modifier = Modifier.size(34.dp),
-                )
+                if (shouldLoadNovelPluginIcon(plugin.iconUrl)) {
+                    AsyncImage(
+                        model = plugin.iconUrl,
+                        contentDescription = null,
+                        placeholder = ColorPainter(Color(0x1F888888)),
+                        error = painterResource(R.mipmap.ic_default_source),
+                        modifier = Modifier.size(34.dp),
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(R.mipmap.ic_default_source),
+                        contentDescription = null,
+                        modifier = Modifier.size(34.dp),
+                    )
+                }
             }
         },
         action = {
@@ -256,12 +311,24 @@ private fun NovelExtensionItemRow(
                             )
                         }
                     }
-                    onUpdateExtension != null && plugin is NovelPlugin.Installed -> {
-                        IconButton(onClick = { onUpdateExtension(plugin) }) {
-                            Icon(
-                                imageVector = Icons.Outlined.GetApp,
-                                contentDescription = stringResource(MR.strings.ext_update),
-                            )
+                    plugin is NovelPlugin.Installed -> {
+                        Row {
+                            if (onUpdateExtension != null) {
+                                IconButton(onClick = { onUpdateExtension(plugin) }) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.GetApp,
+                                        contentDescription = stringResource(MR.strings.ext_update),
+                                    )
+                                }
+                            }
+                            if (onUninstallExtension != null) {
+                                IconButton(onClick = { onUninstallExtension(plugin) }) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Close,
+                                        contentDescription = stringResource(MR.strings.ext_remove),
+                                    )
+                                }
+                            }
                         }
                     }
                 }

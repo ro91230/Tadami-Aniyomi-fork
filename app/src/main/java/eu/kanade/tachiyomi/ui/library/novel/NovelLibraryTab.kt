@@ -34,6 +34,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.presentation.entries.components.ItemCover
+import eu.kanade.presentation.library.novel.NovelLibrarySettingsDialog
 import eu.kanade.presentation.library.components.LibraryToolbar
 import eu.kanade.presentation.library.components.LibraryToolbarTitle
 import eu.kanade.presentation.util.Tab
@@ -47,7 +48,6 @@ import kotlinx.coroutines.launch
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.library.novel.LibraryNovel
 import tachiyomi.i18n.MR
-import tachiyomi.i18n.aniyomi.AYMR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -60,7 +60,7 @@ data object NovelLibraryTab : Tab {
     override val options: TabOptions
         @Composable
         get() {
-            val title = AYMR.strings.label_novel_library
+            val title = MR.strings.label_library
             val isSelected = LocalTabNavigator.current.current.key == key
             val image = AnimatedImageVector.animatedVectorResource(R.drawable.anim_library_enter)
             return TabOptions(
@@ -92,16 +92,16 @@ data object NovelLibraryTab : Tab {
         Scaffold(
             topBar = { scrollBehavior ->
                 LibraryToolbar(
-                    hasActiveFilters = false,
+                    hasActiveFilters = state.hasActiveFilters,
                     selectedCount = 0,
                     title = LibraryToolbarTitle(
-                        text = stringResource(AYMR.strings.label_novel_library),
+                        text = stringResource(MR.strings.label_library),
                         numberOfEntries = state.rawItems.size.takeIf { it > 0 },
                     ),
                     onClickUnselectAll = {},
                     onClickSelectAll = {},
                     onClickInvertSelection = {},
-                    onClickFilter = {},
+                    onClickFilter = screenModel::showSettingsDialog,
                     onClickRefresh = onClickRefresh,
                     onClickGlobalUpdate = onClickRefresh,
                     onClickOpenRandomEntry = {},
@@ -144,6 +144,16 @@ data object NovelLibraryTab : Tab {
 
         LaunchedEffect(Unit) {
             queryEvent.receiveAsFlow().collectLatest { screenModel.search(it) }
+        }
+
+        when (state.dialog) {
+            NovelLibraryScreenModel.Dialog.Settings -> {
+                NovelLibrarySettingsDialog(
+                    onDismissRequest = screenModel::closeDialog,
+                    screenModel = screenModel,
+                )
+            }
+            null -> {}
         }
     }
 

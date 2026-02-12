@@ -99,8 +99,14 @@ class NovelSourcesScreenModelTest {
             query: String,
             filterList: eu.kanade.tachiyomi.novelsource.model.NovelFilterList,
         ) = TODO()
-        override fun getPopularNovels(sourceId: Long) = TODO()
-        override fun getLatestNovels(sourceId: Long) = TODO()
+        override fun getPopularNovels(
+            sourceId: Long,
+            filterList: eu.kanade.tachiyomi.novelsource.model.NovelFilterList,
+        ) = TODO()
+        override fun getLatestNovels(
+            sourceId: Long,
+            filterList: eu.kanade.tachiyomi.novelsource.model.NovelFilterList,
+        ) = TODO()
     }
 
     private class FakePreference<T>(

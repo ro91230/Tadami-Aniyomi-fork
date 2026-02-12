@@ -32,9 +32,11 @@ import eu.kanade.domain.source.service.SourcePreferences.DataSaver
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.advanced.ClearAnimeDatabaseScreen
 import eu.kanade.presentation.more.settings.screen.advanced.ClearDatabaseScreen
+import eu.kanade.presentation.more.settings.screen.advanced.ClearNovelDatabaseScreen
 import eu.kanade.presentation.more.settings.screen.debug.DebugInfoScreen
 import eu.kanade.tachiyomi.data.download.anime.AnimeDownloadCache
 import eu.kanade.tachiyomi.data.download.manga.MangaDownloadCache
+import tachiyomi.data.extension.novel.NovelPluginKeyValueStore
 import eu.kanade.tachiyomi.data.library.anime.AnimeLibraryUpdateJob
 import eu.kanade.tachiyomi.data.library.anime.AnimeMetadataUpdateJob
 import eu.kanade.tachiyomi.data.library.manga.MangaLibraryUpdateJob
@@ -212,6 +214,11 @@ object SettingsAdvancedScreen : SearchableSettings {
                     title = stringResource(AYMR.strings.pref_clear_anime_database),
                     subtitle = stringResource(AYMR.strings.pref_clear_anime_database_summary),
                     onClick = { navigator.push(ClearAnimeDatabaseScreen()) },
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(AYMR.strings.pref_clear_novel_database),
+                    subtitle = stringResource(AYMR.strings.pref_clear_novel_database_summary),
+                    onClick = { navigator.push(ClearNovelDatabaseScreen()) },
                 ),
             ),
         )
@@ -404,12 +411,14 @@ object SettingsAdvancedScreen : SearchableSettings {
     private fun getExtensionsGroup(
         basePreferences: BasePreferences,
     ): Preference.PreferenceGroup {
+        val scope = rememberCoroutineScope()
         val context = LocalContext.current
         val uriHandler = LocalUriHandler.current
         val extensionInstallerPref = basePreferences.extensionInstaller()
         var shizukuMissing by rememberSaveable { mutableStateOf(false) }
         val trustAnimeExtension = remember { Injekt.get<TrustAnimeExtension>() }
         val trustMangaExtension = remember { Injekt.get<TrustMangaExtension>() }
+        val novelPluginKeyValueStore = remember { Injekt.get<NovelPluginKeyValueStore>() }
 
         if (shizukuMissing) {
             val dismiss = { shizukuMissing = false }
@@ -472,6 +481,26 @@ object SettingsAdvancedScreen : SearchableSettings {
                         trustMangaExtension.revokeAll()
                         trustAnimeExtension.revokeAll()
                         context.toast(MR.strings.requires_app_restart)
+                    },
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(AYMR.strings.pref_clear_novel_plugin_cache),
+                    subtitle = stringResource(AYMR.strings.pref_clear_novel_plugin_cache_summary),
+                    onClick = {
+                        scope.launchNonCancellable {
+                            val success = runCatching {
+                                novelPluginKeyValueStore.clearAll()
+                            }.isSuccess
+                            withUIContext {
+                                context.toast(
+                                    if (success) {
+                                        AYMR.strings.novel_plugin_cache_cleared
+                                    } else {
+                                        MR.strings.cache_delete_error
+                                    },
+                                )
+                            }
+                        }
                     },
                 ),
             ),

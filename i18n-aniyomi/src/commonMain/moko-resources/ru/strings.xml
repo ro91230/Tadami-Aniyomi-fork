@@ -248,7 +248,7 @@
     <string name="label_anime">Аниме</string>
     <string name="label_manga">Манга</string>
     <string name="label_novel">Ранобэ</string>
-    <string name="label_novel_library">Библиотека ранобэ</string>
+    <string name="label_novel_library">Библиотека</string>
     <string name="novel_reader_settings_title">Настройки чтения</string>
     <string name="novel_reader_override_source">Переопределить для источника</string>
     <string name="novel_reader_override_summary">Использовать свои настройки только для этого источника</string>
@@ -261,6 +261,46 @@
     <string name="novel_reader_theme_system">Системная</string>
     <string name="novel_reader_theme_light">Светлая</string>
     <string name="novel_reader_theme_dark">Тёмная</string>
+
+    <!-- Novel Reader Settings Screen -->
+    <string name="pref_category_novel_reader">Читалка ранобэ</string>
+    <string name="pref_novel_reader_summary">Настройки чтения ранобэ</string>
+    <string name="novel_reader_display">Отображение</string>
+    <string name="novel_reader_theme_settings">Тема</string>
+    <string name="novel_reader_navigation">Навигация</string>
+    <string name="novel_reader_accessibility">Доступность</string>
+    <string name="novel_reader_advanced">Расширенные</string>
+
+    <!-- Text Align -->
+    <string name="novel_reader_text_align">Выравнивание текста</string>
+    <string name="novel_reader_text_align_left">По левому краю</string>
+    <string name="novel_reader_text_align_center">По центру</string>
+    <string name="novel_reader_text_align_justify">По ширине</string>
+    <string name="novel_reader_text_align_right">По правому краю</string>
+
+    <!-- Navigation -->
+    <string name="novel_reader_volume_buttons">Прокрутка кнопками громкости</string>
+    <string name="novel_reader_volume_buttons_summary">Использовать кнопки громкости для прокрутки страниц</string>
+    <string name="novel_reader_swipe_gestures">Свайп жесты</string>
+    <string name="novel_reader_swipe_gestures_summary">Включить свайп жесты для навигации</string>
+    <string name="novel_reader_page_mode">Постраничный режим</string>
+    <string name="novel_reader_page_mode_summary">Отображать содержимое постранично вместо непрерывной прокрутки</string>
+    <string name="novel_reader_prefer_webview_renderer">Предпочитать WebView-рендерер</string>
+    <string name="novel_reader_prefer_webview_renderer_summary">По умолчанию открывать главу в WebView. Отключите, чтобы вернуться к нативному рендереру.</string>
+
+    <!-- Accessibility -->
+    <string name="novel_reader_fullscreen">Полноэкранный режим</string>
+    <string name="novel_reader_fullscreen_summary">Скрывать системные панели во время чтения</string>
+    <string name="novel_reader_keep_screen_on">Не выключать экран</string>
+    <string name="novel_reader_keep_screen_on_summary">Предотвращать выключение экрана во время чтения</string>
+
+    <!-- Advanced -->
+    <string name="novel_reader_custom_css">Пользовательский CSS</string>
+    <string name="novel_reader_custom_css_hint">CSS применяется к содержимому главы</string>
+    <string name="novel_reader_custom_css_set">%d символов</string>
+    <string name="novel_reader_custom_js">Пользовательский JavaScript</string>
+    <string name="novel_reader_custom_js_hint">JavaScript выполняется после загрузки главы</string>
+    <string name="novel_reader_custom_js_set">%d символов</string>
     <string name="label_recent_anime_updates">Обновления аниме</string>
     <string name="label_manga_sources">Доступные источники</string>
     <string name="label_anime_sources">Доступные источники</string>
@@ -291,6 +331,31 @@
     <string name="action_play_externally">Смотреть в другом плеере</string>
     <string name="action_download_unread">Скачать непрочитанные главы</string>
     <string name="action_download_unseen">Скачать непросмотренные эпизоды</string>
+    <string name="novel_batch_download_title">Пакетная загрузка</string>
+    <string name="novel_download_next_1">Скачать следующую главу</string>
+    <string name="novel_download_next_5">Скачать следующие 5 глав</string>
+    <string name="novel_download_next_10">Скачать следующие 10 глав</string>
+    <string name="novel_download_custom_count">Своё количество</string>
+    <string name="novel_download_all">Скачать все главы</string>
+    <string name="novel_export_as_epub">Экспорт в EPUB</string>
+    <string name="novel_epub_short">EPUB</string>
+    <string name="novel_export_downloaded_only">Только скачанные главы</string>
+    <string name="novel_export_start_chapter">Начальная глава (необязательно)</string>
+    <string name="novel_export_end_chapter">Конечная глава (необязательно)</string>
+    <string name="novel_export_start_chapter_short">Начальная глава</string>
+    <string name="novel_export_end_chapter_short">Конечная глава</string>
+    <string name="novel_export_all_chapters">Экспортировать все главы</string>
+    <string name="novel_export_destination_folder">Папка назначения (необязательно)</string>
+    <string name="novel_export_select_folder">Выбрать папку</string>
+    <string name="novel_export_apply_reader_theme">Применить тему ридера к EPUB</string>
+    <string name="novel_export_include_custom_css">Включить пользовательский CSS</string>
+    <string name="novel_export_include_custom_js">Включить пользовательский JavaScript</string>
+    <string name="novel_export_custom_js_warning">Пользовательский JavaScript поддерживается не всеми EPUB-ридерами</string>
+    <string name="novel_export_invalid_range">Введите корректный диапазон глав</string>
+    <string name="novel_export_saved_to_folder">EPUB сохранён в выбранную папку</string>
+    <string name="novel_export_confirm">Экспорт</string>
+    <string name="novel_export_failed">Не удалось экспортировать EPUB</string>
+    
     <string name="action_bookmark_episode">Добавить эпизод в закладки</string>
     <string name="action_remove_bookmark_episode">Удалить эпизод из закладок</string>
     <string name="action_edit_anime_categories">Редактировать категории аниме</string>
@@ -314,7 +379,10 @@
     <string name="pref_bottom_nav_style">Стиль нижней навигации</string>
     <string name="pref_show_anime_section">Показывать раздел аниме</string>
     <string name="pref_show_manga_section">Показывать раздел манги</string>
+    <string name="pref_show_novel_section">Показывать раздел ранобэ</string>
     <string name="pref_show_section_required">По крайней мере один раздел должен оставаться включенным</string>
+    <string name="pref_aurora_instant_tab_switching">Мгновенное переключение вкладок Aurora</string>
+    <string name="pref_aurora_instant_tab_switching_summary">Переключает вкладки без анимации перелистывания; свайп меняет вкладку с легким отскоком на краях</string>
     <string name="pref_default_home_tab_library">Сделать вкладку манги начальным экраном</string>
     <string name="default_manga_category">Категория манги по умолчанию</string>
     <string name="default_anime_category">Категория аниме по умолчанию</string>
@@ -340,8 +408,13 @@
     <string name="used_cache_both">Используется аниме: %1$s, используется мангой: %2$s</string>
     <string name="pref_clear_manga_database">Очистить базу данных манги</string>
     <string name="pref_clear_anime_database">Очистить базу данных аниме</string>
+    <string name="pref_clear_novel_database">Очистить базу данных ранобэ</string>
     <string name="pref_clear_manga_database_summary">Удалить историю для манги, которая не находится в вашей библиотеке</string>
     <string name="pref_clear_anime_database_summary">Удалить историю для аниме, которое не находится в вашей библиотеке</string>
+    <string name="pref_clear_novel_database_summary">Удалить историю для ранобэ, которое не находится в вашей библиотеке</string>
+    <string name="pref_clear_novel_plugin_cache">Очистить кэш плагинов ранобэ</string>
+    <string name="pref_clear_novel_plugin_cache_summary">Очистить кэшированное хранилище, используемое плагинами ранобэ</string>
+    <string name="novel_plugin_cache_cleared">Кэш плагинов ранобэ очищен</string>
     <string name="anime_from_library">Аниме из библиотеки</string>
     <string name="downloaded_episodes">Загруженные эпизоды</string>
     <string name="local_manga_source">Локальный источник манги</string>
@@ -892,4 +965,28 @@
     <!-- Backup Options -->
     <string name="achievements">Достижения</string>
     <string name="stats">Статистика</string>
+    <string name="novel_reader_font_family">Шрифт</string>
+    <string name="novel_reader_theme_presets">Предустановки темы</string>
+    <string name="novel_reader_theme_preset_none">Нет</string>
+    <string name="novel_reader_background_color">Цвет фона</string>
+    <string name="novel_reader_text_color">Цвет текста</string>
+    <string name="novel_reader_color_input_hint">Используйте #RRGGBB или #AARRGGBB</string>
+    <string name="novel_reader_save_custom_theme">Сохранить свою тему</string>
+    <string name="novel_reader_delete_custom_theme">Удалить свою тему</string>
+    <string name="novel_reader_vertical_seekbar">Вертикальный индикатор прогресса</string>
+    <string name="novel_reader_swipe_to_next">Свайп вверх к следующей главе</string>
+    <string name="novel_reader_swipe_to_prev">Свайп вниз к предыдущей главе</string>
+    <string name="novel_reader_tap_to_scroll">Навигация касанием краев</string>
+    <string name="novel_reader_auto_scroll">Автопрокрутка</string>
+    <string name="novel_reader_auto_scroll_interval">Интервал автопрокрутки (сек)</string>
+    <string name="novel_reader_auto_scroll_offset">Смещение автопрокрутки (px)</string>
+    <string name="novel_reader_show_scroll_percentage">Показывать процент чтения</string>
+    <string name="novel_reader_show_battery_time">Показывать батарею и время</string>
+    <string name="novel_reader_bionic_reading">Бионическое чтение</string>
+    <string name="novel_reader_tab_general">Основные</string>
+    <string name="novel_reader_tab_reading">Чтение</string>
 </resources>
+
+
+
+

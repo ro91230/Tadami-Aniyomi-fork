@@ -8,18 +8,26 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.domain.entries.novel.interactor.UpdateNovel
 import eu.kanade.domain.entries.novel.model.toSNovel
 import eu.kanade.domain.items.novelchapter.interactor.SyncNovelChaptersWithSource
+import eu.kanade.tachiyomi.data.download.novel.NovelDownloadManager
+import eu.kanade.tachiyomi.data.export.novel.NovelEpubExportOptions
+import eu.kanade.tachiyomi.data.export.novel.NovelEpubExporter
 import eu.kanade.tachiyomi.novelsource.NovelSource
+import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderPreferences
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import tachiyomi.core.common.util.lang.launchIO
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.supervisorScope
 import tachiyomi.core.common.preference.TriState
+import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.domain.entries.applyFilter
 import tachiyomi.domain.entries.novel.interactor.GetNovelWithChapters
 import tachiyomi.domain.entries.novel.interactor.SetNovelChapterFlags
 import tachiyomi.domain.entries.novel.model.Novel
 import tachiyomi.domain.entries.novel.model.NovelUpdate
-import tachiyomi.domain.entries.applyFilter
+import tachiyomi.domain.items.novelchapter.model.NoChaptersException
 import tachiyomi.domain.items.novelchapter.model.NovelChapter
 import tachiyomi.domain.items.novelchapter.model.NovelChapterUpdate
 import tachiyomi.domain.items.novelchapter.repository.NovelChapterRepository
@@ -27,7 +35,23 @@ import tachiyomi.domain.items.novelchapter.service.getNovelChapterSort
 import tachiyomi.domain.source.novel.service.NovelSourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.io.File
 import java.time.Instant
+import java.util.LinkedHashMap
+import kotlin.coroutines.cancellation.CancellationException
+
+enum class NovelDownloadAction {
+    NEXT,
+    UNREAD,
+    ALL,
+}
+
+data class NovelEpubExportPreferencesState(
+    val destinationTreeUri: String,
+    val applyReaderTheme: Boolean,
+    val includeCustomCss: Boolean,
+    val includeCustomJs: Boolean,
+)
 
 class NovelScreenModel(
     private val lifecycle: Lifecycle,
@@ -38,6 +62,9 @@ class NovelScreenModel(
     private val novelChapterRepository: NovelChapterRepository = Injekt.get(),
     private val setNovelChapterFlags: SetNovelChapterFlags = Injekt.get(),
     private val sourceManager: NovelSourceManager = Injekt.get(),
+    private val novelDownloadManager: NovelDownloadManager = NovelDownloadManager(),
+    private val novelEpubExporter: NovelEpubExporter = NovelEpubExporter(),
+    private val novelReaderPreferences: NovelReaderPreferences = Injekt.get(),
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : StateScreenModel<NovelScreenModel.State>(State.Loading) {
 
@@ -53,6 +80,26 @@ class NovelScreenModel(
     val isAnyChapterSelected: Boolean
         get() = successState?.selectedChapterIds?.isNotEmpty() ?: false
 
+    fun isReadingStarted(): Boolean {
+        val state = successState ?: return false
+        return state.chapters.any { it.read || it.lastPageRead > 0L }
+    }
+
+    fun getResumeOrNextChapter(): NovelChapter? {
+        val state = successState ?: return null
+        val chapters = state.chapters.sortedWith(Comparator(getNovelChapterSort(state.novel)))
+        if (chapters.isEmpty()) return null
+
+        chapters.firstOrNull { it.lastPageRead > 0L && !it.read }?.let { return it }
+
+        val lastReadIndex = chapters.indexOfLast { it.read || it.lastPageRead > 0L }
+        if (lastReadIndex >= 0) {
+            chapters.drop(lastReadIndex + 1).firstOrNull { !it.read }?.let { return it }
+        }
+
+        return chapters.firstOrNull { !it.read } ?: chapters.firstOrNull()
+    }
+
     fun getNextUnreadChapter(): NovelChapter? {
         val state = successState ?: return null
         val chapters = state.processedChapters
@@ -64,16 +111,33 @@ class NovelScreenModel(
     }
 
     init {
+        restoreStateFromCache(novelId)?.let {
+            mutableState.value = it
+        }
+
         screenModelScope.launchIO {
             getNovelWithChapters.subscribe(novelId)
                 .distinctUntilChanged()
                 .collectLatest { (novel, chapters) ->
+                    val chapterIds = chapters.mapTo(mutableSetOf()) { c -> c.id }
                     updateSuccessState {
                         it.copy(
                             novel = novel,
                             chapters = chapters,
-                            selectedChapterIds = it.selectedChapterIds.intersect(chapters.mapTo(mutableSetOf()) { c -> c.id }),
+                            selectedChapterIds = it.selectedChapterIds.intersect(
+                                chapterIds,
+                            ),
+                            downloadedChapterIds = it.downloadedChapterIds.intersect(chapterIds),
+                            downloadingChapterIds = it.downloadingChapterIds.intersect(chapterIds),
                         )
+                    }
+                    val downloadedChapterIds = novelDownloadManager.getDownloadedChapterIds(novel, chapters)
+                    updateSuccessState {
+                        if (it.novel.id != novel.id || it.downloadedChapterIds == downloadedChapterIds) {
+                            it
+                        } else {
+                            it.copy(downloadedChapterIds = downloadedChapterIds)
+                        }
                     }
                 }
         }
@@ -81,14 +145,40 @@ class NovelScreenModel(
         screenModelScope.launchIO {
             val novel = getNovelWithChapters.awaitNovel(novelId)
             val chapters = getNovelWithChapters.awaitChapters(novelId)
+            val shouldAutoRefreshNovel = !novel.initialized
+            val shouldAutoRefreshChapters = chapters.isEmpty()
+            val currentDownloadedIds = (state.value as? State.Success)
+                ?.downloadedChapterIds
+                ?.intersect(chapters.mapTo(mutableSetOf()) { it.id })
+                .orEmpty()
             mutableState.update {
                 State.Success(
                     novel = novel,
                     source = sourceManager.getOrStub(novel.source),
                     chapters = chapters,
-                    isRefreshingData = false,
+                    isRefreshingData = shouldAutoRefreshNovel || shouldAutoRefreshChapters,
                     dialog = null,
                     selectedChapterIds = emptySet(),
+                    downloadedChapterIds = currentDownloadedIds,
+                    downloadingChapterIds = emptySet(),
+                )
+            }
+            cacheState(state.value as? State.Success)
+
+            val downloadedChapterIds = novelDownloadManager.getDownloadedChapterIds(novel, chapters)
+            updateSuccessState {
+                if (it.novel.id != novel.id || it.downloadedChapterIds == downloadedChapterIds) {
+                    it
+                } else {
+                    it.copy(downloadedChapterIds = downloadedChapterIds)
+                }
+            }
+
+            if ((shouldAutoRefreshNovel || shouldAutoRefreshChapters) && screenModelScope.isActive) {
+                refreshChapters(
+                    manualFetch = false,
+                    refreshNovel = shouldAutoRefreshNovel,
+                    refreshChapters = shouldAutoRefreshChapters,
                 )
             }
         }
@@ -100,7 +190,7 @@ class NovelScreenModel(
         mutableState.update {
             when (it) {
                 State.Loading -> it
-                is State.Success -> func(it)
+                is State.Success -> func(it).also(::cacheState)
             }
         }
     }
@@ -123,24 +213,76 @@ class NovelScreenModel(
         }
     }
 
-    fun refreshChapters(manualFetch: Boolean = true) {
+    fun refreshChapters(
+        manualFetch: Boolean = true,
+        refreshNovel: Boolean = true,
+        refreshChapters: Boolean = true,
+    ) {
         val state = successState ?: return
-        screenModelScope.launch {
+        screenModelScope.launchIO {
             updateSuccessState { it.copy(isRefreshingData = true) }
             try {
-                val sourceChapters = state.source.getChapterList(state.novel.toSNovel())
-                syncNovelChaptersWithSource.await(
-                    rawSourceChapters = sourceChapters,
-                    novel = state.novel,
-                    source = state.source,
-                    manualFetch = manualFetch,
-                )
-            } catch (e: Exception) {
-                snackbarHostState.showSnackbar(message = e.message ?: "Failed to refresh")
+                supervisorScope {
+                    val tasks = listOf(
+                        async {
+                            if (refreshNovel) {
+                                runCatching {
+                                    fetchNovelFromSource(state, manualFetch)
+                                }.onFailure { error ->
+                                    handleRefreshError(error)
+                                }
+                            }
+                        },
+                        async {
+                            if (refreshChapters) {
+                                runCatching {
+                                    fetchChaptersFromSource(state, manualFetch)
+                                }.onFailure { error ->
+                                    handleRefreshError(error)
+                                }
+                            }
+                        },
+                    )
+                    tasks.awaitAll()
+                }
             } finally {
                 updateSuccessState { it.copy(isRefreshingData = false) }
             }
         }
+    }
+
+    private suspend fun handleRefreshError(error: Throwable) {
+        if (error is CancellationException) throw error
+        val message = when (error) {
+            is NoChaptersException -> "No chapters found"
+            else -> error.message ?: "Failed to refresh"
+        }
+        snackbarHostState.showSnackbar(message = message)
+    }
+
+    private suspend fun fetchNovelFromSource(
+        state: State.Success,
+        manualFetch: Boolean,
+    ) {
+        val networkNovel = state.source.getNovelDetails(state.novel.toSNovel())
+        updateNovel.awaitUpdateFromSource(
+            localNovel = state.novel,
+            remoteNovel = networkNovel,
+            manualFetch = manualFetch,
+        )
+    }
+
+    private suspend fun fetchChaptersFromSource(
+        state: State.Success,
+        manualFetch: Boolean,
+    ) {
+        val sourceChapters = state.source.getChapterList(state.novel.toSNovel())
+        syncNovelChaptersWithSource.await(
+            rawSourceChapters = sourceChapters,
+            novel = state.novel,
+            source = state.source,
+            manualFetch = manualFetch,
+        )
     }
 
     fun toggleChapterRead(chapterId: Long) {
@@ -258,6 +400,172 @@ class NovelScreenModel(
         }
     }
 
+    fun toggleChapterDownload(chapterId: Long) {
+        val state = successState ?: return
+        val chapter = state.chapters.firstOrNull { it.id == chapterId } ?: return
+        if (chapterId in state.downloadingChapterIds) return
+
+        if (chapterId in state.downloadedChapterIds) {
+            screenModelScope.launchIO {
+                novelDownloadManager.deleteChapter(state.novel, chapterId)
+                updateSuccessState {
+                    it.copy(downloadedChapterIds = it.downloadedChapterIds - chapterId)
+                }
+            }
+            return
+        }
+
+        updateSuccessState {
+            it.copy(downloadingChapterIds = it.downloadingChapterIds + chapterId)
+        }
+
+        screenModelScope.launchIO {
+            val success = runCatching {
+                novelDownloadManager.downloadChapter(state.novel, chapter)
+            }.getOrElse {
+                snackbarHostState.showSnackbar(message = it.message ?: "Failed to download chapter")
+                false
+            }
+            updateSuccessState {
+                it.copy(
+                    downloadedChapterIds = if (success) {
+                        it.downloadedChapterIds + chapterId
+                    } else {
+                        it.downloadedChapterIds
+                    },
+                    downloadingChapterIds = it.downloadingChapterIds - chapterId,
+                )
+            }
+        }
+    }
+
+    fun downloadSelectedChapters() {
+        val state = successState ?: return
+        val selectedChapters = state.chapters.filter { chapter ->
+            chapter.id in state.selectedChapterIds && chapter.id !in state.downloadedChapterIds
+        }
+        if (selectedChapters.isEmpty()) return
+
+        val chapterIds = selectedChapters.mapTo(mutableSetOf()) { it.id }
+        updateSuccessState {
+            it.copy(downloadingChapterIds = it.downloadingChapterIds + chapterIds)
+        }
+
+        screenModelScope.launchIO {
+            val downloadedIds = novelDownloadManager.downloadChapters(state.novel, selectedChapters)
+            updateSuccessState {
+                it.copy(
+                    downloadedChapterIds = it.downloadedChapterIds + downloadedIds,
+                    downloadingChapterIds = it.downloadingChapterIds - chapterIds,
+                )
+            }
+            toggleAllSelection(false)
+        }
+    }
+
+    fun runDownloadAction(
+        action: NovelDownloadAction,
+        amount: Int = 0,
+    ) {
+        val state = successState ?: return
+        val chaptersToDownload = selectChaptersForDownload(
+            action = action,
+            novel = state.novel,
+            chapters = state.chapters,
+            downloadedChapterIds = state.downloadedChapterIds,
+            amount = amount,
+        )
+        if (chaptersToDownload.isEmpty()) return
+
+        val chapterIds = chaptersToDownload.mapTo(mutableSetOf()) { it.id }
+        updateSuccessState {
+            it.copy(downloadingChapterIds = it.downloadingChapterIds + chapterIds)
+        }
+
+        screenModelScope.launchIO {
+            val downloadedIds = novelDownloadManager.downloadChapters(state.novel, chaptersToDownload)
+            updateSuccessState {
+                it.copy(
+                    downloadedChapterIds = it.downloadedChapterIds + downloadedIds,
+                    downloadingChapterIds = it.downloadingChapterIds - chapterIds,
+                )
+            }
+        }
+    }
+
+    fun deleteDownloadedSelectedChapters() {
+        val state = successState ?: return
+        val selectedDownloadedIds = state.selectedChapterIds.intersect(state.downloadedChapterIds)
+        if (selectedDownloadedIds.isEmpty()) return
+
+        screenModelScope.launchIO {
+            novelDownloadManager.deleteChapters(state.novel, selectedDownloadedIds)
+            updateSuccessState {
+                it.copy(downloadedChapterIds = it.downloadedChapterIds - selectedDownloadedIds)
+            }
+            toggleAllSelection(false)
+        }
+    }
+
+    fun getEpubExportPreferences(): NovelEpubExportPreferencesState {
+        return NovelEpubExportPreferencesState(
+            destinationTreeUri = novelReaderPreferences.epubExportLocation().get(),
+            applyReaderTheme = novelReaderPreferences.epubExportUseReaderTheme().get(),
+            includeCustomCss = novelReaderPreferences.epubExportUseCustomCSS().get(),
+            includeCustomJs = novelReaderPreferences.epubExportUseCustomJS().get(),
+        )
+    }
+
+    fun saveEpubExportPreferences(
+        destinationTreeUri: String,
+        applyReaderTheme: Boolean,
+        includeCustomCss: Boolean,
+        includeCustomJs: Boolean,
+    ) {
+        novelReaderPreferences.epubExportLocation().set(destinationTreeUri)
+        novelReaderPreferences.epubExportUseReaderTheme().set(applyReaderTheme)
+        novelReaderPreferences.epubExportUseCustomCSS().set(includeCustomCss)
+        novelReaderPreferences.epubExportUseCustomJS().set(includeCustomJs)
+    }
+
+    suspend fun exportAsEpub(
+        downloadedOnly: Boolean,
+        startChapter: Int?,
+        endChapter: Int?,
+        destinationTreeUri: String,
+        applyReaderTheme: Boolean,
+        includeCustomCss: Boolean,
+        includeCustomJs: Boolean,
+    ): File? {
+        val state = successState ?: return null
+        val readerSettings = novelReaderPreferences.resolveSettings(state.novel.source)
+        val stylesheet = NovelEpubStyleBuilder.buildStylesheet(
+            settings = readerSettings,
+            sourceId = state.novel.source,
+            applyReaderTheme = applyReaderTheme,
+            includeCustomCss = includeCustomCss,
+            linkColor = "#4A90E2",
+        )
+        val javaScript = NovelEpubStyleBuilder.buildJavaScript(
+            settings = readerSettings,
+            novel = state.novel,
+            includeCustomJs = includeCustomJs,
+        )
+
+        return novelEpubExporter.export(
+            novel = state.novel,
+            chapters = state.chapters,
+            options = NovelEpubExportOptions(
+                downloadedOnly = downloadedOnly,
+                startChapter = startChapter,
+                endChapter = endChapter,
+                destinationTreeUri = destinationTreeUri.trim().ifBlank { null },
+                stylesheet = stylesheet,
+                javaScript = javaScript,
+            ),
+        )
+    }
+
     fun showSettingsDialog() {
         updateSuccessState { it.copy(dialog = Dialog.SettingsSheet) }
     }
@@ -320,6 +628,8 @@ class NovelScreenModel(
             val isRefreshingData: Boolean,
             val dialog: Dialog?,
             val selectedChapterIds: Set<Long> = emptySet(),
+            val downloadedChapterIds: Set<Long> = emptySet(),
+            val downloadingChapterIds: Set<Long> = emptySet(),
         ) : State {
             val processedChapters: List<NovelChapter>
                 get() {
@@ -333,6 +643,64 @@ class NovelScreenModel(
                         .sortedWith(chapterSort)
                         .toList()
                 }
+        }
+    }
+
+    companion object {
+        private const val FAST_CACHE_MAX_ITEMS = 24
+        private val stateCache = object : LinkedHashMap<Long, State.Success>(
+            FAST_CACHE_MAX_ITEMS + 1,
+            1f,
+            true,
+        ) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, State.Success>?): Boolean {
+                return size > FAST_CACHE_MAX_ITEMS
+            }
+        }
+
+        @Synchronized
+        private fun restoreStateFromCache(novelId: Long): State.Success? {
+            return stateCache[novelId]
+        }
+
+        @Synchronized
+        private fun cacheState(state: State.Success?) {
+            if (state == null) return
+            stateCache[state.novel.id] = state.copy(
+                isRefreshingData = false,
+                dialog = null,
+                selectedChapterIds = emptySet(),
+                downloadingChapterIds = emptySet(),
+            )
+        }
+
+        internal fun selectChaptersForDownload(
+            action: NovelDownloadAction,
+            novel: Novel,
+            chapters: List<NovelChapter>,
+            downloadedChapterIds: Set<Long>,
+            amount: Int,
+        ): List<NovelChapter> {
+            val sortedChapters = chapters.sortedWith(Comparator(getNovelChapterSort(novel)))
+            return when (action) {
+                NovelDownloadAction.NEXT -> {
+                    sortedChapters
+                        .asSequence()
+                        .filter { !it.read && it.id !in downloadedChapterIds }
+                        .let { sequence ->
+                            if (amount > 0) sequence.take(amount) else sequence
+                        }
+                        .toList()
+                }
+                NovelDownloadAction.UNREAD -> {
+                    sortedChapters
+                        .filter { !it.read && it.id !in downloadedChapterIds }
+                }
+                NovelDownloadAction.ALL -> {
+                    sortedChapters
+                        .filter { it.id !in downloadedChapterIds }
+                }
+            }
         }
     }
 }

@@ -28,20 +28,23 @@ import eu.kanade.presentation.components.TabbedScreen
 import eu.kanade.presentation.components.TabbedScreenAurora
 import eu.kanade.presentation.updates.anime.AnimeUpdatesAuroraContent
 import eu.kanade.presentation.updates.manga.MangaUpdatesAuroraContent
+import eu.kanade.presentation.updates.novel.NovelUpdatesAuroraContent
 import eu.kanade.presentation.updates.novel.NovelUpdatesScreen
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.data.library.novel.NovelLibraryUpdateJob
 import eu.kanade.tachiyomi.ui.download.DownloadsTab
 import eu.kanade.tachiyomi.ui.entries.novel.NovelScreen
 import eu.kanade.tachiyomi.ui.main.MainActivity
+import eu.kanade.tachiyomi.ui.reader.novel.NovelReaderScreen
 import eu.kanade.tachiyomi.ui.updates.anime.AnimeUpdatesScreenModel
 import eu.kanade.tachiyomi.ui.updates.anime.animeUpdatesTab
 import eu.kanade.tachiyomi.ui.updates.manga.MangaUpdatesScreenModel
 import eu.kanade.tachiyomi.ui.updates.manga.mangaUpdatesTab
 import eu.kanade.tachiyomi.ui.updates.novel.NovelUpdatesScreenModel
 import eu.kanade.tachiyomi.ui.updates.novel.novelUpdatesTab
-import eu.kanade.tachiyomi.ui.reader.novel.NovelReaderScreen
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.aniyomi.AYMR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -77,12 +80,14 @@ data object UpdatesTab : Tab {
         val context = LocalContext.current
         val uiPreferences = Injekt.get<UiPreferences>()
         val theme by uiPreferences.appTheme().collectAsState()
+        val showAnimeSection by uiPreferences.showAnimeSection().collectAsState()
+        val showMangaSection by uiPreferences.showMangaSection().collectAsState()
+        val showNovelSection by uiPreferences.showNovelSection().collectAsState()
+        val instantTabSwitching by uiPreferences.auroraInstantTabSwitching().collectAsState()
         val fromMore = currentNavigationStyle() == NavStyle.MOVE_UPDATES_TO_MORE
 
         if (theme.isAuroraStyle) {
             val navigator = LocalNavigator.currentOrThrow
-            val showAnimeSection by uiPreferences.showAnimeSection().collectAsState()
-            val showMangaSection by uiPreferences.showMangaSection().collectAsState()
             val internalErrorMessage = stringResource(MR.strings.internal_error)
             val updatingLibraryMessage = stringResource(MR.strings.updating_library)
             val updateAlreadyRunningMessage = stringResource(MR.strings.update_already_running)
@@ -96,7 +101,7 @@ data object UpdatesTab : Tab {
 
             var selectedTab by rememberSaveable { mutableIntStateOf(TAB_ANIME) }
 
-            val tabIds = remember(showAnimeSection, showMangaSection) {
+            val tabIds = remember(showAnimeSection, showMangaSection, showNovelSection) {
                 buildList {
                     if (showAnimeSection) {
                         add(TAB_ANIME)
@@ -104,7 +109,9 @@ data object UpdatesTab : Tab {
                     if (showMangaSection) {
                         add(TAB_MANGA)
                     }
-                    add(TAB_NOVEL)
+                    if (showNovelSection) {
+                        add(TAB_NOVEL)
+                    }
                 }
             }
 
@@ -149,25 +156,28 @@ data object UpdatesTab : Tab {
                         ),
                     )
                 }
-                add(
-                    TabContent(
-                        titleRes = AYMR.strings.label_novel,
-                        content = { contentPadding, _ ->
-                            NovelUpdatesScreen(
-                                state = novelState,
-                                lastUpdated = novelScreenModel.lastUpdated,
-                                contentPadding = PaddingValues(
-                                    bottom = contentPadding.calculateBottomPadding(),
-                                ),
-                                onNovelClick = { navigator.push(NovelScreen(it)) },
-                                onChapterClick = { navigator.push(NovelReaderScreen(it)) },
-                                onToggleSelection = novelScreenModel::toggleSelection,
-                                onMultiBookmarkClicked = novelScreenModel::bookmarkUpdates,
-                                onMultiMarkAsReadClicked = novelScreenModel::markUpdatesRead,
-                            )
-                        },
-                    ),
-                )
+                if (showNovelSection) {
+                    add(
+                        TabContent(
+                            titleRes = AYMR.strings.label_novel,
+                            content = { contentPadding, _ ->
+                                NovelUpdatesAuroraContent(
+                                    items = novelState.getUiModel(),
+                                    onNovelClicked = { navigator.push(NovelScreen(it)) },
+                                    onChapterClicked = { navigator.push(NovelReaderScreen(it)) },
+                                    onRefresh = {
+                                        val started = NovelLibraryUpdateJob.startNow(context)
+                                        val msg = if (started) updatingLibraryMessage else updateAlreadyRunningMessage
+                                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                    },
+                                    contentPadding = PaddingValues(
+                                        bottom = contentPadding.calculateBottomPadding(),
+                                    ),
+                                )
+                            },
+                        ),
+                    )
+                }
             }.build()
 
             val initialPage = tabIds.indexOf(selectedTab).coerceAtLeast(0)
@@ -221,15 +231,16 @@ data object UpdatesTab : Tab {
                 state = state,
                 isMangaTab = { tabIds.getOrNull(it) == TAB_MANGA },
                 showTabs = false,
+                instantTabSwitching = instantTabSwitching,
             )
         } else {
             TabbedScreen(
                 titleRes = MR.strings.label_recent_updates,
-                tabs = persistentListOf(
-                    animeUpdatesTab(context, fromMore),
-                    mangaUpdatesTab(context, fromMore),
-                    novelUpdatesTab(context, fromMore),
-                ),
+                tabs = listOfNotNull(
+                    animeUpdatesTab(context, fromMore).takeIf { showAnimeSection },
+                    mangaUpdatesTab(context, fromMore).takeIf { showMangaSection },
+                    novelUpdatesTab(context, fromMore).takeIf { showNovelSection },
+                ).toPersistentList(),
             )
         }
 

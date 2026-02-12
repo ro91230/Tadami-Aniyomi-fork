@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ChromeReaderMode
 import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Download
@@ -56,6 +57,7 @@ fun MoreScreenAurora(
     onCategoriesClick: () -> Unit,
     onDataStorageClick: () -> Unit,
     onPlayerSettingsClick: () -> Unit,
+    onNovelReaderSettingsClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onAboutClick: () -> Unit,
     onStatsClick: () -> Unit,
@@ -96,6 +98,12 @@ fun MoreScreenAurora(
                     title = stringResource(AYMR.strings.aurora_player_settings),
                     icon = Icons.Outlined.VideoSettings,
                     onClick = onPlayerSettingsClick,
+                )
+
+                AuroraSettingItem(
+                    title = stringResource(AYMR.strings.pref_category_novel_reader),
+                    icon = Icons.AutoMirrored.Outlined.ChromeReaderMode,
+                    onClick = onNovelReaderSettingsClick,
                 )
 
                 AuroraSettingItem(

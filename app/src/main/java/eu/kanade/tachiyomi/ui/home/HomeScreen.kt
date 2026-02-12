@@ -39,6 +39,7 @@ import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.ui.UiPreferences
+import eu.kanade.domain.ui.model.StartScreen
 import eu.kanade.presentation.theme.AuroraTheme
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
@@ -50,7 +51,6 @@ import eu.kanade.tachiyomi.ui.history.HistoriesTab
 import eu.kanade.tachiyomi.ui.home.HomeHubTab
 import eu.kanade.tachiyomi.ui.library.anime.AnimeLibraryTab
 import eu.kanade.tachiyomi.ui.library.manga.MangaLibraryTab
-import eu.kanade.tachiyomi.ui.library.novel.NovelLibraryTab
 import eu.kanade.tachiyomi.ui.more.MoreTab
 import eu.kanade.tachiyomi.ui.updates.UpdatesTab
 import kotlinx.coroutines.channels.Channel
@@ -81,7 +81,8 @@ object HomeScreen : Screen() {
     private const val TAB_NAVIGATOR_KEY = "HomeTabs"
 
     private val uiPreferences: UiPreferences by injectLazy()
-    private val defaultTab = uiPreferences.startScreen().get().tab
+    private val startScreen = uiPreferences.startScreen().get()
+    private val defaultTab = startScreen.tab
     private val moreTab = uiPreferences.navStyle().get().moreTab
 
     @Composable
@@ -180,14 +181,21 @@ object HomeScreen : Screen() {
             )
 
             LaunchedEffect(Unit) {
+                if (startScreen == StartScreen.NOVEL) {
+                    AnimeLibraryTab.showNovelSection()
+                }
                 launch {
                     librarySearchEvent.receiveAsFlow().collectLatest {
                         goToStartScreen()
-                        when (defaultTab) {
-                            AnimeLibraryTab -> AnimeLibraryTab.search(it)
-                            MangaLibraryTab -> MangaLibraryTab.search(it)
-                            NovelLibraryTab -> NovelLibraryTab.search(it)
-                            else -> {}
+                        when {
+                            defaultTab == AnimeLibraryTab && startScreen == StartScreen.NOVEL -> {
+                                AnimeLibraryTab.searchNovel(it)
+                            }
+                            defaultTab == AnimeLibraryTab -> {
+                                AnimeLibraryTab.search(it)
+                            }
+                            defaultTab == MangaLibraryTab -> MangaLibraryTab.search(it)
+                            else -> Unit
                         }
                     }
                 }
@@ -196,7 +204,7 @@ object HomeScreen : Screen() {
                         tabNavigator.current = when (it) {
                             is Tab.AnimeLib -> AnimeLibraryTab
                             is Tab.Library -> MangaLibraryTab
-                            is Tab.NovelLib -> NovelLibraryTab
+                            is Tab.NovelLib -> AnimeLibraryTab
                             is Tab.Updates -> UpdatesTab
                             is Tab.History -> HistoriesTab
                             is Tab.Browse -> {
@@ -211,6 +219,9 @@ object HomeScreen : Screen() {
                             }
                             is Tab.More -> MoreTab
                             is Tab.HomeHub -> HomeHubTab
+                        }
+                        if (it is Tab.NovelLib) {
+                            AnimeLibraryTab.showNovelSection()
                         }
 
                         if (it is Tab.AnimeLib && it.animeIdToOpen != null) {

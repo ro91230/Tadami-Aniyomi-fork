@@ -32,6 +32,7 @@ class NovelReaderScreen(
                 state = currentState,
                 onBack = navigator::pop,
                 onReadingProgress = screenModel::updateReadingProgress,
+                onToggleBookmark = screenModel::toggleChapterBookmark,
                 onOpenPreviousChapter = { previousChapterId ->
                     navigator.replace(NovelReaderScreen(previousChapterId))
                 },

@@ -44,18 +44,23 @@ import eu.kanade.presentation.library.anime.AnimeLibrarySettingsDialog
 import eu.kanade.presentation.library.components.LibraryToolbar
 import eu.kanade.presentation.library.manga.MangaLibraryAuroraContent
 import eu.kanade.presentation.library.manga.MangaLibrarySettingsDialog
+import eu.kanade.presentation.library.novel.NovelLibraryAuroraContent
+import eu.kanade.presentation.library.novel.NovelLibrarySettingsDialog
 import eu.kanade.presentation.more.onboarding.GETTING_STARTED_URL
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.library.anime.AnimeLibraryUpdateJob
 import eu.kanade.tachiyomi.data.library.manga.MangaLibraryUpdateJob
+import eu.kanade.tachiyomi.data.library.novel.NovelLibraryUpdateJob
 import eu.kanade.tachiyomi.ui.browse.anime.source.globalsearch.GlobalAnimeSearchScreen
 import eu.kanade.tachiyomi.ui.category.CategoriesTab
 import eu.kanade.tachiyomi.ui.entries.anime.AnimeScreen
 import eu.kanade.tachiyomi.ui.entries.manga.MangaScreen
+import eu.kanade.tachiyomi.ui.entries.novel.NovelScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.library.manga.MangaLibraryScreenModel
 import eu.kanade.tachiyomi.ui.library.manga.MangaLibrarySettingsScreenModel
+import eu.kanade.tachiyomi.ui.library.novel.NovelLibraryScreenModel
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.player.settings.PlayerPreferences
 import kotlinx.collections.immutable.persistentListOf
@@ -87,6 +92,12 @@ import uy.kohesive.injekt.injectLazy
 
 data object AnimeLibraryTab : Tab {
 
+    enum class Section {
+        Anime,
+        Manga,
+        Novel,
+    }
+
     @OptIn(ExperimentalAnimationGraphicsApi::class)
     override val options: TabOptions
         @Composable
@@ -117,15 +128,19 @@ data object AnimeLibraryTab : Tab {
 
         val screenModel = rememberScreenModel { AnimeLibraryScreenModel() }
         val mangaScreenModel = rememberScreenModel { MangaLibraryScreenModel() }
+        val novelScreenModel = rememberScreenModel { NovelLibraryScreenModel() }
         val settingsScreenModel = rememberScreenModel { AnimeLibrarySettingsScreenModel() }
         val mangaSettingsScreenModel = rememberScreenModel { MangaLibrarySettingsScreenModel() }
         val state by screenModel.state.collectAsState()
         val mangaState by mangaScreenModel.state.collectAsState()
+        val novelState by novelScreenModel.state.collectAsState()
 
         val uiPreferences = Injekt.get<UiPreferences>()
         val theme by uiPreferences.appTheme().collectAsState()
         val showAnimeSection by uiPreferences.showAnimeSection().collectAsState()
         val showMangaSection by uiPreferences.showMangaSection().collectAsState()
+        val showNovelSection by uiPreferences.showNovelSection().collectAsState()
+        val instantTabSwitching by uiPreferences.auroraInstantTabSwitching().collectAsState()
         val isAurora = theme.isAuroraStyle
 
         val snackbarHostState = remember { SnackbarHostState() }
@@ -141,6 +156,14 @@ data object AnimeLibraryTab : Tab {
 
         val onClickRefreshManga: (Category?) -> Boolean = { category ->
             val started = MangaLibraryUpdateJob.startNow(context, category)
+            scope.launch {
+                val msgRes = if (started) MR.strings.updating_category else MR.strings.update_already_running
+                snackbarHostState.showSnackbar(context.stringResource(msgRes))
+            }
+            started
+        }
+        val onClickRefreshNovel: () -> Boolean = {
+            val started = NovelLibraryUpdateJob.startNow(context)
             scope.launch {
                 val msgRes = if (started) MR.strings.updating_category else MR.strings.update_already_running
                 snackbarHostState.showSnackbar(context.stringResource(msgRes))
@@ -214,16 +237,48 @@ data object AnimeLibraryTab : Tab {
                 )
             },
         )
-        val auroraTabs = listOfNotNull(
-            animeTab.takeIf { showAnimeSection },
-            mangaTab.takeIf { showMangaSection },
-        ).toImmutableList()
-        val mangaTabIndex = when {
-            showMangaSection && showAnimeSection -> 1
-            showMangaSection -> 0
-            else -> -1
-        }
+        val novelTab = TabContent(
+            titleRes = AYMR.strings.label_novel,
+            searchEnabled = true,
+            content = { contentPadding, _ ->
+                NovelLibraryAuroraContent(
+                    items = novelState.items,
+                    searchQuery = novelState.searchQuery,
+                    onSearchQueryChange = novelScreenModel::search,
+                    onNovelClicked = { navigator.push(NovelScreen(it)) },
+                    contentPadding = contentPadding,
+                    hasActiveFilters = novelState.hasActiveFilters,
+                    onFilterClicked = novelScreenModel::showSettingsDialog,
+                    onRefresh = { onClickRefreshNovel() },
+                    onGlobalUpdate = { onClickRefreshNovel() },
+                    onOpenRandomEntry = {
+                        scope.launch {
+                            val randomItem = novelState.items.randomOrNull()
+                            if (randomItem != null) {
+                                navigator.push(NovelScreen(randomItem.novel.id))
+                            } else {
+                                snackbarHostState.showSnackbar(
+                                    context.stringResource(MR.strings.information_no_entries_found),
+                                )
+                            }
+                        }
+                    },
+                )
+            },
+        )
+
+        val sectionTabs = listOfNotNull(
+            (Section.Anime to animeTab).takeIf { showAnimeSection },
+            (Section.Manga to mangaTab).takeIf { showMangaSection },
+            (Section.Novel to novelTab).takeIf { showNovelSection },
+        )
+        val auroraTabs = sectionTabs.map { it.second }.toImmutableList()
+        val mangaTabIndex = sectionTabs.indexOfFirst { it.first == Section.Manga }.takeIf { it >= 0 } ?: -1
+        val novelTabIndex = sectionTabs.indexOfFirst { it.first == Section.Novel }.takeIf { it >= 0 } ?: -1
         val isMangaTab: (Int) -> Boolean = { index -> index == mangaTabIndex }
+        val sectionAtPage: (Int) -> Section? = { index ->
+            sectionTabs.getOrNull(index)?.first
+        }
 
         val savedAuroraPage = rememberSaveable { mutableIntStateOf(0) }
         val auroraPageCount = auroraTabs.size.coerceAtLeast(1)
@@ -243,25 +298,32 @@ data object AnimeLibraryTab : Tab {
         }
 
         val isAnimeLibraryEmpty = state.searchQuery.isNullOrEmpty() && !state.hasActiveFilters && state.isLibraryEmpty
-        val isMangaLibraryEmpty =
-            mangaState.searchQuery.isNullOrEmpty() && !mangaState.hasActiveFilters && mangaState.isLibraryEmpty
-        val isLibraryEmpty = if (isAurora) {
-            when {
-                showAnimeSection && showMangaSection -> isAnimeLibraryEmpty && isMangaLibraryEmpty
-                showAnimeSection -> isAnimeLibraryEmpty
-                showMangaSection -> isMangaLibraryEmpty
-                else -> isAnimeLibraryEmpty
+        val isMangaLibraryEmpty = mangaState.searchQuery.isNullOrEmpty() &&
+            !mangaState.hasActiveFilters &&
+            mangaState.isLibraryEmpty
+        val isNovelLibraryEmpty = novelState.searchQuery.isNullOrEmpty() && novelState.isLibraryEmpty
+        val isSectionEmpty: (Section) -> Boolean = { section ->
+            when (section) {
+                Section.Anime -> isAnimeLibraryEmpty
+                Section.Manga -> isMangaLibraryEmpty
+                Section.Novel -> isNovelLibraryEmpty
             }
+        }
+        val isLibraryEmpty = if (isAurora) {
+            sectionTabs.all { (section, _) -> isSectionEmpty(section) }
         } else {
             isAnimeLibraryEmpty
         }
-        val isLoading = if (isAurora) {
-            when {
-                showAnimeSection && showMangaSection -> state.isLoading && mangaState.isLoading
-                showAnimeSection -> state.isLoading
-                showMangaSection -> mangaState.isLoading
-                else -> state.isLoading
+        val isNovelLoading = novelState.isLoading
+        val isSectionLoading: (Section) -> Boolean = { section ->
+            when (section) {
+                Section.Anime -> state.isLoading
+                Section.Manga -> mangaState.isLoading
+                Section.Novel -> isNovelLoading
             }
+        }
+        val isLoading = if (isAurora) {
+            sectionTabs.all { (section, _) -> isSectionLoading(section) }
         } else {
             state.isLoading
         }
@@ -353,6 +415,7 @@ data object AnimeLibraryTab : Tab {
                             onChangeMangaSearchQuery = mangaScreenModel::search,
                             isMangaTab = isMangaTab,
                             showTabs = false,
+                            instantTabSwitching = instantTabSwitching,
                         )
                     } else {
                         AnimeLibraryContent(
@@ -481,17 +544,37 @@ data object AnimeLibraryTab : Tab {
             null -> {}
         }
 
+        when (novelState.dialog) {
+            NovelLibraryScreenModel.Dialog.Settings -> {
+                NovelLibrarySettingsDialog(
+                    onDismissRequest = novelScreenModel::closeDialog,
+                    screenModel = novelScreenModel,
+                )
+            }
+            null -> {}
+        }
+
         val hasAnimeSearchQuery = state.searchQuery != null
         val hasMangaSearchQuery = mangaState.searchQuery != null
-        val isMangaPage = isAurora && isMangaTab(auroraPagerState.currentPage)
+        val hasNovelSearchQuery = novelState.searchQuery != null
+        val currentSection = if (isAurora) sectionAtPage(auroraPagerState.currentPage) else Section.Anime
 
-        BackHandler(enabled = state.selectionMode || hasAnimeSearchQuery || (isAurora && hasMangaSearchQuery)) {
+        BackHandler(
+            enabled = state.selectionMode ||
+                hasAnimeSearchQuery ||
+                (
+                    isAurora &&
+                        (hasMangaSearchQuery || hasNovelSearchQuery)
+                    ),
+        ) {
             when {
                 state.selectionMode -> screenModel.clearSelection()
                 isAurora -> {
                     when {
-                        isMangaPage && hasMangaSearchQuery -> mangaScreenModel.search(null)
-                        !isMangaPage && hasAnimeSearchQuery -> screenModel.search(null)
+                        currentSection == Section.Novel && hasNovelSearchQuery -> novelScreenModel.search(null)
+                        currentSection == Section.Manga && hasMangaSearchQuery -> mangaScreenModel.search(null)
+                        currentSection == Section.Anime && hasAnimeSearchQuery -> screenModel.search(null)
+                        hasNovelSearchQuery -> novelScreenModel.search(null)
                         hasMangaSearchQuery -> mangaScreenModel.search(null)
                         hasAnimeSearchQuery -> screenModel.search(null)
                     }
@@ -512,13 +595,36 @@ data object AnimeLibraryTab : Tab {
 
         LaunchedEffect(Unit) {
             launch { queryEvent.receiveAsFlow().collect(screenModel::search) }
+            launch { novelQueryEvent.receiveAsFlow().collect(novelScreenModel::search) }
             launch { requestSettingsSheetEvent.receiveAsFlow().collectLatest { screenModel.showSettingsDialog() } }
+            launch {
+                requestSectionEvent.receiveAsFlow().collectLatest { section ->
+                    if (!isAurora) return@collectLatest
+                    val targetPage = when (section) {
+                        Section.Anime -> sectionTabs.indexOfFirst { it.first == Section.Anime }
+                        Section.Manga -> sectionTabs.indexOfFirst { it.first == Section.Manga }
+                        Section.Novel -> novelTabIndex
+                    }
+                    if (targetPage in 0 until auroraPageCount && auroraPagerState.currentPage != targetPage) {
+                        auroraPagerState.scrollToPage(targetPage)
+                    }
+                }
+            }
         }
     }
 
     // For invoking search from other screen
     private val queryEvent = Channel<String>()
     suspend fun search(query: String) = queryEvent.send(query)
+    private val novelQueryEvent = Channel<String>()
+    suspend fun searchNovel(query: String) {
+        requestSection(Section.Novel)
+        novelQueryEvent.send(query)
+    }
+
+    private val requestSectionEvent = Channel<Section>(capacity = Channel.BUFFERED)
+    suspend fun requestSection(section: Section) = requestSectionEvent.send(section)
+    suspend fun showNovelSection() = requestSection(Section.Novel)
 
     // For opening settings sheet in LibraryController
     private val requestSettingsSheetEvent = Channel<Unit>()

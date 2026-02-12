@@ -1,5 +1,13 @@
-package eu.kanade.tachiyomi.ui.reader.novel
+﻿package eu.kanade.tachiyomi.ui.reader.novel
 
+import eu.kanade.tachiyomi.extension.novel.repo.NovelPluginPackage
+import eu.kanade.tachiyomi.extension.novel.repo.NovelPluginRepoEntry
+import eu.kanade.tachiyomi.extension.novel.repo.NovelPluginStorage
+import eu.kanade.tachiyomi.novelsource.NovelSource
+import eu.kanade.tachiyomi.novelsource.model.SNovelChapter
+import eu.kanade.tachiyomi.source.novel.NovelWebUrlSource
+import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderPreferences
+import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderTheme
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
@@ -10,21 +18,18 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
+import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import eu.kanade.tachiyomi.extension.novel.repo.NovelPluginPackage
-import eu.kanade.tachiyomi.extension.novel.repo.NovelPluginRepoEntry
-import eu.kanade.tachiyomi.extension.novel.repo.NovelPluginStorage
-import eu.kanade.tachiyomi.novelsource.NovelSource
-import eu.kanade.tachiyomi.novelsource.model.SNovelChapter
-import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderPreferences
-import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderTheme
-import kotlinx.serialization.json.Json
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.entries.novel.interactor.GetNovel
 import tachiyomi.domain.entries.novel.model.Novel
 import tachiyomi.domain.entries.novel.model.NovelUpdate
+import tachiyomi.domain.history.novel.model.NovelHistory
+import tachiyomi.domain.history.novel.model.NovelHistoryUpdate
+import tachiyomi.domain.history.novel.model.NovelHistoryWithRelations
+import tachiyomi.domain.history.novel.repository.NovelHistoryRepository
 import tachiyomi.domain.entries.novel.repository.NovelRepository
 import tachiyomi.domain.items.novelchapter.model.NovelChapter
 import tachiyomi.domain.items.novelchapter.model.NovelChapterUpdate
@@ -32,6 +37,7 @@ import tachiyomi.domain.items.novelchapter.repository.NovelChapterRepository
 import tachiyomi.domain.library.novel.LibraryNovel
 import tachiyomi.domain.source.novel.model.StubNovelSource
 import tachiyomi.domain.source.novel.service.NovelSourceManager
+import java.util.Date
 
 class NovelReaderScreenModelTest {
 
@@ -49,22 +55,27 @@ class NovelReaderScreenModelTest {
     fun `loads chapter html from source`() {
         runBlocking {
             val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
-            val chapter = NovelChapter.create().copy(id = 5L, novelId = 1L, name = "Chapter 1", url = "https://example.org/ch1")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+            )
 
             val screenModel = NovelReaderScreenModel(
-            chapterId = chapter.id,
-            novelChapterRepository = FakeNovelChapterRepository(chapter),
-            getNovel = GetNovel(FakeNovelRepository(novel)),
-            sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = "<p>Hello</p>"),
-            pluginStorage = FakeNovelPluginStorage(emptyList()),
-            novelReaderPreferences = createNovelReaderPreferences(),
-            isSystemDark = { false },
+                chapterId = chapter.id,
+                novelChapterRepository = FakeNovelChapterRepository(chapter),
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = "<p>Hello</p>"),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
             )
 
             withTimeout(1_000) {
-            while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
-            yield()
-            }
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
             }
 
             val state = screenModel.state.value
@@ -72,6 +83,349 @@ class NovelReaderScreenModelTest {
             state.html.contains("Hello") shouldBe true
             state.lastSavedIndex shouldBe 0
             Unit
+        }
+    }
+
+    @Test
+    fun `injects chapter title heading when chapter html has no heading`() {
+        runBlocking {
+            val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Том 1 Глава 0 - Система сил(?)",
+                url = "https://example.org/ch1",
+            )
+
+            val screenModel = NovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = FakeNovelChapterRepository(chapter),
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = "<p>Hello</p>"),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            val state = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+            state.html.contains("<h1 class=\"an-reader-chapter-title\">Том 1 Глава 0 - Система сил(?)</h1>") shouldBe true
+            state.textBlocks.firstOrNull() shouldBe "Том 1 Глава 0 - Система сил(?)"
+        }
+    }
+
+    @Test
+    fun `does not prepend chapter title when html already contains heading`() {
+        runBlocking {
+            val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+            )
+
+            val screenModel = NovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = FakeNovelChapterRepository(chapter),
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(
+                    sourceId = novel.source,
+                    chapterHtml = "<h1>Сайтовый заголовок</h1><p>Hello</p>",
+                ),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            val state = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+            state.textBlocks.firstOrNull() shouldBe "Сайтовый заголовок"
+            state.textBlocks.contains("Chapter 1") shouldBe false
+        }
+    }
+
+    @Test
+    fun `builds mixed content blocks with text and resolved image urls`() {
+        runBlocking {
+            val novel = Novel.create().copy(
+                id = 1L,
+                source = 10L,
+                title = "Novel",
+                url = "https://example.org/book/slug",
+            )
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/book/ch1",
+            )
+
+            val screenModel = NovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = FakeNovelChapterRepository(chapter),
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(
+                    sourceId = novel.source,
+                    chapterHtml = "<p>Intro</p><img src=\"/images/pic.jpg\" /><p>Outro</p>",
+                ),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            val state = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+            state.contentBlocks.size shouldBe 4
+            state.contentBlocks[0].shouldBeInstanceOf<NovelReaderScreenModel.ContentBlock.Text>().text shouldBe "Chapter 1"
+            state.contentBlocks[1].shouldBeInstanceOf<NovelReaderScreenModel.ContentBlock.Text>().text shouldBe "Intro"
+            state.contentBlocks[2].shouldBeInstanceOf<NovelReaderScreenModel.ContentBlock.Image>().url shouldBe "https://example.org/images/pic.jpg"
+            state.contentBlocks[3].shouldBeInstanceOf<NovelReaderScreenModel.ContentBlock.Text>().text shouldBe "Outro"
+        }
+    }
+
+    @Test
+    fun `structured json chapter payload is converted to html and bullet text blocks`() {
+        runBlocking {
+            val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+            )
+            val structuredPayload = """
+                {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [{ "type": "text", "text": "Intro" }]
+                    },
+                    {
+                      "type": "bulletList",
+                      "content": [
+                        {
+                          "type": "listItem",
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [{ "type": "text", "text": "Bullet line" }]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+            """.trimIndent()
+
+            val screenModel = NovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = FakeNovelChapterRepository(chapter),
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = structuredPayload),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            val state = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+            state.html.contains("<ul>") shouldBe true
+            state.textBlocks shouldBe listOf("Chapter 1", "Intro", "\u2022 Bullet line")
+        }
+    }
+
+    @Test
+    fun `escaped structured json payload string is converted to html and bullet text blocks`() {
+        runBlocking {
+            val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+            )
+            val structuredPayload = """
+                {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [{ "type": "text", "text": "Intro" }]
+                    },
+                    {
+                      "type": "bulletList",
+                      "content": [
+                        {
+                          "type": "listItem",
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [{ "type": "text", "text": "Bullet line" }]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+            """.trimIndent()
+            val escapedPayload = Json.encodeToString(structuredPayload)
+
+            val screenModel = NovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = FakeNovelChapterRepository(chapter),
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = escapedPayload),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            val state = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+            state.html.contains("<ul>") shouldBe true
+            state.textBlocks shouldBe listOf("Chapter 1", "Intro", "\u2022 Bullet line")
+        }
+    }
+
+    @Test
+    fun `json like structured payload with unquoted keys is normalized and rendered`() {
+        runBlocking {
+            val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+            )
+            val jsonLikePayload =
+                "{type:'doc',content:[{type:'paragraph',content:[{type:'text',text:'Intro'}]},{type:'bulletList',content:[{type:'listItem',content:[{type:'paragraph',content:[{type:'text',text:'Bullet line'}]}]}]}],}"
+
+            val screenModel = NovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = FakeNovelChapterRepository(chapter),
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = jsonLikePayload),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            val state = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+            state.html.contains("<ul>") shouldBe true
+            state.textBlocks shouldBe listOf("Chapter 1", "Intro", "\u2022 Bullet line")
+        }
+    }
+
+    @Test
+    fun `malformed structured payload falls back to extracted text blocks instead of raw json`() {
+        runBlocking {
+            val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+            )
+            val malformedPayload =
+                "{\"type: \"bulletList\", \"content: [{\"type\": \"listItem\", \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Магия в этом мире основана на математике и формулах\"}]}]}, {\"type\": \"listItem\", \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Второй пункт\"}]}]}]}"
+
+            val screenModel = NovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = FakeNovelChapterRepository(chapter),
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = malformedPayload),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            val state = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+            state.textBlocks shouldBe listOf(
+                "Chapter 1",
+                "\u2022 Магия в этом мире основана на математике и формулах",
+                "\u2022 Второй пункт",
+            )
+            state.html.contains("type:") shouldBe false
+        }
+    }
+
+    @Test
+    fun `html payload keeps normal paragraphs and recovers malformed list fragment`() {
+        runBlocking {
+            val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+            )
+            val htmlWithMalformedFragment =
+                "<div><p>Эта информация не обязательна для понимания.</p><p>{\"type: \"bulletList\", \"content: [{\"type\": \"listItem\", \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Магия в этом мире основана на математике и формулах\"}]}]}]}</p><p>Финальная строка.</p></div>"
+
+            val screenModel = NovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = FakeNovelChapterRepository(chapter),
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = htmlWithMalformedFragment),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            val state = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+            state.textBlocks shouldBe listOf(
+                "Chapter 1",
+                "Эта информация не обязательна для понимания.",
+                "\u2022 Магия в этом мире основана на математике и формулах",
+                "Финальная строка.",
+            )
         }
     }
 
@@ -102,16 +456,21 @@ class NovelReaderScreenModelTest {
             )
 
             val novel = Novel.create().copy(id = 1L, source = pluginId.hashCode().toLong(), title = "Novel")
-            val chapter = NovelChapter.create().copy(id = 5L, novelId = 1L, name = "Chapter 1", url = "https://example.org/ch1")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+            )
 
             val screenModel = NovelReaderScreenModel(
-            chapterId = chapter.id,
-            novelChapterRepository = FakeNovelChapterRepository(chapter),
-            getNovel = GetNovel(FakeNovelRepository(novel)),
-            sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = "<p>Hello</p>"),
-            pluginStorage = FakeNovelPluginStorage(listOf(pkg)),
-            novelReaderPreferences = createNovelReaderPreferences(),
-            isSystemDark = { false },
+                chapterId = chapter.id,
+                novelChapterRepository = FakeNovelChapterRepository(chapter),
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = "<p>Hello</p>"),
+                pluginStorage = FakeNovelPluginStorage(listOf(pkg)),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
             )
 
             withTimeout(1_000) {
@@ -126,6 +485,105 @@ class NovelReaderScreenModelTest {
             state.html.contains(customJs) shouldBe true
             state.html.contains(customCss) shouldBe true
             state.lastSavedIndex shouldBe 0
+            state.chapterWebUrl shouldBe "https://example.org/ch1"
+            Unit
+        }
+    }
+
+    @Test
+    fun `resolves chapter web url from plugin site when chapter path is relative`() {
+        runBlocking {
+            val pluginId = "plugin.relative"
+            val entry = NovelPluginRepoEntry(
+                id = pluginId,
+                name = "Plugin",
+                site = "example.org",
+                lang = "en",
+                version = 1,
+                url = "https://example.org/plugin.js",
+                iconUrl = null,
+                customJsUrl = null,
+                customCssUrl = null,
+                hasSettings = false,
+                sha256 = "ignored",
+            )
+            val pkg = NovelPluginPackage(
+                entry = entry,
+                script = "console.log('main');".toByteArray(),
+                customJs = null,
+                customCss = null,
+            )
+
+            val novel = Novel.create().copy(id = 1L, source = pluginId.hashCode().toLong(), title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "/book/chapter-1",
+            )
+
+            val screenModel = NovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = FakeNovelChapterRepository(chapter),
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = "<p>Hello</p>"),
+                pluginStorage = FakeNovelPluginStorage(listOf(pkg)),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            val state = screenModel.state.value
+            state.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+            state.chapterWebUrl shouldBe "https://example.org/book/chapter-1"
+            Unit
+        }
+    }
+
+    @Test
+    fun `uses source chapter web url resolver when available`() {
+        runBlocking {
+            val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "book-slug/1/1/0",
+            )
+
+            val screenModel = NovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = FakeNovelChapterRepository(chapter),
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(
+                    sourceId = novel.source,
+                    chapterHtml = "<p>Hello</p>",
+                    chapterWebUrlResolver = { chapterPath, _ ->
+                        if (chapterPath == "book-slug/1/1/0") {
+                            "https://ranobelib.me/ru/book-slug/read/v1/c1?bid=0"
+                        } else {
+                            null
+                        }
+                    },
+                ),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            val state = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+            state.chapterWebUrl shouldBe "https://ranobelib.me/ru/book-slug/read/v1/c1?bid=0"
             Unit
         }
     }
@@ -163,7 +621,12 @@ class NovelReaderScreenModelTest {
             )
 
             val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
-            val chapter = NovelChapter.create().copy(id = 5L, novelId = 1L, name = "Chapter 1", url = "https://example.org/ch1")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+            )
 
             val screenModel = NovelReaderScreenModel(
                 chapterId = chapter.id,
@@ -186,6 +649,10 @@ class NovelReaderScreenModelTest {
             state.html.contains("font-size: 20px") shouldBe true
             state.html.contains("line-height: 1.8") shouldBe true
             state.html.contains("padding: 24px") shouldBe true
+            state.readerSettings.fontSize shouldBe 20
+            state.readerSettings.lineHeight shouldBe 1.8f
+            state.readerSettings.margin shouldBe 24
+            state.readerSettings.theme shouldBe NovelReaderTheme.LIGHT
             state.lastSavedIndex shouldBe 0
             Unit
         }
@@ -195,19 +662,19 @@ class NovelReaderScreenModelTest {
     fun `missing chapter shows error state`() {
         runBlocking {
             val screenModel = NovelReaderScreenModel(
-            chapterId = 99L,
-            novelChapterRepository = FakeNovelChapterRepository(null),
-            getNovel = GetNovel(FakeNovelRepository(Novel.create())),
-            sourceManager = FakeNovelSourceManager(sourceId = 10L, chapterHtml = "<p>Hello</p>"),
-            pluginStorage = FakeNovelPluginStorage(emptyList()),
-            novelReaderPreferences = createNovelReaderPreferences(),
-            isSystemDark = { false },
+                chapterId = 99L,
+                novelChapterRepository = FakeNovelChapterRepository(null),
+                getNovel = GetNovel(FakeNovelRepository(Novel.create())),
+                sourceManager = FakeNovelSourceManager(sourceId = 10L, chapterHtml = "<p>Hello</p>"),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
             )
 
             withTimeout(1_000) {
-            while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
-            yield()
-            }
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
             }
 
             screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Error>()
@@ -219,7 +686,12 @@ class NovelReaderScreenModelTest {
     fun `update reading progress marks read near end`() {
         runBlocking {
             val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
-            val chapter = NovelChapter.create().copy(id = 5L, novelId = 1L, name = "Chapter 1", url = "https://example.org/ch1")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+            )
             val chapterRepo = FakeNovelChapterRepository(chapter)
 
             val screenModel = NovelReaderScreenModel(
@@ -247,12 +719,308 @@ class NovelReaderScreenModelTest {
     }
 
     @Test
+    fun `percent based tracking does not mark read too early`() {
+        runBlocking {
+            val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+            )
+            val chapterRepo = FakeNovelChapterRepository(chapter)
+
+            val screenModel = NovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = chapterRepo,
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = "<p>Hello</p>"),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            screenModel.updateReadingProgress(currentIndex = 95, totalItems = 100, persistedProgress = 95L)
+            yield()
+            chapterRepo.lastUpdate?.read shouldBe false
+            chapterRepo.lastUpdate?.lastPageRead shouldBe 95L
+
+            screenModel.updateReadingProgress(currentIndex = 99, totalItems = 100, persistedProgress = 99L)
+            yield()
+            chapterRepo.lastUpdate?.read shouldBe true
+            chapterRepo.lastUpdate?.lastPageRead shouldBe 0L
+        }
+    }
+
+    @Test
+    fun `encoded webview progress is restored as percent without affecting native index`() {
+        runBlocking {
+            val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+                lastPageRead = encodeWebScrollProgressPercent(42),
+            )
+
+            val screenModel = NovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = FakeNovelChapterRepository(chapter),
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = "<p>Hello</p>"),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            val state = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+            state.lastSavedWebProgressPercent shouldBe 42
+            state.lastSavedIndex shouldBe 0
+            Unit
+        }
+    }
+
+    @Test
+    fun `progress callback after read completion does not reset chapter to unread`() {
+        runBlocking {
+            val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+            )
+            val chapterRepo = FakeNovelChapterRepository(chapter)
+
+            val screenModel = NovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = chapterRepo,
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = "<p>Hello</p>"),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            // WebView/native can emit low/stale progress on disposal; this must not unread chapter.
+            screenModel.updateReadingProgress(currentIndex = 99, totalItems = 100)
+            yield()
+            chapterRepo.lastUpdate?.read shouldBe true
+            chapterRepo.lastUpdate?.lastPageRead shouldBe 0L
+
+            screenModel.updateReadingProgress(currentIndex = 0, totalItems = 100)
+            yield()
+
+            chapterRepo.lastUpdate?.read shouldBe true
+            chapterRepo.lastUpdate?.lastPageRead shouldBe 0L
+        }
+    }
+
+    @Test
+    fun `records history when chapter is opened and progressed`() {
+        runBlocking {
+            val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+            )
+            val chapterRepo = FakeNovelChapterRepository(chapter)
+            val historyRepository = FakeNovelHistoryRepository()
+
+            val screenModel = NovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = chapterRepo,
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = "<p>Hello</p>"),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                historyRepository = historyRepository,
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            historyRepository.lastUpdate?.chapterId shouldBe chapter.id
+
+            screenModel.updateReadingProgress(currentIndex = 1, totalItems = 10)
+            yield()
+
+            historyRepository.lastUpdate?.chapterId shouldBe chapter.id
+            (historyRepository.lastUpdate?.readAt != null) shouldBe true
+        }
+    }
+
+    @Test
+    fun `initial progress callback at saved index does not update chapter`() {
+        runBlocking {
+            val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+                lastPageRead = 3L,
+            )
+            val chapterRepo = FakeNovelChapterRepository(chapter)
+
+            val screenModel = NovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = chapterRepo,
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = "<p>Hello</p>"),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            screenModel.updateReadingProgress(currentIndex = 3, totalItems = 10)
+            yield()
+
+            chapterRepo.lastUpdate shouldBe null
+        }
+    }
+
+    @Test
+    fun `repeated callback at saved index does not mark chapter read`() {
+        runBlocking {
+            val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+                lastPageRead = 8L,
+            )
+            val chapterRepo = FakeNovelChapterRepository(chapter)
+
+            val screenModel = NovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = chapterRepo,
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = "<p>Hello</p>"),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            // Initial callback and dispose callback with unchanged index should not update.
+            screenModel.updateReadingProgress(currentIndex = 8, totalItems = 10)
+            screenModel.updateReadingProgress(currentIndex = 8, totalItems = 10)
+            yield()
+            chapterRepo.lastUpdate shouldBe null
+
+            // Actual progress change can mark chapter as read near the end.
+            screenModel.updateReadingProgress(currentIndex = 9, totalItems = 10)
+            yield()
+            chapterRepo.lastUpdate?.read shouldBe true
+            chapterRepo.lastUpdate?.lastPageRead shouldBe 0L
+        }
+    }
+
+    @Test
+    fun `native progress update at same index persists changed scroll offset`() {
+        runBlocking {
+            val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+                lastPageRead = encodeNativeScrollProgress(index = 0, offsetPx = 0),
+            )
+            val chapterRepo = FakeNovelChapterRepository(chapter)
+
+            val screenModel = NovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = chapterRepo,
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = "<p>Hello</p>"),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            val updatedProgress = encodeNativeScrollProgress(index = 0, offsetPx = 420)
+            screenModel.updateReadingProgress(
+                currentIndex = 0,
+                totalItems = 10,
+                persistedProgress = updatedProgress,
+            )
+            yield()
+
+            chapterRepo.lastUpdate?.read shouldBe false
+            chapterRepo.lastUpdate?.lastPageRead shouldBe updatedProgress
+        }
+    }
+
+    @Test
     fun `computes previous and next chapter ids from source order`() {
         runBlocking {
             val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
-            val chapter1 = NovelChapter.create().copy(id = 1L, novelId = 1L, name = "Chapter 1", url = "https://example.org/ch1", sourceOrder = 0L)
-            val chapter2 = NovelChapter.create().copy(id = 2L, novelId = 1L, name = "Chapter 2", url = "https://example.org/ch2", sourceOrder = 1L)
-            val chapter3 = NovelChapter.create().copy(id = 3L, novelId = 1L, name = "Chapter 3", url = "https://example.org/ch3", sourceOrder = 2L)
+            val chapter1 = NovelChapter.create().copy(
+                id = 1L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+                sourceOrder = 0L,
+            )
+            val chapter2 = NovelChapter.create().copy(
+                id = 2L,
+                novelId = 1L,
+                name = "Chapter 2",
+                url = "https://example.org/ch2",
+                sourceOrder = 1L,
+            )
+            val chapter3 = NovelChapter.create().copy(
+                id = 3L,
+                novelId = 1L,
+                name = "Chapter 3",
+                url = "https://example.org/ch3",
+                sourceOrder = 2L,
+            )
             val chapterRepo = FakeNovelChapterRepository(chapter2, listOf(chapter1, chapter2, chapter3))
 
             val screenModel = NovelReaderScreenModel(
@@ -275,6 +1043,44 @@ class NovelReaderScreenModelTest {
             state.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
             state.previousChapterId shouldBe chapter1.id
             state.nextChapterId shouldBe chapter3.id
+        }
+    }
+
+    @Test
+    fun `toggle chapter bookmark updates repository and state`() {
+        runBlocking {
+            val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+                bookmark = false,
+            )
+            val chapterRepo = FakeNovelChapterRepository(chapter)
+
+            val screenModel = NovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = chapterRepo,
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = "<p>Hello</p>"),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            screenModel.toggleChapterBookmark()
+            yield()
+
+            chapterRepo.lastUpdate?.bookmark shouldBe true
+            val state = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+            state.chapter.bookmark shouldBe true
         }
     }
 
@@ -308,6 +1114,29 @@ class NovelReaderScreenModelTest {
         override suspend fun getAll(): List<NovelPluginPackage> = packages
     }
 
+    private class FakeNovelHistoryRepository : NovelHistoryRepository {
+        var lastUpdate: NovelHistoryUpdate? = null
+
+        override fun getNovelHistory(query: String): Flow<List<NovelHistoryWithRelations>> =
+            MutableStateFlow(emptyList())
+
+        override suspend fun getLastNovelHistory(): NovelHistoryWithRelations? = null
+
+        override suspend fun getTotalReadDuration(): Long = 0L
+
+        override suspend fun getHistoryByNovelId(novelId: Long): List<NovelHistory> = emptyList()
+
+        override suspend fun resetNovelHistory(historyId: Long) = Unit
+
+        override suspend fun resetHistoryByNovelId(novelId: Long) = Unit
+
+        override suspend fun deleteAllNovelHistory(): Boolean = true
+
+        override suspend fun upsertNovelHistory(historyUpdate: NovelHistoryUpdate) {
+            lastUpdate = historyUpdate
+        }
+    }
+
     private fun createNovelReaderPreferences(): NovelReaderPreferences {
         return NovelReaderPreferences(
             preferenceStore = InMemoryPreferenceStore(),
@@ -336,11 +1165,21 @@ class NovelReaderScreenModelTest {
     private class FakeNovelSourceManager(
         private val sourceId: Long,
         private val chapterHtml: String,
+        private val chapterWebUrlResolver: ((String, String?) -> String?)? = null,
     ) : NovelSourceManager {
         override val isInitialized = MutableStateFlow(true)
-        override val catalogueSources = MutableStateFlow(emptyList<eu.kanade.tachiyomi.novelsource.NovelCatalogueSource>())
+        override val catalogueSources =
+            MutableStateFlow(emptyList<eu.kanade.tachiyomi.novelsource.NovelCatalogueSource>())
         override fun get(sourceKey: Long): NovelSource? =
-            if (sourceKey == sourceId) FakeNovelSource(sourceId, chapterHtml) else null
+            if (sourceKey == sourceId) {
+                FakeNovelSource(
+                    id = sourceId,
+                    chapterHtml = chapterHtml,
+                    chapterWebUrlResolver = chapterWebUrlResolver,
+                )
+            } else {
+                null
+            }
         override fun getOrStub(sourceKey: Long): NovelSource =
             get(sourceKey) ?: object : NovelSource {
                 override val id: Long = sourceKey
@@ -354,9 +1193,17 @@ class NovelReaderScreenModelTest {
     private class FakeNovelSource(
         override val id: Long,
         private val chapterHtml: String,
-    ) : NovelSource {
+        private val chapterWebUrlResolver: ((String, String?) -> String?)? = null,
+    ) : NovelSource, NovelWebUrlSource {
         override val name: String = "NovelSource"
 
         override suspend fun getChapterText(chapter: SNovelChapter): String = chapterHtml
+
+        override suspend fun getNovelWebUrl(novelPath: String): String? = null
+
+        override suspend fun getChapterWebUrl(chapterPath: String, novelPath: String?): String? {
+            return chapterWebUrlResolver?.invoke(chapterPath, novelPath)
+        }
     }
 }
+

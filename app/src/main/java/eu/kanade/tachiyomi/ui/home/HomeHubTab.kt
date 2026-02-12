@@ -34,7 +34,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.VideoLibrary
@@ -52,6 +51,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -82,6 +82,7 @@ import eu.kanade.presentation.components.AuroraTabRow
 import eu.kanade.presentation.components.LocalTabState
 import eu.kanade.presentation.components.TabContent
 import eu.kanade.presentation.components.TabbedScreenAurora
+import eu.kanade.presentation.more.settings.screen.browse.NovelExtensionReposScreen
 import eu.kanade.presentation.more.settings.screen.browse.AnimeExtensionReposScreen
 import eu.kanade.presentation.more.settings.screen.browse.MangaExtensionReposScreen
 import eu.kanade.presentation.theme.AuroraTheme
@@ -90,13 +91,16 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.browse.BrowseTab
 import eu.kanade.tachiyomi.ui.browse.anime.source.browse.BrowseAnimeSourceScreen
 import eu.kanade.tachiyomi.ui.browse.manga.source.browse.BrowseMangaSourceScreen
+import eu.kanade.tachiyomi.ui.browse.novel.source.browse.BrowseNovelSourceScreen
 import eu.kanade.tachiyomi.ui.entries.anime.AnimeScreen
 import eu.kanade.tachiyomi.ui.entries.manga.MangaScreen
+import eu.kanade.tachiyomi.ui.entries.novel.NovelScreen
 import eu.kanade.tachiyomi.ui.history.HistoriesTab
 import eu.kanade.tachiyomi.ui.library.anime.AnimeLibraryTab
 import eu.kanade.tachiyomi.ui.library.manga.MangaLibraryTab
+import eu.kanade.tachiyomi.ui.reader.novel.NovelReaderScreen
 import kotlinx.collections.immutable.toPersistentList
-import tachiyomi.domain.entries.EntryCover
+import kotlinx.coroutines.launch
 import tachiyomi.i18n.aniyomi.AYMR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
@@ -105,6 +109,7 @@ import uy.kohesive.injekt.injectLazy
 private enum class HomeHubSection {
     Anime,
     Manga,
+    Novel,
 }
 
 private data class HomeHubUiState(
@@ -121,20 +126,20 @@ private data class HomeHubHero(
     val entryId: Long,
     val title: String,
     val progressNumber: Double,
-    val coverData: EntryCover,
+    val coverData: Any?,
 )
 
 private data class HomeHubHistory(
     val entryId: Long,
     val title: String,
     val progressNumber: Double,
-    val coverData: EntryCover,
+    val coverData: Any?,
 )
 
 private data class HomeHubRecommendation(
     val entryId: Long,
     val title: String,
-    val coverData: EntryCover?,
+    val coverData: Any?,
     val subtitle: String? = null,
 )
 
@@ -159,11 +164,14 @@ object HomeHubTab : Tab {
     override fun Content() {
         val showAnimeSection by uiPreferences.showAnimeSection().collectAsState()
         val showMangaSection by uiPreferences.showMangaSection().collectAsState()
+        val showNovelSection by uiPreferences.showNovelSection().collectAsState()
+        val instantTabSwitching by uiPreferences.auroraInstantTabSwitching().collectAsState()
 
-        val sections = remember(showAnimeSection, showMangaSection) {
+        val sections = remember(showAnimeSection, showMangaSection, showNovelSection) {
             buildList {
                 if (showAnimeSection) add(HomeHubSection.Anime)
                 if (showMangaSection) add(HomeHubSection.Manga)
+                if (showNovelSection) add(HomeHubSection.Novel)
             }.ifEmpty { listOf(HomeHubSection.Anime) }
         }
 
@@ -176,21 +184,26 @@ object HomeHubTab : Tab {
 
         var animeSearchQuery by rememberSaveable { mutableStateOf<String?>(null) }
         var mangaSearchQuery by rememberSaveable { mutableStateOf<String?>(null) }
+        var novelSearchQuery by rememberSaveable { mutableStateOf<String?>(null) }
 
         // Get screen models to access user data
         val animeScreenModel = HomeHubTab.rememberScreenModel { HomeHubScreenModel() }
         val mangaScreenModel = HomeHubTab.rememberScreenModel { MangaHomeHubScreenModel() }
+        val novelScreenModel = HomeHubTab.rememberScreenModel { NovelHomeHubScreenModel() }
         val animeState by animeScreenModel.state.collectAsState()
         val mangaState by mangaScreenModel.state.collectAsState()
+        val novelState by novelScreenModel.state.collectAsState()
 
         // Use current section's state for user info
         val currentUserName = when (selectedSection) {
             HomeHubSection.Anime -> animeState.userName
             HomeHubSection.Manga -> mangaState.userName
+            HomeHubSection.Novel -> novelState.userName
         }
         val currentUserAvatar = when (selectedSection) {
             HomeHubSection.Anime -> animeState.userAvatar
             HomeHubSection.Manga -> mangaState.userAvatar
+            HomeHubSection.Novel -> novelState.userAvatar
         }
 
         // Photo picker for avatar
@@ -201,6 +214,7 @@ object HomeHubTab : Tab {
                 when (selectedSection) {
                     HomeHubSection.Anime -> animeScreenModel.updateUserAvatar(it.toString())
                     HomeHubSection.Manga -> mangaScreenModel.updateUserAvatar(it.toString())
+                    HomeHubSection.Novel -> novelScreenModel.updateUserAvatar(it.toString())
                 }
             }
         }
@@ -211,6 +225,7 @@ object HomeHubTab : Tab {
             val currentName = when (selectedSection) {
                 HomeHubSection.Anime -> animeState.userName
                 HomeHubSection.Manga -> mangaState.userName
+                HomeHubSection.Novel -> novelState.userName
             }
             NameDialog(
                 currentName = currentName,
@@ -219,6 +234,7 @@ object HomeHubTab : Tab {
                     when (selectedSection) {
                         HomeHubSection.Anime -> animeScreenModel.updateUserName(newName)
                         HomeHubSection.Manga -> mangaScreenModel.updateUserName(newName)
+                        HomeHubSection.Novel -> novelScreenModel.updateUserName(newName)
                     }
                     showNameDialog = false
                 },
@@ -247,6 +263,16 @@ object HomeHubTab : Tab {
                         )
                     },
                 )
+                HomeHubSection.Novel -> TabContent(
+                    titleRes = AYMR.strings.label_novel,
+                    searchEnabled = true,
+                    content = { contentPadding, _ ->
+                        NovelHomeHub(
+                            contentPadding = contentPadding,
+                            searchQuery = novelSearchQuery,
+                        )
+                    },
+                )
             }
         }.toPersistentList()
 
@@ -270,8 +296,16 @@ object HomeHubTab : Tab {
             state = pagerState,
             mangaSearchQuery = mangaSearchQuery,
             onChangeMangaSearchQuery = { mangaSearchQuery = it },
-            animeSearchQuery = animeSearchQuery,
-            onChangeAnimeSearchQuery = { animeSearchQuery = it },
+            animeSearchQuery = when (sections.getOrNull(pagerState.currentPage)) {
+                HomeHubSection.Novel -> novelSearchQuery
+                else -> animeSearchQuery
+            },
+            onChangeAnimeSearchQuery = {
+                when (sections.getOrNull(pagerState.currentPage)) {
+                    HomeHubSection.Novel -> novelSearchQuery = it
+                    else -> animeSearchQuery = it
+                }
+            },
             isMangaTab = { index -> sections.getOrNull(index) == HomeHubSection.Manga },
             showCompactHeader = true,
             userName = currentUserName,
@@ -280,6 +314,7 @@ object HomeHubTab : Tab {
             onNameClick = { showNameDialog = true },
             showTabs = false,
             applyStatusBarsPadding = false,
+            instantTabSwitching = instantTabSwitching,
         )
     }
 }
@@ -342,6 +377,39 @@ private fun MangaHomeHubScreenModel.State.toUiState(): HomeHubUiState {
                 title = it.title,
                 coverData = it.coverData,
                 subtitle = "$readCount/${it.totalCount} гл.",
+            )
+        },
+        userName = userName,
+        userAvatar = userAvatar,
+        greeting = greeting,
+        showWelcome = showWelcome,
+    )
+}
+
+private fun NovelHomeHubScreenModel.State.toUiState(): HomeHubUiState {
+    return HomeHubUiState(
+        hero = hero?.let {
+            HomeHubHero(
+                entryId = it.novelId,
+                title = it.title,
+                progressNumber = it.chapterNumber,
+                coverData = it.coverData.url ?: it.coverData,
+            )
+        },
+        history = history.map {
+            HomeHubHistory(
+                entryId = it.novelId,
+                title = it.title,
+                progressNumber = it.chapterNumber,
+                coverData = it.coverData.url ?: it.coverData,
+            )
+        },
+        recommendations = recommendations.map {
+            HomeHubRecommendation(
+                entryId = it.novelId,
+                title = it.title,
+                coverData = it.coverData.url ?: it.coverData,
+                subtitle = "${it.readCount}/${it.totalCount} гл.",
             )
         },
         userName = userName,
@@ -474,6 +542,75 @@ private fun MangaHomeHub(
         },
         onHistoryClick = { tabNavigator.current = HistoriesTab },
         onLibraryClick = { tabNavigator.current = MangaLibraryTab },
+    )
+}
+
+@Composable
+private fun NovelHomeHub(
+    contentPadding: PaddingValues,
+    searchQuery: String?,
+) {
+    val screenModel = HomeHubTab.rememberScreenModel { NovelHomeHubScreenModel() }
+    val state by screenModel.state.collectAsState()
+    val navigator = LocalNavigator.currentOrThrow
+    val tabNavigator = LocalTabNavigator.current
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(screenModel) {
+        screenModel.startLiveUpdates()
+    }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent(),
+    ) { uri -> uri?.let { screenModel.updateUserAvatar(it.toString()) } }
+
+    var showNameDialog by remember { mutableStateOf(false) }
+    if (showNameDialog) {
+        NameDialog(
+            currentName = state.userName,
+            onDismiss = { showNameDialog = false },
+            onConfirm = {
+                screenModel.updateUserName(it)
+                showNameDialog = false
+            },
+        )
+    }
+
+    val lastSourceName = remember { screenModel.getLastUsedNovelSourceName() }
+
+    HomeHubScreen(
+        state = state.toUiState(),
+        searchQuery = searchQuery,
+        lastSourceName = lastSourceName,
+        contentPadding = contentPadding,
+        heroActionLabelRes = AYMR.strings.aurora_read,
+        heroProgressLabelRes = AYMR.strings.aurora_chapter_progress,
+        onEntryClick = { navigator.push(NovelScreen(it)) },
+        onPlayHero = {
+            screenModel.getHeroChapterId()?.let { chapterId ->
+                navigator.push(NovelReaderScreen(chapterId))
+            }
+        },
+        onAvatarClick = { photoPickerLauncher.launch("image/*") },
+        onNameClick = { showNameDialog = true },
+        onSourceClick = {
+            val sourceId = screenModel.getLastUsedNovelSourceId()
+            if (sourceId != -1L) {
+                navigator.push(BrowseNovelSourceScreen(sourceId, null))
+            } else {
+                tabNavigator.current = BrowseTab
+            }
+        },
+        onBrowseClick = { navigator.push(NovelExtensionReposScreen()) },
+        onExtensionClick = {
+            tabNavigator.current = BrowseTab
+            BrowseTab.showNovelExtension()
+        },
+        onHistoryClick = { tabNavigator.current = HistoriesTab },
+        onLibraryClick = {
+            scope.launch { AnimeLibraryTab.showNovelSection() }
+            tabNavigator.current = AnimeLibraryTab
+        },
     )
 }
 

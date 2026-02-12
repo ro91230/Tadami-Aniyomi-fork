@@ -1,14 +1,13 @@
 package eu.kanade.tachiyomi.ui.browse.novel.source.browse
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FilterList
@@ -27,28 +26,34 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
-import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.browse.novel.BrowseNovelSourceContent
 import eu.kanade.presentation.browse.novel.MissingNovelSourceScreen
 import eu.kanade.presentation.browse.novel.components.BrowseNovelSourceToolbar
+import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.novelsource.NovelCatalogueSource
+import eu.kanade.tachiyomi.novelsource.model.NovelFilter
+import eu.kanade.tachiyomi.novelsource.model.NovelFilterList
+import eu.kanade.tachiyomi.novelsource.NovelSource
+import eu.kanade.tachiyomi.source.novel.NovelSiteSource
 import eu.kanade.tachiyomi.ui.entries.novel.NovelScreen
+import eu.kanade.tachiyomi.ui.webview.WebViewScreen
+import kotlinx.coroutines.launch
+import mihon.presentation.core.util.collectAsLazyPagingItems
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import tachiyomi.domain.source.novel.model.StubNovelSource
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
-import mihon.presentation.core.util.collectAsLazyPagingItems
-import kotlinx.coroutines.launch
+import java.util.Locale
 
 data class BrowseNovelSourceScreen(
     val sourceId: Long,
     private val listingQuery: String?,
-) : Screen {
+) : Screen() {
 
     @Composable
     override fun Content() {
@@ -71,9 +76,10 @@ data class BrowseNovelSourceScreen(
             )
             return
         }
+        val sourceWebUrl = resolveNovelSourceWebUrl(screenModel.source)
 
         Scaffold(
-            topBar = { scrollBehavior ->
+            topBar = {
                 Column(
                     modifier = Modifier.background(MaterialTheme.colorScheme.surface),
                 ) {
@@ -84,8 +90,18 @@ data class BrowseNovelSourceScreen(
                         displayMode = screenModel.displayMode,
                         onDisplayModeChange = { screenModel.displayMode = it },
                         navigateUp = navigateUp,
+                        onWebViewClick = sourceWebUrl?.let { url ->
+                            {
+                                navigator.push(
+                                    WebViewScreen(
+                                        url = url,
+                                        initialTitle = screenModel.source.name,
+                                        sourceId = screenModel.source.id,
+                                    ),
+                                )
+                            }
+                        },
                         onSearch = screenModel::search,
-                        scrollBehavior = scrollBehavior,
                     )
 
                     Row(
@@ -158,7 +174,7 @@ data class BrowseNovelSourceScreen(
                 novels = screenModel.novelPagerFlowFlow.collectAsLazyPagingItems(),
                 displayMode = screenModel.displayMode,
                 snackbarHostState = snackbarHostState,
-                contentPadding = PaddingValues(bottom = paddingValues.calculateBottomPadding()),
+                contentPadding = paddingValues,
                 onNovelClick = { novel ->
                     scope.launch {
                         val novelId = screenModel.openNovel(novel)
@@ -171,14 +187,127 @@ data class BrowseNovelSourceScreen(
                 BrowseNovelSourceScreenModel.Dialog.Filter -> {
                     SourceFilterNovelDialog(
                         onDismissRequest = { screenModel.setDialog(null) },
-                        filters = state.filters,
+                        filters = visibleNovelFiltersForListing(state.listing, state.filters),
                         onReset = screenModel::resetFilters,
-                        onFilter = { screenModel.search(filters = state.filters) },
-                        onUpdate = screenModel::setFilters,
+                        onFilter = screenModel::applyFilters,
+                        onUpdate = { screenModel.setFilters(state.filters) },
                     )
                 }
                 null -> Unit
             }
         }
     }
+}
+
+internal fun visibleNovelFiltersForListing(
+    listing: BrowseNovelSourceScreenModel.Listing,
+    filters: NovelFilterList,
+): NovelFilterList {
+    if (listing != BrowseNovelSourceScreenModel.Listing.Latest) return filters
+    return NovelFilterList(filters.mapNotNull { it.withoutSortFiltersForLatest() })
+}
+
+private fun NovelFilter<*>.withoutSortFiltersForLatest(): NovelFilter<*>? {
+    return when (this) {
+        is NovelFilter.Sort -> null
+        is NovelFilter.Select<*> -> this.takeUnless { it.isSortLikeSelect() }
+        is NovelFilter.Group<*> -> {
+            val visibleChildren = state
+                .filterIsInstance<NovelFilter<*>>()
+                .mapNotNull { it.withoutSortFiltersForLatest() }
+            if (visibleChildren.isEmpty()) null else LatestVisibleGroupFilter(name, visibleChildren)
+        }
+        else -> this
+    }
+}
+
+private fun NovelFilter.Select<*>.isSortLikeSelect(): Boolean {
+    val normalizedName = name.normalizedForSortChecks()
+    if (sortNameTokens.any(normalizedName::contains)) return true
+
+    val normalizedKey = pluginFilterKeyOrNull()?.normalizedForSortChecks().orEmpty()
+    if (normalizedKey.isNotBlank() && sortKeyTokens.any(normalizedKey::contains)) return true
+
+    val optionMatches = values.count { option ->
+        val normalizedOption = option.toString().normalizedForSortChecks()
+        sortOptionTokens.any(normalizedOption::contains)
+    }
+    return optionMatches >= 2
+}
+
+private fun NovelFilter.Select<*>.pluginFilterKeyOrNull(): String? {
+    var currentClass: Class<*>? = javaClass
+    while (currentClass != null) {
+        val keyField = currentClass.declaredFields.firstOrNull {
+            it.name == "key" && it.type == String::class.java
+        }
+        if (keyField != null) {
+            return runCatching {
+                keyField.isAccessible = true
+                keyField.get(this) as? String
+            }.getOrNull()
+        }
+        currentClass = currentClass.superclass
+    }
+    return null
+}
+
+private fun String.normalizedForSortChecks(): String {
+    return lowercase(Locale.ROOT).trim()
+}
+
+private class LatestVisibleGroupFilter(
+    name: String,
+    state: List<NovelFilter<*>>,
+) : NovelFilter.Group<NovelFilter<*>>(name, state)
+
+private val sortNameTokens = listOf(
+    "sort",
+    "order",
+    "сорт",
+    "поряд",
+)
+
+private val sortKeyTokens = listOf(
+    "sort",
+    "order",
+)
+
+private val sortOptionTokens = listOf(
+    "popular",
+    "popularity",
+    "latest",
+    "newest",
+    "updated",
+    "update",
+    "rating",
+    "rank",
+    "name",
+    "title",
+    "relevance",
+    "asc",
+    "desc",
+    "a-z",
+    "z-a",
+    "популяр",
+    "нов",
+    "обнов",
+    "рейтинг",
+    "алф",
+)
+
+internal fun resolveNovelSourceWebUrl(source: NovelSource?): String? {
+    val siteUrl = (source as? NovelSiteSource)?.siteUrl?.trim().orEmpty()
+    if (siteUrl.isBlank()) return null
+
+    val normalizedUrl = if (
+        siteUrl.startsWith("http://", ignoreCase = true) ||
+        siteUrl.startsWith("https://", ignoreCase = true)
+    ) {
+        siteUrl
+    } else {
+        "https://$siteUrl"
+    }
+
+    return normalizedUrl.toHttpUrlOrNull()?.toString()
 }

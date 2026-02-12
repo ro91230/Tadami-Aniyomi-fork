@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.browse.novel.extension
 
 import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.presentation.components.SEARCH_DEBOUNCE_MILLIS
 import eu.kanade.tachiyomi.extension.novel.NovelExtensionManager
 import eu.kanade.tachiyomi.novelsource.NovelSource
 import io.kotest.matchers.shouldBe
@@ -20,7 +21,6 @@ import kotlinx.coroutines.yield
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import eu.kanade.presentation.components.SEARCH_DEBOUNCE_MILLIS
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.domain.extension.novel.model.NovelPlugin
 import tachiyomi.domain.source.novel.model.StubNovelSource
@@ -28,10 +28,14 @@ import tachiyomi.domain.source.novel.model.StubNovelSource
 class NovelExtensionsScreenModelTest {
 
     private val sourcePreferences: SourcePreferences = mockk(relaxed = true)
+    private val enabledLanguages = MutableStateFlow(setOf("en"))
 
     @BeforeEach
     fun setup() {
         Dispatchers.setMain(Dispatchers.Unconfined)
+        val enabledLanguagesPreference = mockk<Preference<Set<String>>>()
+        every { enabledLanguagesPreference.changes() } returns enabledLanguages
+        every { sourcePreferences.enabledLanguages() } returns enabledLanguagesPreference
     }
 
     @AfterEach
@@ -126,6 +130,31 @@ class NovelExtensionsScreenModelTest {
         }
     }
 
+    @Test
+    fun `available plugins are filtered by enabled language`() {
+        runBlocking {
+            val english = pluginAvailable("id-en", 1).copy(lang = "en")
+            val russian = pluginAvailable("id-ru", 1).copy(lang = "ru")
+
+            val screenModel = NovelExtensionsScreenModel(
+                extensionManager = FakeNovelExtensionManager(
+                    installed = emptyList(),
+                    available = listOf(english, russian),
+                    updates = emptyList(),
+                ),
+                sourcePreferences = sourcePreferences,
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value.isLoading) {
+                    yield()
+                }
+            }
+
+            screenModel.state.value.items.map { it.plugin.id } shouldBe listOf("id-en")
+        }
+    }
+
     private fun pluginAvailable(id: String, version: Int) = NovelPlugin.Available(
         id = id,
         name = "Source $id",
@@ -181,6 +210,5 @@ class NovelExtensionsScreenModelTest {
         override suspend fun getSourceData(id: Long): StubNovelSource? = null
 
         override fun getPluginIconUrlForSource(sourceId: Long): String? = null
-}
-
+    }
 }

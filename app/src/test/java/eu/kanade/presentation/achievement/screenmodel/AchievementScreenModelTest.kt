@@ -54,7 +54,8 @@ class AchievementScreenModelTest {
     fun `should load activity data into Success state`() {
         runTest {
             // Given
-            val activity = listOf(DayActivity(LocalDate.now(), 1, tachiyomi.domain.achievement.model.ActivityType.APP_OPEN))
+            val activity =
+                listOf(DayActivity(LocalDate.now(), 1, tachiyomi.domain.achievement.model.ActivityType.APP_OPEN))
             coEvery { activityDataRepository.getActivityData(365) } returns flowOf(activity)
 
             val screenModel = AchievementScreenModel(repository, loader, pointsManager, activityDataRepository)

@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +38,7 @@ import eu.kanade.tachiyomi.novelsource.model.SNovel
 import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.library.model.LibraryDisplayMode
+import tachiyomi.domain.entries.novel.model.NovelCover
 import tachiyomi.domain.source.novel.model.StubNovelSource
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -46,6 +48,10 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.plus
+
+internal fun novelBrowseItemKey(url: String?, index: Int): String {
+    return "novel/${url.orEmpty()}#$index"
+}
 
 @Composable
 fun BrowseNovelSourceContent(
@@ -57,6 +63,7 @@ fun BrowseNovelSourceContent(
     onNovelClick: (SNovel) -> Unit,
 ) {
     val context = LocalContext.current
+    val effectiveContentPadding = contentPadding
 
     val errorState = novels.loadState.refresh.takeIf { it is LoadState.Error }
         ?: novels.loadState.append.takeIf { it is LoadState.Error }
@@ -81,7 +88,7 @@ fun BrowseNovelSourceContent(
 
     if (novels.itemCount <= 0 && errorState != null && errorState is LoadState.Error) {
         EmptyScreen(
-            modifier = Modifier.padding(contentPadding),
+            modifier = Modifier.padding(effectiveContentPadding),
             message = getErrorMessage(errorState),
             actions = persistentListOf(
                 EmptyScreenAction(
@@ -96,7 +103,7 @@ fun BrowseNovelSourceContent(
 
     if (novels.itemCount == 0 && novels.loadState.refresh is LoadState.Loading) {
         LoadingScreen(
-            modifier = Modifier.padding(contentPadding),
+            modifier = Modifier.padding(effectiveContentPadding),
         )
         return
     }
@@ -105,15 +112,17 @@ fun BrowseNovelSourceContent(
         LibraryDisplayMode.List -> {
             NovelListContent(
                 novels = novels,
-                contentPadding = contentPadding,
+                sourceId = source?.id ?: -1L,
+                contentPadding = effectiveContentPadding,
                 onNovelClick = onNovelClick,
             )
         }
         LibraryDisplayMode.ComfortableGrid -> {
             NovelGridContent(
                 novels = novels,
+                sourceId = source?.id ?: -1L,
                 columns = GridCells.Adaptive(120.dp),
-                contentPadding = contentPadding,
+                contentPadding = effectiveContentPadding,
                 showTitle = true,
                 onNovelClick = onNovelClick,
             )
@@ -121,8 +130,9 @@ fun BrowseNovelSourceContent(
         LibraryDisplayMode.CompactGrid, LibraryDisplayMode.CoverOnlyGrid -> {
             NovelGridContent(
                 novels = novels,
+                sourceId = source?.id ?: -1L,
                 columns = GridCells.Adaptive(96.dp),
-                contentPadding = contentPadding,
+                contentPadding = effectiveContentPadding,
                 showTitle = displayMode != LibraryDisplayMode.CoverOnlyGrid,
                 onNovelClick = onNovelClick,
             )
@@ -133,14 +143,15 @@ fun BrowseNovelSourceContent(
 @Composable
 private fun NovelListContent(
     novels: LazyPagingItems<SNovel>,
+    sourceId: Long,
     contentPadding: PaddingValues,
     onNovelClick: (SNovel) -> Unit,
 ) {
-    LazyColumn(contentPadding = contentPadding) {
-        items(
+    LazyColumn(contentPadding = contentPadding + PaddingValues(vertical = 8.dp)) {
+        itemsIndexed(
             items = novels.itemSnapshotList.items,
-            key = { it.url },
-        ) { novel ->
+            key = { index, novel -> novelBrowseItemKey(novel.url, index) },
+        ) { _, novel ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -152,7 +163,7 @@ private fun NovelListContent(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 ItemCover.Book(
-                    data = novel.thumbnail_url,
+                    data = novel.asBrowseNovelCover(sourceId),
                     modifier = Modifier.fillMaxWidth(0.2f),
                 )
                 Column(
@@ -183,6 +194,7 @@ private fun NovelListContent(
 @Composable
 private fun NovelGridContent(
     novels: LazyPagingItems<SNovel>,
+    sourceId: Long,
     columns: GridCells,
     contentPadding: PaddingValues,
     showTitle: Boolean,
@@ -202,7 +214,7 @@ private fun NovelGridContent(
 
         items(
             count = novels.itemCount,
-            key = { index -> novels[index]?.url ?: index },
+            key = { index -> novelBrowseItemKey(novels[index]?.url, index) },
         ) { index ->
             val novel = novels[index] ?: return@items
             Column(
@@ -210,7 +222,7 @@ private fun NovelGridContent(
                     .combinedClickable(onClick = { onNovelClick(novel) }),
             ) {
                 ItemCover.Book(
-                    data = novel.thumbnail_url,
+                    data = novel.asBrowseNovelCover(sourceId),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (showTitle) {
@@ -231,6 +243,16 @@ private fun NovelGridContent(
             }
         }
     }
+}
+
+private fun SNovel.asBrowseNovelCover(sourceId: Long): NovelCover {
+    return NovelCover(
+        novelId = -1L,
+        sourceId = sourceId,
+        isNovelFavorite = false,
+        url = thumbnail_url,
+        lastModified = 0L,
+    )
 }
 
 @Composable

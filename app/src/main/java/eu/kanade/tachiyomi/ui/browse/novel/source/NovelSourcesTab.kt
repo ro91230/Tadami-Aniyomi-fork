@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.browse.novel.source
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -15,6 +16,7 @@ import eu.kanade.presentation.browse.novel.NovelSourcesScreen
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
 import eu.kanade.tachiyomi.ui.browse.novel.source.browse.BrowseNovelSourceScreen
+import eu.kanade.tachiyomi.ui.browse.novel.source.globalsearch.GlobalNovelSearchScreen
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -31,6 +33,11 @@ fun Screen.novelSourcesTab(): TabContent {
     return TabContent(
         titleRes = AYMR.strings.label_novel_sources,
         actions = persistentListOf(
+            AppBar.Action(
+                title = stringResource(MR.strings.action_global_search),
+                icon = Icons.Outlined.TravelExplore,
+                onClick = { navigator.push(GlobalNovelSearchScreen()) },
+            ),
             AppBar.Action(
                 title = stringResource(MR.strings.action_filter),
                 icon = Icons.Outlined.FilterList,

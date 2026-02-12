@@ -9,19 +9,20 @@ import androidx.paging.cachedIn
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.core.preference.asState
+import eu.kanade.domain.entries.novel.model.toDomainNovel
+import eu.kanade.presentation.util.ioCoroutineScope
 import eu.kanade.tachiyomi.novelsource.NovelCatalogueSource
 import eu.kanade.tachiyomi.novelsource.model.NovelFilterList
 import eu.kanade.tachiyomi.novelsource.model.SNovel
-import eu.kanade.presentation.util.ioCoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import tachiyomi.core.common.util.lang.launchIO
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import tachiyomi.domain.entries.novel.interactor.NetworkToLocalNovel
-import eu.kanade.domain.entries.novel.model.toDomainNovel
 import tachiyomi.domain.source.novel.interactor.GetRemoteNovel
 import tachiyomi.domain.source.novel.service.NovelSourceManager
 import uy.kohesive.injekt.Injekt
@@ -48,25 +49,68 @@ class BrowseNovelSourceScreenModel(
 
                 if (listing is Listing.Search) {
                     query = listing.query
-                    listing = Listing.Search(query, source.getFilterList())
                 }
 
                 it.copy(
                     listing = listing,
-                    filters = source.getFilterList(),
                     toolbarQuery = query,
                 )
+            }
+
+            screenModelScope.launch {
+                val loadedFilters = runCatching {
+                    withContext(ioCoroutineScope.coroutineContext) {
+                        source.getFilterList()
+                    }
+                }.getOrElse { NovelFilterList() }
+
+                mutableState.update { state ->
+                    val hadNoFilters = state.filters.isEmpty()
+                    val updatedListing = when (val listing = state.listing) {
+                        is Listing.Search -> {
+                            if (listing.filters.isEmpty()) {
+                                listing.copy(filters = loadedFilters)
+                            } else {
+                                listing
+                            }
+                        }
+                        else -> listing
+                    }
+                    val updatedFilters = if (state.filters.isEmpty()) loadedFilters else state.filters
+                    state.copy(
+                        listing = updatedListing,
+                        filters = updatedFilters,
+                        filterVersion = if (hadNoFilters && updatedFilters.isNotEmpty()) {
+                            state.filterVersion + 1
+                        } else {
+                            state.filterVersion
+                        },
+                    )
+                }
             }
         }
 
         sourcePreferences.lastUsedNovelSource().set(source.id)
     }
 
-    val novelPagerFlowFlow = state.map { it.listing }
-        .distinctUntilChanged()
-        .map { listing ->
+    val novelPagerFlowFlow = state
+        .map { state ->
+            val listing = state.listing
+            PagingRequest(
+                query = listing.query.orEmpty(),
+                isSearch = listing is Listing.Search,
+                filterVersion = state.filterVersion,
+                filters = state.filters,
+            )
+        }
+        .distinctUntilChanged { old, new ->
+            old.query == new.query &&
+                old.isSearch == new.isSearch &&
+                old.filterVersion == new.filterVersion
+        }
+        .map { request ->
             Pager(PagingConfig(pageSize = 25)) {
-                getRemoteNovel.subscribe(sourceId, listing.query ?: "", listing.filters)
+                getRemoteNovel.subscribe(sourceId, request.query, request.filters)
             }.flow
                 .cachedIn(ioCoroutineScope)
         }
@@ -75,7 +119,17 @@ class BrowseNovelSourceScreenModel(
     fun resetFilters() {
         if (source !is NovelCatalogueSource) return
 
-        mutableState.update { it.copy(filters = source.getFilterList()) }
+        screenModelScope.launch {
+            val resetFilters = runCatching {
+                withContext(ioCoroutineScope.coroutineContext) {
+                    source.getFilterList()
+                }
+            }.getOrElse { NovelFilterList() }
+
+            mutableState.update { state ->
+                state.copy(filters = resetFilters)
+            }
+        }
     }
 
     fun setListing(listing: Listing) {
@@ -95,16 +149,38 @@ class BrowseNovelSourceScreenModel(
     fun search(query: String? = null, filters: NovelFilterList? = null) {
         if (source !is NovelCatalogueSource) return
 
-        val input = state.value.listing as? Listing.Search
-            ?: Listing.Search(query = null, filters = source.getFilterList())
+        val currentState = state.value
+        val updatedFilters = filters ?: currentState.filters
+        val input = currentState.listing as? Listing.Search
+            ?: Listing.Search(query = null, filters = updatedFilters)
 
         mutableState.update {
             it.copy(
                 listing = input.copy(
                     query = query ?: input.query,
-                    filters = filters ?: input.filters,
+                    filters = updatedFilters,
                 ),
+                filters = updatedFilters,
                 toolbarQuery = query ?: input.query,
+            )
+        }
+    }
+
+    fun applyFilters() {
+        if (source !is NovelCatalogueSource) return
+        mutableState.update { state ->
+            val updatedListing = when (val listing = state.listing) {
+                is Listing.Search -> listing.copy(filters = state.filters)
+                else -> listing
+            }
+            val updatedToolbarQuery = when (updatedListing) {
+                is Listing.Search -> updatedListing.query
+                else -> null
+            }
+            state.copy(
+                listing = updatedListing,
+                toolbarQuery = updatedToolbarQuery,
+                filterVersion = state.filterVersion + 1,
             )
         }
     }
@@ -143,6 +219,7 @@ class BrowseNovelSourceScreenModel(
         companion object {
             fun valueOf(query: String?): Listing {
                 return when (query) {
+                    null -> Popular
                     GetRemoteNovel.QUERY_POPULAR -> Popular
                     GetRemoteNovel.QUERY_LATEST -> Latest
                     else -> Search(query = query, filters = NovelFilterList())
@@ -161,7 +238,15 @@ class BrowseNovelSourceScreenModel(
         val filters: NovelFilterList = NovelFilterList(),
         val toolbarQuery: String? = null,
         val dialog: Dialog? = null,
+        val filterVersion: Int = 0,
     ) {
         val isUserQuery get() = listing is Listing.Search && !listing.query.isNullOrEmpty()
     }
+
+    private data class PagingRequest(
+        val query: String,
+        val isSearch: Boolean,
+        val filterVersion: Int,
+        val filters: NovelFilterList,
+    )
 }

@@ -7,6 +7,8 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.components.SEARCH_DEBOUNCE_MILLIS
 import eu.kanade.tachiyomi.extension.InstallStep
 import eu.kanade.tachiyomi.extension.novel.NovelExtensionManager
+import eu.kanade.tachiyomi.util.system.LocaleHelper
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -14,7 +16,9 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import logcat.LogPriority
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.extension.novel.model.NovelPlugin
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -29,18 +33,31 @@ class NovelExtensionsScreenModel(
 
     init {
         screenModelScope.launchIO {
-            combine(
+            val listingFlow = combine(
                 state.map { it.searchQuery }.distinctUntilChanged().debounce(SEARCH_DEBOUNCE_MILLIS),
                 currentDownloads,
                 extensionManager.installedPluginsFlow,
                 extensionManager.availablePluginsFlow,
                 extensionManager.updatesFlow,
             ) { query, downloads, installed, available, updates ->
-                availablePlugins.value = available
-                val searchQuery = query?.trim().orEmpty()
+                ListingInput(
+                    query = query?.trim().orEmpty(),
+                    downloads = downloads,
+                    installed = installed,
+                    available = available,
+                    updates = updates,
+                )
+            }
 
-                val updateIds = updates.map { it.id }.toSet()
-                val installedIds = installed.map { it.id }.toSet()
+            combine(
+                sourcePreferences.enabledLanguages().changes(),
+                listingFlow,
+            ) { enabledLanguages, input ->
+                availablePlugins.value = input.available
+                val searchQuery = input.query
+
+                val updateIds = input.updates.map { it.id }.toSet()
+                val installedIds = input.installed.map { it.id }.toSet()
                 val matches: (NovelPlugin) -> Boolean = { plugin ->
                     if (searchQuery.isEmpty()) {
                         true
@@ -52,45 +69,57 @@ class NovelExtensionsScreenModel(
                     }
                 }
 
+                val availableByLanguage = input.available
+                    .asSequence()
+                    .filter { it.id !in installedIds }
+                    .filter(matches)
+                    .filter { it.lang.isBlank() || it.lang in enabledLanguages }
+                    .filter { it.lang.isNotBlank() }
+                    .groupBy { it.lang }
+                    .toSortedMap(LocaleHelper.comparator)
+
                 val items = buildList {
-                    updates.filter(matches).forEach { plugin ->
+                    input.updates.filter(matches).forEach { plugin ->
                         add(
                             NovelExtensionItem(
                                 plugin = plugin,
                                 status = NovelExtensionItem.Status.UpdateAvailable,
-                                installStep = downloads[plugin.id] ?: InstallStep.Idle,
+                                installStep = input.downloads[plugin.id] ?: InstallStep.Idle,
                             ),
                         )
                     }
-                    installed.filter { it.id !in updateIds }.filter(matches).forEach { plugin ->
+                    input.installed.filter { it.id !in updateIds }.filter(matches).forEach { plugin ->
                         add(
                             NovelExtensionItem(
                                 plugin = plugin,
                                 status = NovelExtensionItem.Status.Installed,
-                                installStep = downloads[plugin.id] ?: InstallStep.Idle,
+                                installStep = input.downloads[plugin.id] ?: InstallStep.Idle,
                             ),
                         )
                     }
-                    available.filter { it.id !in installedIds }.filter(matches).forEach { plugin ->
+                    availableByLanguage.values.flatten().forEach { plugin ->
                         add(
                             NovelExtensionItem(
                                 plugin = plugin,
                                 status = NovelExtensionItem.Status.Available,
-                                installStep = downloads[plugin.id] ?: InstallStep.Idle,
+                                installStep = input.downloads[plugin.id] ?: InstallStep.Idle,
                             ),
                         )
                     }
                 }
 
-                items to updates.size
+                Triple(items, input.updates.size, availableByLanguage.keys.toList())
             }
-                .collectLatest { (items, updatesCount) ->
+                .collectLatest { (items, updatesCount, availableLanguages) ->
                     sourcePreferences.novelExtensionUpdatesCount().set(updatesCount)
                     mutableState.update { state ->
+                        val normalizedCollapsed = state.collapsedLanguages.intersect(availableLanguages.toSet())
                         state.copy(
                             isLoading = false,
                             items = items,
                             updates = updatesCount,
+                            availableLanguages = availableLanguages,
+                            collapsedLanguages = normalizedCollapsed,
                         )
                     }
                 }
@@ -102,13 +131,31 @@ class NovelExtensionsScreenModel(
     fun refresh() {
         screenModelScope.launchIO {
             mutableState.update { it.copy(isRefreshing = true) }
-            extensionManager.refreshAvailablePlugins()
-            mutableState.update { it.copy(isRefreshing = false) }
+            try {
+                extensionManager.refreshAvailablePlugins()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                logcat(LogPriority.WARN, e) { "Failed to refresh novel plugins" }
+            } finally {
+                mutableState.update { it.copy(isRefreshing = false) }
+            }
         }
     }
 
     fun search(query: String?) {
         mutableState.update { it.copy(searchQuery = query) }
+    }
+
+    fun toggleSection(language: String) {
+        mutableState.update { state ->
+            val collapsed = if (language in state.collapsedLanguages) {
+                state.collapsedLanguages - language
+            } else {
+                state.collapsedLanguages + language
+            }
+            state.copy(collapsedLanguages = collapsed)
+        }
     }
 
     fun installExtension(plugin: NovelPlugin.Available) {
@@ -168,6 +215,16 @@ class NovelExtensionsScreenModel(
         val items: List<NovelExtensionItem> = emptyList(),
         val updates: Int = 0,
         val searchQuery: String? = null,
+        val availableLanguages: List<String> = emptyList(),
+        val collapsedLanguages: Set<String> = emptySet(),
+    )
+
+    private data class ListingInput(
+        val query: String,
+        val downloads: Map<String, InstallStep>,
+        val installed: List<NovelPlugin.Installed>,
+        val available: List<NovelPlugin.Available>,
+        val updates: List<NovelPlugin.Installed>,
     )
 }
 

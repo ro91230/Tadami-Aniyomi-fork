@@ -1,6 +1,9 @@
 package eu.kanade.tachiyomi.ui.updates.novel
 
 import android.content.Context
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.FlipToBack
+import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -15,14 +18,11 @@ import eu.kanade.presentation.updates.novel.NovelUpdatesScreen
 import eu.kanade.tachiyomi.ui.entries.novel.NovelScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.reader.novel.NovelReaderScreen
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.FlipToBack
-import androidx.compose.material.icons.outlined.SelectAll
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
 import tachiyomi.core.common.i18n.stringResource
-import tachiyomi.i18n.aniyomi.AYMR
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.aniyomi.AYMR
 
 @Composable
 fun Screen.novelUpdatesTab(

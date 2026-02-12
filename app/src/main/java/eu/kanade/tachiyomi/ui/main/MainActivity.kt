@@ -88,7 +88,6 @@ import eu.kanade.tachiyomi.data.updater.AppUpdateJob
 import eu.kanade.tachiyomi.data.updater.RELEASE_URL
 import eu.kanade.tachiyomi.extension.anime.api.AnimeExtensionApi
 import eu.kanade.tachiyomi.extension.manga.api.MangaExtensionApi
-import eu.kanade.tachiyomi.extension.novel.api.NovelExtensionUpdateRunner
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.ui.browse.anime.source.browse.BrowseAnimeSourceScreen
 import eu.kanade.tachiyomi.ui.browse.anime.source.globalsearch.GlobalAnimeSearchScreen
@@ -482,13 +481,14 @@ class MainActivity : BaseActivity() {
 
         // Extensions updates
         LaunchedEffect(Unit) {
-            try {
-                AnimeExtensionApi().checkForUpdates(context)
-                MangaExtensionApi().checkForUpdates(context)
-                NovelExtensionUpdateRunner().run()
-            } catch (e: Exception) {
-                logcat(LogPriority.ERROR, e)
-            }
+            runCatching { AnimeExtensionApi().checkForUpdates(context) }
+                .onFailure { error ->
+                    logcat(LogPriority.WARN, error) { "Anime extension update check failed" }
+                }
+            runCatching { MangaExtensionApi().checkForUpdates(context) }
+                .onFailure { error ->
+                    logcat(LogPriority.WARN, error) { "Manga extension update check failed" }
+                }
         }
     }
 
