@@ -37,6 +37,13 @@ class LibraryPreferences(
         AnimeLibrarySort.Serializer::deserialize,
     )
 
+    fun novelSortingMode() = preferenceStore.getObject(
+        "novellib_sorting_mode",
+        MangaLibrarySort.default,
+        MangaLibrarySort.Serializer::serialize,
+        MangaLibrarySort.Serializer::deserialize,
+    )
+
     fun lastUpdatedTimestamp() = preferenceStore.getLong(Preference.appStateKey("library_update_last_timestamp"), 0L)
     fun autoUpdateInterval() = preferenceStore.getInt("pref_library_update_interval_key", 0)
 
@@ -97,6 +104,7 @@ class LibraryPreferences(
 
     fun randomAnimeSortSeed() = preferenceStore.getInt("library_random_anime_sort_seed", 0)
     fun randomMangaSortSeed() = preferenceStore.getInt("library_random_manga_sort_seed", 0)
+    fun randomNovelSortSeed() = preferenceStore.getInt("library_random_novel_sort_seed", 0)
 
     // Mixture Columns
 

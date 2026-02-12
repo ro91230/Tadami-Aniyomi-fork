@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.domain.entries.novel.interactor.GetLibraryNovel
+import tachiyomi.domain.library.manga.model.MangaLibrarySort
 import tachiyomi.domain.entries.novel.model.Novel
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.library.novel.LibraryNovel
@@ -132,12 +133,36 @@ class NovelLibraryScreenModelTest {
         screenModel.state.value.hasActiveFilters shouldBe true
     }
 
+    @Test
+    fun `sort preference reorders entries`() = runTest {
+        val older = libraryNovel(id = 1L, title = "Older", lastRead = 10L)
+        val newer = libraryNovel(id = 2L, title = "Newer", lastRead = 50L)
+        libraryFlow.value = listOf(older, newer)
+
+        val screenModel = NovelLibraryScreenModel(
+            getLibraryNovel = getLibraryNovel,
+            basePreferences = basePreferences,
+            libraryPreferences = libraryPreferences,
+            hasDownloadedChapters = { false },
+        )
+
+        testDispatcher.scheduler.advanceUntilIdle()
+        screenModel.setSort(
+            MangaLibrarySort.Type.LastRead,
+            MangaLibrarySort.Direction.Descending,
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        screenModel.state.value.items.shouldContainExactly(newer, older)
+    }
+
     private fun libraryNovel(
         id: Long,
         title: String,
         total: Long = 10L,
         read: Long = 1L,
         status: Long = 0L,
+        lastRead: Long = 0L,
     ): LibraryNovel {
         return LibraryNovel(
             novel = Novel.create().copy(
@@ -154,7 +179,7 @@ class NovelLibraryScreenModelTest {
             bookmarkCount = 0L,
             latestUpload = 0L,
             chapterFetchedAt = 0L,
-            lastRead = 0L,
+            lastRead = lastRead,
         )
     }
 
