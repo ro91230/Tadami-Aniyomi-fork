@@ -9,6 +9,8 @@ import eu.kanade.domain.entries.manga.interactor.GetExcludedScanlators
 import eu.kanade.domain.entries.manga.interactor.SetExcludedScanlators
 import eu.kanade.domain.entries.manga.interactor.SetMangaViewerFlags
 import eu.kanade.domain.entries.manga.interactor.UpdateManga
+import eu.kanade.domain.entries.novel.interactor.GetNovelExcludedScanlators
+import eu.kanade.domain.entries.novel.interactor.SetNovelExcludedScanlators
 import eu.kanade.domain.entries.novel.interactor.UpdateNovel
 import eu.kanade.domain.extension.anime.interactor.GetAnimeExtensionLanguages
 import eu.kanade.domain.extension.anime.interactor.GetAnimeExtensionSources
@@ -26,6 +28,8 @@ import eu.kanade.domain.items.chapter.interactor.SyncChaptersWithSource
 import eu.kanade.domain.items.episode.interactor.SetSeenStatus
 import eu.kanade.domain.items.episode.interactor.SyncEpisodesWithSource
 import eu.kanade.domain.items.novelchapter.interactor.SyncNovelChaptersWithSource
+import eu.kanade.domain.items.novelchapter.interactor.GetAvailableNovelScanlators
+import eu.kanade.domain.items.novelchapter.interactor.GetNovelScanlatorChapterCounts
 import eu.kanade.domain.source.anime.interactor.GetAnimeIncognitoState
 import eu.kanade.domain.source.anime.interactor.GetAnimeSourcesWithFavoriteCount
 import eu.kanade.domain.source.anime.interactor.GetEnabledAnimeSources
@@ -380,6 +384,8 @@ class DomainModule : InjektModule {
         addFactory { ResetNovelViewerFlags(get()) }
         addFactory { NetworkToLocalNovel(get()) }
         addFactory { UpdateNovel(get()) }
+        addFactory { GetNovelExcludedScanlators(get()) }
+        addFactory { SetNovelExcludedScanlators(get()) }
         addSingletonFactory<NovelPluginRepository> { NovelPluginRepositoryImpl(get()) }
 
         addSingletonFactory<ReleaseService> { ReleaseServiceImpl(get(), get()) }
@@ -431,6 +437,8 @@ class DomainModule : InjektModule {
         addSingletonFactory<NovelChapterRepository> { NovelChapterRepositoryImpl(get()) }
         addFactory { ShouldUpdateDbNovelChapter() }
         addFactory { SyncNovelChaptersWithSource(get(), get(), get(), get()) }
+        addFactory { GetAvailableNovelScanlators(get()) }
+        addFactory { GetNovelScanlatorChapterCounts(get()) }
 
         addSingletonFactory<AnimeHistoryRepository> { AnimeHistoryRepositoryImpl(get()) }
         addFactory { GetAnimeHistory(get()) }

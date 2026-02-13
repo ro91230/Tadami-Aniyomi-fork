@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,6 +48,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import eu.kanade.presentation.entries.manga.components.ScanlatorBranchSelector
 import eu.kanade.presentation.entries.novel.components.aurora.ChaptersHeader
 import eu.kanade.presentation.entries.novel.components.aurora.FullscreenPosterBackground
 import eu.kanade.presentation.entries.novel.components.aurora.NovelActionCard
@@ -78,6 +80,9 @@ fun NovelScreenAuroraImpl(
     onChapterBookmarkToggle: (Long) -> Unit,
     onChapterDownloadToggle: (Long) -> Unit,
     onFilterButtonClicked: () -> Unit,
+    scanlatorChapterCounts: Map<String, Int>,
+    selectedScanlator: String?,
+    onScanlatorSelected: (String?) -> Unit,
     onToggleAllSelection: (Boolean) -> Unit,
     onInvertSelection: () -> Unit,
     onMultiBookmarkClicked: (Boolean) -> Unit,
@@ -96,6 +101,17 @@ fun NovelScreenAuroraImpl(
     val selectedIds = state.selectedChapterIds
     val isSelectionMode = selectedIds.isNotEmpty()
     val selectedChapters = chapters.filter { it.id in selectedIds }
+    var visibleChapterCount by remember(chapters) {
+        mutableIntStateOf(
+            initialVisibleChapterCount(
+                totalCount = chapters.size,
+                pageSize = NOVEL_CHAPTERS_PAGE_SIZE,
+            ),
+        )
+    }
+    val visibleChapters = remember(chapters, visibleChapterCount) {
+        chapters.take(visibleChapterCount)
+    }
 
     var descriptionExpanded by remember { mutableStateOf(false) }
     var genresExpanded by remember { mutableStateOf(false) }
@@ -173,6 +189,17 @@ fun NovelScreenAuroraImpl(
                 ChaptersHeader(chapterCount = chapters.size)
             }
 
+            if (state.showScanlatorSelector) {
+                item {
+                    ScanlatorBranchSelector(
+                        scanlatorChapterCounts = scanlatorChapterCounts,
+                        selectedScanlator = selectedScanlator,
+                        onScanlatorSelected = onScanlatorSelected,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+            }
+
             if (chapters.isEmpty()) {
                 item {
                     Box(
@@ -190,7 +217,7 @@ fun NovelScreenAuroraImpl(
                 }
             } else {
                 items(
-                    items = chapters,
+                    items = visibleChapters,
                     key = { it.id },
                     contentType = { "chapter" },
                 ) { chapter ->
@@ -210,6 +237,29 @@ fun NovelScreenAuroraImpl(
                             .fillMaxWidth()
                             .padding(horizontal = 8.dp, vertical = 2.dp),
                     )
+                }
+
+                if (visibleChapterCount < chapters.size) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            SelectionChip(
+                                text = "${stringResource(MR.strings.label_more)} " +
+                                    "(${chapters.size - visibleChapterCount})",
+                                onClick = {
+                                    visibleChapterCount = nextVisibleChapterCount(
+                                        currentCount = visibleChapterCount,
+                                        totalCount = chapters.size,
+                                        step = NOVEL_CHAPTERS_PAGE_SIZE,
+                                    )
+                                },
+                            )
+                        }
+                    }
                 }
             }
         }

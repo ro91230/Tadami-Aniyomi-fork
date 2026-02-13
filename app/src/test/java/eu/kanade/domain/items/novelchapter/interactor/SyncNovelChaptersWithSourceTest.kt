@@ -7,6 +7,8 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
@@ -119,6 +121,10 @@ class SyncNovelChaptersWithSourceTest {
             novelId: Long,
             applyScanlatorFilter: Boolean,
         ): List<NovelChapter> = chapters
+
+        override suspend fun getScanlatorsByNovelId(novelId: Long): List<String> = chapters.mapNotNull { it.scanlator }
+
+        override fun getScanlatorsByNovelIdAsFlow(novelId: Long): Flow<List<String>> = MutableStateFlow(emptyList())
 
         override suspend fun getBookmarkedChaptersByNovelId(novelId: Long): List<NovelChapter> = emptyList()
 

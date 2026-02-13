@@ -86,6 +86,18 @@ class NovelChapterRepositoryImpl(
         }
     }
 
+    override suspend fun getScanlatorsByNovelId(novelId: Long): List<String> {
+        return handler.awaitList {
+            novel_chaptersQueries.getScanlatorsByNovelId(novelId) { it.orEmpty() }
+        }
+    }
+
+    override fun getScanlatorsByNovelIdAsFlow(novelId: Long): Flow<List<String>> {
+        return handler.subscribeToList {
+            novel_chaptersQueries.getScanlatorsByNovelId(novelId) { it.orEmpty() }
+        }
+    }
+
     override suspend fun getBookmarkedChaptersByNovelId(novelId: Long): List<NovelChapter> {
         return handler.awaitList {
             novel_chaptersQueries.getBookmarkedChaptersByNovelId(novelId, ::mapChapter)

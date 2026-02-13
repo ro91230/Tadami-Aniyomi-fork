@@ -1043,6 +1043,7 @@ class NovelReaderScreenModelTest {
             state.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
             state.previousChapterId shouldBe chapter1.id
             state.nextChapterId shouldBe chapter3.id
+            chapterRepo.lastApplyScanlatorFilter shouldBe true
         }
     }
 
@@ -1090,12 +1091,18 @@ class NovelReaderScreenModelTest {
     ) : NovelChapterRepository {
         override suspend fun addAllChapters(chapters: List<NovelChapter>): List<NovelChapter> = chapters
         var lastUpdate: NovelChapterUpdate? = null
+        var lastApplyScanlatorFilter: Boolean? = null
         override suspend fun updateChapter(chapterUpdate: NovelChapterUpdate) {
             lastUpdate = chapterUpdate
         }
         override suspend fun updateAllChapters(chapterUpdates: List<NovelChapterUpdate>) = Unit
         override suspend fun removeChaptersWithIds(chapterIds: List<Long>) = Unit
-        override suspend fun getChapterByNovelId(novelId: Long, applyScanlatorFilter: Boolean) = chaptersByNovel
+        override suspend fun getChapterByNovelId(novelId: Long, applyScanlatorFilter: Boolean): List<NovelChapter> {
+            lastApplyScanlatorFilter = applyScanlatorFilter
+            return chaptersByNovel
+        }
+        override suspend fun getScanlatorsByNovelId(novelId: Long) = chaptersByNovel.mapNotNull { it.scanlator }
+        override fun getScanlatorsByNovelIdAsFlow(novelId: Long): Flow<List<String>> = MutableStateFlow(emptyList())
         override suspend fun getBookmarkedChaptersByNovelId(novelId: Long) = emptyList<NovelChapter>()
         override suspend fun getChapterById(id: Long): NovelChapter? = chapter?.takeIf { it.id == id }
         override suspend fun getChapterByNovelIdAsFlow(

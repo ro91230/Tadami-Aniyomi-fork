@@ -1,6 +1,7 @@
 package tachiyomi.domain.entries.novel.interactor
 
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -80,6 +81,8 @@ class GetNovelWithChaptersTest {
             novelId: Long,
             applyScanlatorFilter: Boolean,
         ): List<NovelChapter> = chaptersFlow.value
+        override suspend fun getScanlatorsByNovelId(novelId: Long): List<String> = chaptersFlow.value.mapNotNull { it.scanlator }
+        override fun getScanlatorsByNovelIdAsFlow(novelId: Long): Flow<List<String>> = MutableStateFlow(emptyList())
         override suspend fun getBookmarkedChaptersByNovelId(novelId: Long): List<NovelChapter> = emptyList()
         override suspend fun getChapterById(id: Long): NovelChapter? = null
         override suspend fun getChapterByNovelIdAsFlow(

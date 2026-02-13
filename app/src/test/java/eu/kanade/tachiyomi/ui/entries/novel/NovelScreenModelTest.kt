@@ -4,9 +4,16 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import eu.kanade.domain.entries.novel.interactor.UpdateNovel
+import eu.kanade.domain.entries.novel.interactor.GetNovelExcludedScanlators
+import eu.kanade.domain.entries.novel.interactor.SetNovelExcludedScanlators
+import eu.kanade.domain.items.novelchapter.interactor.GetAvailableNovelScanlators
+import eu.kanade.domain.items.novelchapter.interactor.GetNovelScanlatorChapterCounts
 import eu.kanade.domain.items.novelchapter.interactor.SyncNovelChaptersWithSource
 import eu.kanade.tachiyomi.novelsource.NovelSource
 import io.kotest.matchers.shouldBe
+import io.mockk.coEvery
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +36,7 @@ import tachiyomi.domain.items.novelchapter.model.NovelChapter
 import tachiyomi.domain.category.novel.interactor.GetNovelCategories
 import tachiyomi.domain.category.novel.interactor.SetNovelCategories
 import tachiyomi.domain.source.novel.service.NovelSourceManager
+import tachiyomi.data.handlers.novel.NovelDatabaseHandler
 
 class NovelScreenModelTest {
 
@@ -65,6 +73,9 @@ class NovelScreenModelTest {
                         novelId: Long,
                         applyScanlatorFilter: Boolean,
                     ): List<NovelChapter> = emptyList()
+                    override suspend fun getScanlatorsByNovelId(novelId: Long): List<String> = emptyList()
+                    override fun getScanlatorsByNovelIdAsFlow(novelId: Long): Flow<List<String>> =
+                        MutableStateFlow(emptyList())
                     override suspend fun getBookmarkedChaptersByNovelId(novelId: Long): List<NovelChapter> = emptyList()
                     override suspend fun getChapterById(id: Long): NovelChapter? = null
                     override suspend fun getChapterByNovelIdAsFlow(
@@ -104,6 +115,9 @@ class NovelScreenModelTest {
                     novelId: Long,
                     applyScanlatorFilter: Boolean,
                 ): List<NovelChapter> = emptyList()
+                override suspend fun getScanlatorsByNovelId(novelId: Long): List<String> = emptyList()
+                override fun getScanlatorsByNovelIdAsFlow(novelId: Long): Flow<List<String>> =
+                    MutableStateFlow(emptyList())
                 override suspend fun getBookmarkedChaptersByNovelId(novelId: Long): List<NovelChapter> = emptyList()
                 override suspend fun getChapterById(id: Long): NovelChapter? = null
                 override suspend fun getChapterByNovelIdAsFlow(
@@ -129,6 +143,9 @@ class NovelScreenModelTest {
                         novelId: Long,
                         applyScanlatorFilter: Boolean,
                     ): List<NovelChapter> = emptyList()
+                    override suspend fun getScanlatorsByNovelId(novelId: Long): List<String> = emptyList()
+                    override fun getScanlatorsByNovelIdAsFlow(novelId: Long): Flow<List<String>> =
+                        MutableStateFlow(emptyList())
                     override suspend fun getBookmarkedChaptersByNovelId(novelId: Long): List<NovelChapter> = emptyList()
                     override suspend fun getChapterById(id: Long): NovelChapter? = null
                     override suspend fun getChapterByNovelIdAsFlow(
@@ -204,6 +221,17 @@ class NovelScreenModelTest {
                     libraryPreferences = libraryPreferences,
                     setNovelChapterFlags = SetNovelChapterFlags(novelRepository),
                     getFavorites = GetNovelFavorites(novelRepository),
+                ),
+                getAvailableNovelScanlators = GetAvailableNovelScanlators(chapterRepository),
+                getNovelScanlatorChapterCounts = GetNovelScanlatorChapterCounts(chapterRepository),
+                getNovelExcludedScanlators = GetNovelExcludedScanlators(
+                    mockk<NovelDatabaseHandler>().also { handler ->
+                        coEvery { handler.awaitList<String>(any(), any()) } returns emptyList()
+                        every { handler.subscribeToList<String>(any()) } returns MutableStateFlow(emptyList())
+                    },
+                ),
+                setNovelExcludedScanlators = SetNovelExcludedScanlators(
+                    mockk<NovelDatabaseHandler>(relaxed = true),
                 ),
                 getNovelCategories = GetNovelCategories(novelCategoryRepository),
                 setNovelCategories = SetNovelCategories(novelCategoryRepository),

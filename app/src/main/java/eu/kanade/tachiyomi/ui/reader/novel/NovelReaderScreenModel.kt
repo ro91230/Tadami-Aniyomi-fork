@@ -87,7 +87,7 @@ class NovelReaderScreenModel(
             ?: return setError("Novel not found")
         val source = sourceManager.get(novel.source)
             ?: return setError("Source not found")
-        chapterOrderList = novelChapterRepository.getChapterByNovelId(novel.id)
+        chapterOrderList = novelChapterRepository.getChapterByNovelId(novel.id, applyScanlatorFilter = true)
             .sortedBy { it.sourceOrder }
 
         val html = novelDownloadManager.getDownloadedChapterText(novel, chapter.id)

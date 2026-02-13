@@ -37,6 +37,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -52,11 +55,11 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
-import eu.kanade.domain.entries.novel.model.chaptersFiltered
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.components.relativeDateTimeText
 import eu.kanade.presentation.entries.components.EntryBottomActionMenu
 import eu.kanade.presentation.entries.components.EntryToolbar
+import eu.kanade.presentation.entries.manga.components.ScanlatorBranchSelector
 import eu.kanade.presentation.entries.components.ItemCover
 import eu.kanade.presentation.theme.AuroraTheme
 import eu.kanade.presentation.util.formatChapterNumber
@@ -73,6 +76,8 @@ import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import tachiyomi.domain.entries.novel.model.Novel as DomainNovel
+
+internal const val NOVEL_CHAPTERS_PAGE_SIZE = 120
 
 @Composable
 fun NovelScreen(
@@ -93,6 +98,9 @@ fun NovelScreen(
     onChapterBookmarkToggle: (Long) -> Unit,
     onChapterDownloadToggle: (Long) -> Unit,
     onFilterButtonClicked: () -> Unit,
+    scanlatorChapterCounts: Map<String, Int>,
+    selectedScanlator: String?,
+    onScanlatorSelected: (String?) -> Unit,
     onChapterLongClick: (Long) -> Unit,
     onAllChapterSelected: (Boolean) -> Unit,
     onInvertSelection: () -> Unit,
@@ -124,6 +132,9 @@ fun NovelScreen(
             onChapterBookmarkToggle = onChapterBookmarkToggle,
             onChapterDownloadToggle = onChapterDownloadToggle,
             onFilterButtonClicked = onFilterButtonClicked,
+            scanlatorChapterCounts = scanlatorChapterCounts,
+            selectedScanlator = selectedScanlator,
+            onScanlatorSelected = onScanlatorSelected,
             onToggleAllSelection = onAllChapterSelected,
             onInvertSelection = onInvertSelection,
             onMultiBookmarkClicked = onMultiBookmarkClicked,
@@ -142,12 +153,23 @@ fun NovelScreen(
     val isAnySelected = selectedCount > 0
     val selectedChapters = chapters.filter { it.id in selectedIds }
     val downloadedChapterIds = state.downloadedChapterIds
+    var visibleChapterCount by remember(chapters) {
+        mutableIntStateOf(
+            initialVisibleChapterCount(
+                totalCount = chapters.size,
+                pageSize = NOVEL_CHAPTERS_PAGE_SIZE,
+            ),
+        )
+    }
+    val visibleChapters = remember(chapters, visibleChapterCount) {
+        chapters.take(visibleChapterCount)
+    }
 
     Scaffold(
         topBar = {
             EntryToolbar(
                 title = state.novel.title,
-                hasFilters = state.novel.chaptersFiltered(),
+                hasFilters = state.filterActive,
                 navigateUp = {
                     if (isAnySelected) onAllChapterSelected(false) else onBack()
                 },
@@ -414,7 +436,7 @@ fun NovelScreen(
                         text = stringResource(MR.strings.chapters),
                         style = MaterialTheme.typography.titleMedium,
                     )
-                    if (state.novel.chaptersFiltered()) {
+                    if (state.filterActive) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -435,8 +457,21 @@ fun NovelScreen(
                 }
             }
 
+            if (state.showScanlatorSelector) {
+                item {
+                    ScanlatorBranchSelector(
+                        scanlatorChapterCounts = scanlatorChapterCounts,
+                        selectedScanlator = selectedScanlator,
+                        onScanlatorSelected = onScanlatorSelected,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small),
+                    )
+                }
+            }
+
             items(
-                items = chapters,
+                items = visibleChapters,
                 key = { it.id },
             ) { chapter ->
                 val selected = chapter.id in selectedIds
@@ -552,9 +587,45 @@ fun NovelScreen(
                     }
                 }
             }
+            if (visibleChapterCount < chapters.size) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Button(
+                            onClick = {
+                                visibleChapterCount = nextVisibleChapterCount(
+                                    currentCount = visibleChapterCount,
+                                    totalCount = chapters.size,
+                                    step = NOVEL_CHAPTERS_PAGE_SIZE,
+                                )
+                            },
+                        ) {
+                            Text(
+                                text = "${stringResource(MR.strings.label_more)} " +
+                                    "(${chapters.size - visibleChapterCount})",
+                            )
+                        }
+                    }
+                }
+            }
             item { Spacer(modifier = Modifier.height(MaterialTheme.padding.small)) }
         }
     }
+}
+
+internal fun initialVisibleChapterCount(totalCount: Int, pageSize: Int): Int {
+    if (totalCount <= 0 || pageSize <= 0) return 0
+    return minOf(totalCount, pageSize)
+}
+
+internal fun nextVisibleChapterCount(currentCount: Int, totalCount: Int, step: Int): Int {
+    if (totalCount <= 0 || step <= 0) return 0
+    if (currentCount <= 0) return minOf(totalCount, step)
+    return minOf(totalCount, currentCount + step)
 }
 
 @Composable

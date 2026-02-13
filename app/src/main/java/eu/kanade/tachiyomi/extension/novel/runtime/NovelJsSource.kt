@@ -436,7 +436,20 @@ class NovelJsSource internal constructor(
             it.name = resolvedName
             it.date_upload = parseChapterDate(releaseTime)
             it.chapter_number = chapterNumber?.toFloat() ?: -1f
+            it.scanlator = resolveScanlatorLabel(scanlator, page)
         }
+    }
+
+    private fun resolveScanlatorLabel(
+        scanlator: String?,
+        page: String?,
+    ): String? {
+        val explicitScanlator = scanlator?.trim()?.takeIf { it.isNotEmpty() }
+        if (explicitScanlator != null) return explicitScanlator
+
+        val pageLabel = page?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        if (pageLabel.all { it.isDigit() }) return null
+        return pageLabel
     }
 
     private fun parseChapterDate(value: String?): Long {
@@ -1190,6 +1203,7 @@ internal data class ParsedPluginChapter(
     val path: String? = null,
     val releaseTime: String? = null,
     val chapterNumber: Double? = null,
+    val scanlator: String? = null,
     val page: String? = null,
 )
 
@@ -1281,6 +1295,7 @@ internal object NovelJsPayloadParser {
                 path = chapter.string("path", "url", "href", "link", "chapterPath"),
                 releaseTime = chapter.string("releaseTime"),
                 chapterNumber = chapter.number("chapterNumber", "number"),
+                scanlator = chapter.string("scanlator", "translator", "team", "group", "branch", "branchName"),
                 page = chapter.string("page"),
             )
         }
