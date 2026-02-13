@@ -6,6 +6,7 @@ import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -41,10 +42,12 @@ import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.presentation.entries.components.ItemCover
 import eu.kanade.presentation.library.novel.NovelLibrarySettingsDialog
+import eu.kanade.presentation.library.novel.resolveNovelLibraryBadgeState
 import eu.kanade.presentation.library.components.LibraryToolbar
 import eu.kanade.presentation.library.components.LibraryToolbarTitle
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.data.download.novel.NovelDownloadManager
 import eu.kanade.tachiyomi.data.library.novel.NovelLibraryUpdateJob
 import eu.kanade.tachiyomi.ui.entries.novel.NovelScreen
 import kotlinx.coroutines.channels.Channel
@@ -55,7 +58,10 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.novel.LibraryNovel
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.source.novel.service.NovelSourceManager
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.components.Badge
+import tachiyomi.presentation.core.components.BadgeGroup
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -91,7 +97,11 @@ data object NovelLibraryTab : Tab {
         val screenModel = rememberScreenModel { NovelLibraryScreenModel() }
         val state by screenModel.state.collectAsState()
         val libraryPreferences = remember { Injekt.get<LibraryPreferences>() }
+        val sourceManager = remember { Injekt.get<NovelSourceManager>() }
         val displayMode by libraryPreferences.displayMode().collectAsState()
+        val showDownloadBadge by libraryPreferences.downloadBadge().collectAsState()
+        val showUnreadBadge by libraryPreferences.unreadBadge().collectAsState()
+        val showLanguageBadge by libraryPreferences.languageBadge().collectAsState()
         val configuration = LocalConfiguration.current
         val columnPreference = remember(configuration.orientation) {
             if (configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
@@ -101,6 +111,23 @@ data object NovelLibraryTab : Tab {
             }
         }
         val columns by columnPreference.collectAsState()
+        val downloadedNovelIds = remember(state.items, showDownloadBadge) {
+            if (!showDownloadBadge) return@remember emptySet()
+
+            val downloadManager = NovelDownloadManager()
+            state.items.asSequence()
+                .mapNotNull { item ->
+                    item.novel.id.takeIf { downloadManager.hasAnyDownloadedChapter(item.novel) }
+                }
+                .toSet()
+        }
+        val sourceLanguageByNovelId = remember(state.items, showLanguageBadge) {
+            if (!showLanguageBadge) return@remember emptyMap()
+
+            state.items.associate { item ->
+                item.novel.id to sourceManager.getOrStub(item.novel.source).lang
+            }
+        }
         val snackbarHostState = remember { SnackbarHostState() }
 
         val onClickRefresh: () -> Unit = {
@@ -166,6 +193,14 @@ data object NovelLibraryTab : Tab {
                             items(state.items, key = { it.id }) { item ->
                                 NovelLibraryListItem(
                                     item = item,
+                                    badgeState = resolveNovelLibraryBadgeState(
+                                        item = item,
+                                        showDownloadBadge = showDownloadBadge,
+                                        downloadedNovelIds = downloadedNovelIds,
+                                        showUnreadBadge = showUnreadBadge,
+                                        showLanguageBadge = showLanguageBadge,
+                                        sourceLanguage = sourceLanguageByNovelId[item.novel.id].orEmpty(),
+                                    ),
                                     onClick = { navigator.push(NovelScreen(item.novel.id)) },
                                 )
                             }
@@ -190,6 +225,14 @@ data object NovelLibraryTab : Tab {
                             items(state.items, key = { it.id }) { item ->
                                 NovelLibraryGridItem(
                                     item = item,
+                                    badgeState = resolveNovelLibraryBadgeState(
+                                        item = item,
+                                        showDownloadBadge = showDownloadBadge,
+                                        downloadedNovelIds = downloadedNovelIds,
+                                        showUnreadBadge = showUnreadBadge,
+                                        showLanguageBadge = showLanguageBadge,
+                                        sourceLanguage = sourceLanguageByNovelId[item.novel.id].orEmpty(),
+                                    ),
                                     showMetadata = displayMode != LibraryDisplayMode.CoverOnlyGrid,
                                     onClick = { navigator.push(NovelScreen(item.novel.id)) },
                                 )
@@ -222,6 +265,7 @@ data object NovelLibraryTab : Tab {
 @Composable
 private fun NovelLibraryGridItem(
     item: LibraryNovel,
+    badgeState: eu.kanade.presentation.library.novel.NovelLibraryBadgeState,
     showMetadata: Boolean,
     onClick: () -> Unit,
 ) {
@@ -240,12 +284,35 @@ private fun NovelLibraryGridItem(
             modifier = Modifier.padding(MaterialTheme.padding.small),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            ItemCover.Book(
-                data = item.novel.thumbnailUrl,
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(170.dp),
-            )
+            ) {
+                ItemCover.Book(
+                    data = item.novel.thumbnailUrl,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(170.dp),
+                )
+                if (badgeState.showDownloaded || badgeState.unreadCount != null || badgeState.language != null) {
+                    BadgeGroup(
+                        modifier = Modifier
+                            .align(androidx.compose.ui.Alignment.TopStart)
+                            .padding(6.dp),
+                    ) {
+                        if (badgeState.showDownloaded) {
+                            Badge(text = "DL")
+                        }
+                        badgeState.unreadCount?.let {
+                            Badge(text = it.toString())
+                        }
+                        badgeState.language?.let {
+                            Badge(text = it.uppercase())
+                        }
+                    }
+                }
+            }
             if (showMetadata) {
                 Text(
                     text = item.novel.title,
@@ -267,6 +334,7 @@ private fun NovelLibraryGridItem(
 @Composable
 private fun NovelLibraryListItem(
     item: LibraryNovel,
+    badgeState: eu.kanade.presentation.library.novel.NovelLibraryBadgeState,
     onClick: () -> Unit,
 ) {
     val progressText = if (item.totalChapters > 0) {
@@ -284,12 +352,35 @@ private fun NovelLibraryListItem(
             modifier = Modifier.padding(MaterialTheme.padding.small),
             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
         ) {
-            ItemCover.Book(
-                data = item.novel.thumbnailUrl,
+            Box(
                 modifier = Modifier
                     .height(112.dp)
                     .aspectRatio(0.68f),
-            )
+            ) {
+                ItemCover.Book(
+                    data = item.novel.thumbnailUrl,
+                    modifier = Modifier
+                        .height(112.dp)
+                        .aspectRatio(0.68f),
+                )
+                if (badgeState.showDownloaded || badgeState.unreadCount != null || badgeState.language != null) {
+                    BadgeGroup(
+                        modifier = Modifier
+                            .align(androidx.compose.ui.Alignment.TopStart)
+                            .padding(6.dp),
+                    ) {
+                        if (badgeState.showDownloaded) {
+                            Badge(text = "DL")
+                        }
+                        badgeState.unreadCount?.let {
+                            Badge(text = it.toString())
+                        }
+                        badgeState.language?.let {
+                            Badge(text = it.uppercase())
+                        }
+                    }
+                }
+            }
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(6.dp),

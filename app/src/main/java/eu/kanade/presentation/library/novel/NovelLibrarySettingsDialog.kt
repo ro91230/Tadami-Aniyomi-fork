@@ -237,25 +237,7 @@ private fun ColumnScope.DisplayPage(
         pref = libraryPreferences.unreadBadge(),
     )
     CheckboxItem(
-        label = stringResource(MR.strings.action_display_local_badge),
-        pref = libraryPreferences.localBadge(),
-    )
-    CheckboxItem(
         label = stringResource(MR.strings.action_display_language_badge),
         pref = libraryPreferences.languageBadge(),
-    )
-    CheckboxItem(
-        label = stringResource(AYMR.strings.action_display_show_continue_reading_button),
-        pref = libraryPreferences.showContinueViewingButton(),
-    )
-
-    HeadingItem(MR.strings.tabs_header)
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_show_tabs),
-        pref = libraryPreferences.categoryTabs(),
-    )
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_show_number_of_items),
-        pref = libraryPreferences.categoryNumberOfItems(),
     )
 }

@@ -48,14 +48,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.request.ImageRequest
+import eu.kanade.presentation.library.novel.resolveNovelLibraryBadgeState
 import eu.kanade.presentation.components.AuroraCard
 import eu.kanade.presentation.components.AuroraTabRow
 import eu.kanade.presentation.components.LocalTabState
 import eu.kanade.presentation.theme.AuroraTheme
+import eu.kanade.tachiyomi.data.download.novel.NovelDownloadManager
 import tachiyomi.domain.library.novel.LibraryNovel
+import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.source.novel.service.NovelSourceManager
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.aniyomi.AYMR
+import tachiyomi.presentation.core.components.Badge
+import tachiyomi.presentation.core.components.BadgeGroup
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.collectAsState
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 @Composable
 fun NovelLibraryAuroraContent(
@@ -73,6 +82,28 @@ fun NovelLibraryAuroraContent(
     val colors = AuroraTheme.colors
     val gridState = rememberLazyGridState()
     val context = LocalContext.current
+    val libraryPreferences = remember { Injekt.get<LibraryPreferences>() }
+    val sourceManager = remember { Injekt.get<NovelSourceManager>() }
+    val showDownloadBadge by libraryPreferences.downloadBadge().collectAsState()
+    val showUnreadBadge by libraryPreferences.unreadBadge().collectAsState()
+    val showLanguageBadge by libraryPreferences.languageBadge().collectAsState()
+    val downloadedNovelIds = remember(items, showDownloadBadge) {
+        if (!showDownloadBadge) return@remember emptySet()
+
+        val downloadManager = NovelDownloadManager()
+        items.asSequence()
+            .mapNotNull { item ->
+                item.novel.id.takeIf { downloadManager.hasAnyDownloadedChapter(item.novel) }
+            }
+            .toSet()
+    }
+    val sourceLanguageByNovelId = remember(items, showLanguageBadge) {
+        if (!showLanguageBadge) return@remember emptyMap()
+
+        items.associate { item ->
+            item.novel.id to sourceManager.getOrStub(item.novel.source).lang
+        }
+    }
     var isSearchActive by remember(searchQuery) { mutableStateOf(!searchQuery.isNullOrBlank()) }
 
     val query = searchQuery.orEmpty()
@@ -114,6 +145,14 @@ fun NovelLibraryAuroraContent(
             }
 
             items(filteredItems) { item ->
+                val badgeState = resolveNovelLibraryBadgeState(
+                    item = item,
+                    showDownloadBadge = showDownloadBadge,
+                    downloadedNovelIds = downloadedNovelIds,
+                    showUnreadBadge = showUnreadBadge,
+                    showLanguageBadge = showLanguageBadge,
+                    sourceLanguage = sourceLanguageByNovelId[item.novel.id].orEmpty(),
+                )
                 val progressText = if (item.totalChapters > 0) {
                     "${item.totalChapters - item.unreadCount}/${item.totalChapters} ${stringResource(
                         MR.strings.chapters,
@@ -132,17 +171,34 @@ fun NovelLibraryAuroraContent(
                     },
                     subtitle = progressText,
                     coverHeightFraction = 0.6f,
-                    badge = if (item.unreadCount > 0) {
+                    badge = if (badgeState.showDownloaded || badgeState.unreadCount != null || badgeState.language != null) {
                         {
-                            Text(
-                                text = item.unreadCount.toString(),
-                                color = colors.textOnAccent,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier
-                                    .background(colors.accent, RoundedCornerShape(4.dp))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                            )
+                            BadgeGroup {
+                                if (badgeState.showDownloaded) {
+                                    Badge(
+                                        text = "DL",
+                                        color = colors.accent,
+                                        textColor = colors.textOnAccent,
+                                        shape = RoundedCornerShape(4.dp),
+                                    )
+                                }
+                                badgeState.unreadCount?.let {
+                                    Badge(
+                                        text = it.toString(),
+                                        color = colors.accent,
+                                        textColor = colors.textOnAccent,
+                                        shape = RoundedCornerShape(4.dp),
+                                    )
+                                }
+                                badgeState.language?.let {
+                                    Badge(
+                                        text = it.uppercase(),
+                                        color = colors.accent,
+                                        textColor = colors.textOnAccent,
+                                        shape = RoundedCornerShape(4.dp),
+                                    )
+                                }
+                            }
                         }
                     } else {
                         null
