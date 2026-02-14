@@ -18,19 +18,25 @@ import eu.kanade.domain.items.novelchapter.interactor.SyncNovelChaptersWithSourc
 import eu.kanade.tachiyomi.data.download.novel.NovelDownloadManager
 import eu.kanade.tachiyomi.data.export.novel.NovelEpubExportOptions
 import eu.kanade.tachiyomi.data.export.novel.NovelEpubExporter
+import eu.kanade.tachiyomi.data.track.MangaTracker
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.novelsource.NovelSource
 import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderPreferences
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.Job
+import logcat.LogPriority
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.novel.interactor.GetNovelCategories
 import tachiyomi.domain.category.novel.interactor.SetNovelCategories
 import tachiyomi.domain.entries.applyFilter
@@ -46,6 +52,8 @@ import tachiyomi.domain.items.novelchapter.interactor.SetNovelDefaultChapterFlag
 import tachiyomi.domain.items.novelchapter.service.getNovelChapterSort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.source.novel.service.NovelSourceManager
+import tachiyomi.domain.track.manga.interactor.GetMangaTracks
+import tachiyomi.domain.track.manga.model.MangaTrack
 import tachiyomi.domain.category.model.Category
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -84,6 +92,8 @@ class NovelScreenModel(
     private val getNovelCategories: GetNovelCategories = Injekt.get(),
     private val setNovelCategories: SetNovelCategories = Injekt.get(),
     private val sourceManager: NovelSourceManager = Injekt.get(),
+    private val trackerManager: TrackerManager = Injekt.get(),
+    private val getTracks: GetMangaTracks = Injekt.get(),
     private val novelDownloadManager: NovelDownloadManager = NovelDownloadManager(),
     private val novelEpubExporter: NovelEpubExporter = NovelEpubExporter(),
     private val novelReaderPreferences: NovelReaderPreferences = Injekt.get(),
@@ -227,6 +237,7 @@ class NovelScreenModel(
                 )
             }
             cacheState(state.value as? State.Success)
+            observeTrackers()
 
             val downloadedChapterIds = novelDownloadManager.getDownloadedChapterIds(novel, chapters)
             updateSuccessState {
@@ -772,8 +783,38 @@ class NovelScreenModel(
         }
     }
 
+    private fun observeTrackers() {
+        screenModelScope.launchIO {
+            combine(
+                getTracks.subscribe(novelId).catch { logcat(LogPriority.ERROR, it) },
+                trackerManager.loggedInTrackersFlow(),
+            ) { novelTracks, loggedInTrackers ->
+                val loggedInMangaTrackerIds = loggedInTrackers
+                    .asSequence()
+                    .filter { it is MangaTracker }
+                    .map { it.id }
+                    .toSet()
+                resolveNovelTrackingSummary(
+                    tracks = novelTracks,
+                    loggedInMangaTrackerIds = loggedInMangaTrackerIds,
+                )
+            }
+                .flowWithLifecycle(lifecycle)
+                .distinctUntilChanged()
+                .collectLatest { summary ->
+                    updateSuccessState {
+                        it.copy(
+                            trackingCount = summary.trackingCount,
+                            hasLoggedInTrackers = summary.hasLoggedInTrackers,
+                        )
+                    }
+                }
+        }
+    }
+
     sealed interface Dialog {
         data object SettingsSheet : Dialog
+        data object TrackSheet : Dialog
     }
 
     sealed interface State {
@@ -790,6 +831,8 @@ class NovelScreenModel(
             val excludedScanlators: Set<String>,
             val isRefreshingData: Boolean,
             val dialog: Dialog?,
+            val trackingCount: Int = 0,
+            val hasLoggedInTrackers: Boolean = false,
             val selectedChapterIds: Set<Long> = emptySet(),
             val downloadedChapterIds: Set<Long> = emptySet(),
             val downloadingChapterIds: Set<Long> = emptySet(),
@@ -809,6 +852,9 @@ class NovelScreenModel(
             val filterActive: Boolean
                 get() = scanlatorFilterActive || novel.chaptersFiltered()
 
+            val trackingAvailable: Boolean
+                get() = trackingCount > 0
+
             val processedChapters by lazy {
                 val chapterSort = Comparator(getNovelChapterSort(novel))
                 chapters
@@ -822,6 +868,10 @@ class NovelScreenModel(
                     .toList()
             }
         }
+    }
+
+    fun showTrackDialog() {
+        updateSuccessState { it.copy(dialog = Dialog.TrackSheet) }
     }
 
     companion object {
@@ -881,6 +931,23 @@ class NovelScreenModel(
             }
         }
     }
+}
+
+@Immutable
+internal data class NovelTrackingSummary(
+    val trackingCount: Int,
+    val hasLoggedInTrackers: Boolean,
+)
+
+internal fun resolveNovelTrackingSummary(
+    tracks: List<MangaTrack>,
+    loggedInMangaTrackerIds: Set<Long>,
+): NovelTrackingSummary {
+    val trackingCount = tracks.count { it.trackerId in loggedInMangaTrackerIds }
+    return NovelTrackingSummary(
+        trackingCount = trackingCount,
+        hasLoggedInTrackers = loggedInMangaTrackerIds.isNotEmpty(),
+    )
 }
 
 internal fun resolveSelectedNovelScanlator(

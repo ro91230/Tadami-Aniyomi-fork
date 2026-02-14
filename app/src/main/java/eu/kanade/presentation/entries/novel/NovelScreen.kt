@@ -23,6 +23,8 @@ import androidx.compose.material.icons.outlined.FileDownloadOff
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.Done
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -93,6 +95,8 @@ fun NovelScreen(
     onWebView: (() -> Unit)?,
     onSourceSettings: (() -> Unit)?,
     onMigrateClicked: (() -> Unit)?,
+    onTrackingClicked: () -> Unit,
+    trackingCount: Int,
     onOpenBatchDownloadDialog: (() -> Unit)?,
     onOpenEpubExportDialog: (() -> Unit)?,
     onChapterClick: (Long) -> Unit,
@@ -127,6 +131,8 @@ fun NovelScreen(
             onShare = onShare,
             onWebView = onWebView,
             onMigrateClicked = onMigrateClicked,
+            onTrackingClicked = onTrackingClicked,
+            trackingCount = trackingCount,
             onOpenBatchDownloadDialog = onOpenBatchDownloadDialog,
             onOpenEpubExportDialog = onOpenEpubExportDialog,
             onChapterClick = onChapterClick,
@@ -405,6 +411,24 @@ fun NovelScreen(
                         IconButton(onClick = onShare) {
                             Icon(imageVector = Icons.Outlined.Share, contentDescription = null)
                         }
+                    }
+                    TextButton(onClick = onTrackingClicked) {
+                        Icon(
+                            imageVector = if (trackingCount == 0) {
+                                Icons.Outlined.Sync
+                            } else {
+                                Icons.Outlined.Done
+                            },
+                            contentDescription = null,
+                        )
+                        Text(
+                            text = if (trackingCount == 0) {
+                                stringResource(MR.strings.manga_tracking_tab)
+                            } else {
+                                pluralStringResource(MR.plurals.num_trackers, trackingCount, trackingCount)
+                            },
+                            modifier = Modifier.padding(start = 4.dp),
+                        )
                     }
                     if (onOpenBatchDownloadDialog != null) {
                         TextButton(onClick = onOpenBatchDownloadDialog) {

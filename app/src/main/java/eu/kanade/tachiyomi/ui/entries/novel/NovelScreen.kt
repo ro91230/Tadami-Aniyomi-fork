@@ -37,6 +37,7 @@ import androidx.core.net.toUri
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import eu.kanade.presentation.components.NavigatorAdaptiveSheet
 import eu.kanade.presentation.entries.novel.NovelChapterSettingsDialog
 import eu.kanade.presentation.entries.novel.NovelScreen
 import eu.kanade.tachiyomi.extension.novel.runtime.resolveUrl
@@ -46,7 +47,9 @@ import eu.kanade.tachiyomi.source.novel.NovelSiteSource
 import eu.kanade.tachiyomi.source.novel.NovelWebUrlSource
 import eu.kanade.tachiyomi.ui.browse.novel.extension.details.NovelSourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.browse.novel.migration.search.MigrateNovelSearchScreen
+import eu.kanade.tachiyomi.ui.entries.manga.track.MangaTrackInfoDialogHomeScreen
 import eu.kanade.tachiyomi.ui.reader.novel.NovelReaderScreen
+import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.storage.getUriCompat
 import eu.kanade.tachiyomi.util.system.toShareIntent
@@ -150,6 +153,14 @@ class NovelScreen(
             onMigrateClicked = {
                 navigator.push(MigrateNovelSearchScreen(successState.novel.id))
             }.takeIf { successState.novel.favorite },
+            onTrackingClicked = {
+                if (!successState.hasLoggedInTrackers) {
+                    navigator.push(SettingsScreen(SettingsScreen.Destination.Tracking))
+                } else {
+                    screenModel.showTrackDialog()
+                }
+            },
+            trackingCount = successState.trackingCount,
             onOpenBatchDownloadDialog = { showBatchDownloadDialog = true },
             onOpenEpubExportDialog = { showEpubExportDialog = true },
             onChapterClick = { chapterId ->
@@ -247,6 +258,17 @@ class NovelScreen(
                     onDisplayModeChanged = screenModel::setDisplayMode,
                     onSetAsDefault = screenModel::setCurrentSettingsAsDefault,
                     onResetToDefault = screenModel::resetToDefaultSettings,
+                )
+            }
+            NovelScreenModel.Dialog.TrackSheet -> {
+                NavigatorAdaptiveSheet(
+                    screen = MangaTrackInfoDialogHomeScreen(
+                        mangaId = successState.novel.id,
+                        mangaTitle = successState.novel.title,
+                        sourceId = successState.source.id,
+                    ),
+                    enableSwipeDismiss = { it.lastItem is MangaTrackInfoDialogHomeScreen },
+                    onDismissRequest = screenModel::dismissDialog,
                 )
             }
         }

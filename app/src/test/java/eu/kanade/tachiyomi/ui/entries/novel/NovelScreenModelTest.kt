@@ -9,6 +9,7 @@ import eu.kanade.domain.entries.novel.interactor.SetNovelExcludedScanlators
 import eu.kanade.domain.items.novelchapter.interactor.GetAvailableNovelScanlators
 import eu.kanade.domain.items.novelchapter.interactor.GetNovelScanlatorChapterCounts
 import eu.kanade.domain.items.novelchapter.interactor.SyncNovelChaptersWithSource
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.novelsource.NovelSource
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
@@ -36,6 +37,7 @@ import tachiyomi.domain.items.novelchapter.model.NovelChapter
 import tachiyomi.domain.category.novel.interactor.GetNovelCategories
 import tachiyomi.domain.category.novel.interactor.SetNovelCategories
 import tachiyomi.domain.source.novel.service.NovelSourceManager
+import tachiyomi.domain.track.manga.interactor.GetMangaTracks
 import tachiyomi.data.handlers.novel.NovelDatabaseHandler
 
 class NovelScreenModelTest {
@@ -185,6 +187,14 @@ class NovelScreenModelTest {
             val libraryPreferences = tachiyomi.domain.library.service.LibraryPreferences(
                 preferenceStore = preferenceStore,
             )
+            val trackerManager = mockk<TrackerManager>().also { manager ->
+                every { manager.loggedInTrackersFlow() } returns MutableStateFlow(emptyList())
+            }
+            val getMangaTracks = mockk<GetMangaTracks>().also { tracks ->
+                every { tracks.subscribe(any()) } returns MutableStateFlow(
+                    emptyList<tachiyomi.domain.track.manga.model.MangaTrack>(),
+                )
+            }
             val novelCategoryRepository = object : tachiyomi.domain.category.novel.repository.NovelCategoryRepository {
                 override suspend fun getCategory(id: Long) = null
                 override suspend fun getCategories() = emptyList<tachiyomi.domain.category.novel.model.NovelCategory>()
@@ -236,6 +246,8 @@ class NovelScreenModelTest {
                 getNovelCategories = GetNovelCategories(novelCategoryRepository),
                 setNovelCategories = SetNovelCategories(novelCategoryRepository),
                 sourceManager = sourceManager,
+                trackerManager = trackerManager,
+                getTracks = getMangaTracks,
                 novelReaderPreferences = eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderPreferences(
                     preferenceStore = preferenceStore,
                     json = Json { encodeDefaults = true },

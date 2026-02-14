@@ -74,6 +74,8 @@ fun NovelScreenAuroraImpl(
     onShare: (() -> Unit)?,
     onWebView: (() -> Unit)?,
     onMigrateClicked: (() -> Unit)?,
+    onTrackingClicked: () -> Unit,
+    trackingCount: Int,
     onOpenBatchDownloadDialog: (() -> Unit)?,
     onOpenEpubExportDialog: (() -> Unit)?,
     onChapterClick: (Long) -> Unit,
@@ -158,9 +160,9 @@ fun NovelScreenAuroraImpl(
                     Spacer(modifier = Modifier.height(12.dp))
                     NovelActionCard(
                         novel = novel,
-                        trackingCount = 0,
+                        trackingCount = trackingCount,
                         onAddToLibraryClicked = onToggleFavorite,
-                        onTrackingClicked = null,
+                        onTrackingClicked = onTrackingClicked,
                         onBatchDownloadClicked = onOpenBatchDownloadDialog,
                         onExportEpubClicked = onOpenEpubExportDialog,
                     )

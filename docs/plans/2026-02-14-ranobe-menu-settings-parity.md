@@ -8,7 +8,7 @@
 ## 1. Critical parity in existing novel screens
 - [x] Add source settings action from novel entry screen toolbar.
 - [x] Add migrate action from novel entry screen toolbar.
-- [ ] Add tracking action parity in novel entry screens (Aurora + standard) with backend support.
+- [x] Add tracking action parity in novel entry screens (Aurora + standard) with backend support.
 - [x] Bring `NovelLibrarySettingsDialog` to parity with anime/manga for display/filter toggles where backend exists.
 - [ ] Add/adjust tests for novel entry toolbar actions and novel library settings parity.
 
@@ -38,5 +38,5 @@
 - [x] Update this plan with final statuses.
 
 ## Remaining blockers
-- Novel tracking parity items remain open because there is currently no full novel tracking domain stack (equivalents of manga/anime track models + interactors + UI flows).
+- Full novel tracking backend/domain parity remains open because there is currently no dedicated `domain/track/novel` stack (equivalents of manga/anime track models + interactors + repositories).
 - Test-parity items remain open because dedicated test coverage for newly added novel tabs/flows has not yet been implemented in this pass.
