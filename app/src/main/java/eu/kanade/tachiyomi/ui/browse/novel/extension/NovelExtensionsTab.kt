@@ -15,6 +15,7 @@ import eu.kanade.presentation.browse.novel.NovelExtensionScreen
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
 import eu.kanade.presentation.more.settings.screen.browse.NovelExtensionReposScreen
+import eu.kanade.tachiyomi.ui.browse.novel.extension.details.NovelExtensionDetailsScreen
 import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.domain.extension.novel.model.NovelPlugin
 import tachiyomi.i18n.MR
@@ -51,6 +52,7 @@ fun novelExtensionsTab(
                 onInstallExtension = extensionsScreenModel::installExtension,
                 onCancelInstall = extensionsScreenModel::cancelInstall,
                 onUpdateExtension = extensionsScreenModel::updateExtension,
+                onOpenExtension = { navigator.push(NovelExtensionDetailsScreen(it.id)) },
                 onUninstallExtension = { pluginToUninstall = it },
                 onUpdateAll = extensionsScreenModel::updateAllExtensions,
                 onRefresh = extensionsScreenModel::refresh,

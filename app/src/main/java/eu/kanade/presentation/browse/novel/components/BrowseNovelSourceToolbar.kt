@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
@@ -17,6 +18,7 @@ import eu.kanade.presentation.components.AppBarTitle
 import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.presentation.components.RadioMenuItem
 import eu.kanade.presentation.components.SearchToolbar
+import eu.kanade.tachiyomi.novelsource.ConfigurableNovelSource
 import eu.kanade.tachiyomi.novelsource.NovelSource
 import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.domain.library.model.LibraryDisplayMode
@@ -32,10 +34,12 @@ fun BrowseNovelSourceToolbar(
     onDisplayModeChange: (LibraryDisplayMode) -> Unit,
     navigateUp: () -> Unit,
     onWebViewClick: (() -> Unit)?,
+    onSettingsClick: (() -> Unit)?,
     onSearch: (String) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior? = null,
 ) {
     val title = source?.name
+    val hasSourceSettings = source is ConfigurableNovelSource && onSettingsClick != null
     var selectingDisplayMode by remember { mutableStateOf(false) }
 
     SearchToolbar(
@@ -66,6 +70,15 @@ fun BrowseNovelSourceToolbar(
                                     title = stringResource(MR.strings.action_open_in_web_view),
                                     icon = Icons.Outlined.Public,
                                     onClick = onWebViewClick,
+                                ),
+                            )
+                        }
+                        if (hasSourceSettings) {
+                            add(
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.action_settings),
+                                    icon = Icons.Outlined.Settings,
+                                    onClick = { onSettingsClick?.invoke() },
                                 ),
                             )
                         }

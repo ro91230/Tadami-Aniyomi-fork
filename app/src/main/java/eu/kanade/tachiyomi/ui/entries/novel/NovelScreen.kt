@@ -40,9 +40,11 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.entries.novel.NovelChapterSettingsDialog
 import eu.kanade.presentation.entries.novel.NovelScreen
 import eu.kanade.tachiyomi.extension.novel.runtime.resolveUrl
+import eu.kanade.tachiyomi.novelsource.ConfigurableNovelSource
 import eu.kanade.tachiyomi.novelsource.NovelSource
 import eu.kanade.tachiyomi.source.novel.NovelSiteSource
 import eu.kanade.tachiyomi.source.novel.NovelWebUrlSource
+import eu.kanade.tachiyomi.ui.browse.novel.extension.details.NovelSourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.reader.novel.NovelReaderScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.storage.getUriCompat
@@ -136,6 +138,11 @@ class NovelScreen(
                         )
                     }
                 }
+            } else {
+                null
+            },
+            onSourceSettings = if (successState.source is ConfigurableNovelSource) {
+                { navigator.push(NovelSourcePreferencesScreen(successState.source.id)) }
             } else {
                 null
             },

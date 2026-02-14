@@ -21,6 +21,7 @@ import eu.kanade.domain.extension.manga.interactor.GetMangaExtensionLanguages
 import eu.kanade.domain.extension.manga.interactor.GetMangaExtensionsByType
 import eu.kanade.domain.extension.manga.interactor.TrustMangaExtension
 import eu.kanade.domain.extension.novel.interactor.GetNovelExtensionLanguages
+import eu.kanade.domain.extension.novel.interactor.GetNovelExtensionSources
 import eu.kanade.domain.items.chapter.interactor.GetAvailableScanlators
 import eu.kanade.domain.items.chapter.interactor.GetScanlatorChapterCounts
 import eu.kanade.domain.items.chapter.interactor.SetReadStatus
@@ -48,6 +49,7 @@ import eu.kanade.domain.source.manga.interactor.ToggleMangaSource
 import eu.kanade.domain.source.manga.interactor.ToggleMangaSourcePin
 import eu.kanade.domain.source.novel.interactor.GetEnabledNovelSources
 import eu.kanade.domain.source.novel.interactor.GetLanguagesWithNovelSources
+import eu.kanade.domain.source.novel.interactor.ToggleNovelIncognito
 import eu.kanade.domain.source.novel.interactor.ToggleNovelSource
 import eu.kanade.domain.source.novel.interactor.ToggleNovelSourcePin
 import eu.kanade.domain.source.service.SourcePreferences
@@ -465,6 +467,7 @@ class DomainModule : InjektModule {
         addFactory { GetExtensionSources(get()) }
         addFactory { GetMangaExtensionLanguages(get(), get()) }
         addFactory { GetNovelExtensionLanguages(get(), get()) }
+        addFactory { GetNovelExtensionSources(get(), get()) }
 
         addSingletonFactory<AnimeUpdatesRepository> { AnimeUpdatesRepositoryImpl(get()) }
         addFactory { GetAnimeUpdates(get()) }
@@ -553,6 +556,7 @@ class DomainModule : InjektModule {
         addFactory { DeleteNovelExtensionRepo(get()) }
         addFactory { ReplaceNovelExtensionRepo(get()) }
         addFactory { UpdateNovelExtensionRepo(get(), get()) }
+        addFactory { ToggleNovelIncognito(get()) }
 
         addSingletonFactory<CustomButtonRepository> { CustomButtonRepositoryImpl(get()) }
         addFactory { CreateCustomButton(get()) }

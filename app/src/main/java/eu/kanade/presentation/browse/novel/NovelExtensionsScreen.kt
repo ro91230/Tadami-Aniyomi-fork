@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.GetApp
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -65,6 +66,7 @@ fun NovelExtensionScreen(
     onInstallExtension: (NovelPlugin.Available) -> Unit,
     onCancelInstall: (NovelPlugin.Available) -> Unit,
     onUpdateExtension: (NovelPlugin.Installed) -> Unit,
+    onOpenExtension: (NovelPlugin.Installed) -> Unit,
     onUninstallExtension: (NovelPlugin.Installed) -> Unit,
     onUpdateAll: () -> Unit,
     onRefresh: () -> Unit,
@@ -104,6 +106,7 @@ fun NovelExtensionScreen(
                     onInstallExtension = onInstallExtension,
                     onCancelInstall = onCancelInstall,
                     onUpdateExtension = onUpdateExtension,
+                    onOpenExtension = onOpenExtension,
                     onUninstallExtension = onUninstallExtension,
                     onUpdateAll = onUpdateAll,
                     onToggleSection = onToggleSection,
@@ -120,6 +123,7 @@ private fun NovelExtensionContent(
     onInstallExtension: (NovelPlugin.Available) -> Unit,
     onCancelInstall: (NovelPlugin.Available) -> Unit,
     onUpdateExtension: (NovelPlugin.Installed) -> Unit,
+    onOpenExtension: (NovelPlugin.Installed) -> Unit,
     onUninstallExtension: (NovelPlugin.Installed) -> Unit,
     onUpdateAll: () -> Unit,
     onToggleSection: (String) -> Unit,
@@ -153,6 +157,7 @@ private fun NovelExtensionContent(
                     item = item,
                     onCancelInstall = onCancelInstall,
                     onUpdateExtension = onUpdateExtension,
+                    onOpenExtension = onOpenExtension,
                     onUninstallExtension = onUninstallExtension,
                 )
             }
@@ -170,6 +175,7 @@ private fun NovelExtensionContent(
                 NovelExtensionItemRow(
                     item = item,
                     onCancelInstall = onCancelInstall,
+                    onOpenExtension = onOpenExtension,
                     onUninstallExtension = onUninstallExtension,
                 )
             }
@@ -228,6 +234,7 @@ private fun NovelExtensionItemRow(
     onInstallExtension: ((NovelPlugin.Available) -> Unit)? = null,
     onCancelInstall: ((NovelPlugin.Available) -> Unit)? = null,
     onUpdateExtension: ((NovelPlugin.Installed) -> Unit)? = null,
+    onOpenExtension: ((NovelPlugin.Installed) -> Unit)? = null,
     onUninstallExtension: ((NovelPlugin.Installed) -> Unit)? = null,
 ) {
     val plugin = item.plugin
@@ -242,7 +249,7 @@ private fun NovelExtensionItemRow(
             }
             else -> when {
                 plugin is NovelPlugin.Available && onInstallExtension != null -> onInstallExtension(plugin)
-                plugin is NovelPlugin.Installed && onUpdateExtension != null -> onUpdateExtension(plugin)
+                plugin is NovelPlugin.Installed && onOpenExtension != null -> onOpenExtension(plugin)
             }
         }
     }
@@ -313,6 +320,14 @@ private fun NovelExtensionItemRow(
                     }
                     plugin is NovelPlugin.Installed -> {
                         Row {
+                            if (onOpenExtension != null && plugin.hasSettings) {
+                                IconButton(onClick = { onOpenExtension(plugin) }) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Settings,
+                                        contentDescription = stringResource(MR.strings.action_settings),
+                                    )
+                                }
+                            }
                             if (onUpdateExtension != null) {
                                 IconButton(onClick = { onUpdateExtension(plugin) }) {
                                     Icon(

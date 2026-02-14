@@ -59,6 +59,7 @@ class SourcePreferences(
 
     fun incognitoAnimeExtensions() = preferenceStore.getStringSet("incognito_anime_extensions", emptySet())
     fun incognitoMangaExtensions() = preferenceStore.getStringSet("incognito_manga_extensions", emptySet())
+    fun incognitoNovelExtensions() = preferenceStore.getStringSet("incognito_novel_extensions", emptySet())
 
     fun pinnedAnimeSources() = preferenceStore.getStringSet("pinned_anime_catalogues", emptySet())
     fun pinnedMangaSources() = preferenceStore.getStringSet("pinned_catalogues", emptySet())
