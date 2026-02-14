@@ -94,6 +94,10 @@ class NovelScreen(
         val canOpenNovelWebView = rawNovelUrl.isNotBlank()
         val startChapter = screenModel.getResumeOrNextChapter()
         val isReading = screenModel.isReadingStarted()
+        val actionAvailability = resolveNovelEntryActionAvailability(
+            isFavorite = successState.novel.favorite,
+            isSourceConfigurable = successState.source is ConfigurableNovelSource,
+        )
 
         NovelScreen(
             state = successState,
@@ -145,14 +149,14 @@ class NovelScreen(
             } else {
                 null
             },
-            onSourceSettings = if (successState.source is ConfigurableNovelSource) {
+            onSourceSettings = if (actionAvailability.showSourceSettings) {
                 { navigator.push(NovelSourcePreferencesScreen(successState.source.id)) }
             } else {
                 null
             },
             onMigrateClicked = {
                 navigator.push(MigrateNovelSearchScreen(successState.novel.id))
-            }.takeIf { successState.novel.favorite },
+            }.takeIf { actionAvailability.showMigrate },
             onTrackingClicked = {
                 if (!successState.hasLoggedInTrackers) {
                     navigator.push(SettingsScreen(SettingsScreen.Destination.Tracking))
@@ -311,6 +315,21 @@ class NovelScreen(
             context.toast(it.message)
         }
     }
+}
+
+internal data class NovelEntryActionAvailability(
+    val showSourceSettings: Boolean,
+    val showMigrate: Boolean,
+)
+
+internal fun resolveNovelEntryActionAvailability(
+    isFavorite: Boolean,
+    isSourceConfigurable: Boolean,
+): NovelEntryActionAvailability {
+    return NovelEntryActionAvailability(
+        showSourceSettings = isSourceConfigurable,
+        showMigrate = isFavorite,
+    )
 }
 
 @Composable

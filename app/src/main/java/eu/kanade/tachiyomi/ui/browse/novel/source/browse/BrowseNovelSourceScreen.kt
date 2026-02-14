@@ -103,10 +103,11 @@ data class BrowseNovelSourceScreen(
                                 )
                             }
                         },
-                        onSettingsClick = if (screenModel.source is ConfigurableNovelSource) {
-                            { navigator.push(NovelSourcePreferencesScreen(sourceId)) }
-                        } else {
-                            null
+                        onSettingsClick = novelSourcePreferencesScreenOrNull(
+                            sourceId = sourceId,
+                            source = screenModel.source,
+                        )?.let { screen ->
+                            { navigator.push(screen) }
                         },
                         onSearch = screenModel::search,
                     )
@@ -317,4 +318,12 @@ internal fun resolveNovelSourceWebUrl(source: NovelSource?): String? {
     }
 
     return normalizedUrl.toHttpUrlOrNull()?.toString()
+}
+
+internal fun novelSourcePreferencesScreenOrNull(
+    sourceId: Long,
+    source: NovelSource,
+): NovelSourcePreferencesScreen? {
+    if (source !is ConfigurableNovelSource) return null
+    return NovelSourcePreferencesScreen(sourceId)
 }

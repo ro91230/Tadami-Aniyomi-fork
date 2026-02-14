@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.util.system.isReleaseBuildType
@@ -120,17 +121,7 @@ private fun ColumnScope.SortPage(
     val sortingMode = state.sort.type
     val sortDescending = !state.sort.isAscending
 
-    val options = listOf(
-        MR.strings.action_sort_alpha to MangaLibrarySort.Type.Alphabetical,
-        MR.strings.action_sort_total to MangaLibrarySort.Type.TotalChapters,
-        MR.strings.action_sort_last_read to MangaLibrarySort.Type.LastRead,
-        AYMR.strings.action_sort_last_manga_update to MangaLibrarySort.Type.LastUpdate,
-        MR.strings.action_sort_unread_count to MangaLibrarySort.Type.UnreadCount,
-        MR.strings.action_sort_latest_chapter to MangaLibrarySort.Type.LatestChapter,
-        MR.strings.action_sort_chapter_fetch_date to MangaLibrarySort.Type.ChapterFetchDate,
-        MR.strings.action_sort_date_added to MangaLibrarySort.Type.DateAdded,
-        MR.strings.action_sort_random to MangaLibrarySort.Type.Random,
-    )
+    val options = novelLibrarySortOptions()
 
     options.map { (titleRes, mode) ->
         if (mode == MangaLibrarySort.Type.Random) {
@@ -167,20 +158,13 @@ private fun ColumnScope.SortPage(
     }
 }
 
-private val displayModes = listOf(
-    MR.strings.action_display_grid to LibraryDisplayMode.CompactGrid,
-    MR.strings.action_display_comfortable_grid to LibraryDisplayMode.ComfortableGrid,
-    MR.strings.action_display_cover_only_grid to LibraryDisplayMode.CoverOnlyGrid,
-    MR.strings.action_display_list to LibraryDisplayMode.List,
-)
-
 @Composable
 private fun ColumnScope.DisplayPage(
     libraryPreferences: LibraryPreferences,
 ) {
     val displayMode by libraryPreferences.displayMode().collectAsState()
     SettingsChipRow(MR.strings.action_display_mode) {
-        displayModes.map { (titleRes, mode) ->
+        novelLibraryDisplayModes().map { (titleRes, mode) ->
             FilterChip(
                 selected = displayMode == mode,
                 onClick = { libraryPreferences.displayMode().set(mode) },
@@ -257,5 +241,28 @@ private fun ColumnScope.DisplayPage(
     CheckboxItem(
         label = stringResource(MR.strings.action_display_show_number_of_items),
         pref = libraryPreferences.categoryNumberOfItems(),
+    )
+}
+
+internal fun novelLibrarySortOptions(): List<Pair<StringResource, MangaLibrarySort.Type>> {
+    return listOf(
+        MR.strings.action_sort_alpha to MangaLibrarySort.Type.Alphabetical,
+        MR.strings.action_sort_total to MangaLibrarySort.Type.TotalChapters,
+        MR.strings.action_sort_last_read to MangaLibrarySort.Type.LastRead,
+        AYMR.strings.action_sort_last_manga_update to MangaLibrarySort.Type.LastUpdate,
+        MR.strings.action_sort_unread_count to MangaLibrarySort.Type.UnreadCount,
+        MR.strings.action_sort_latest_chapter to MangaLibrarySort.Type.LatestChapter,
+        MR.strings.action_sort_chapter_fetch_date to MangaLibrarySort.Type.ChapterFetchDate,
+        MR.strings.action_sort_date_added to MangaLibrarySort.Type.DateAdded,
+        MR.strings.action_sort_random to MangaLibrarySort.Type.Random,
+    )
+}
+
+internal fun novelLibraryDisplayModes(): List<Pair<StringResource, LibraryDisplayMode>> {
+    return listOf(
+        MR.strings.action_display_grid to LibraryDisplayMode.CompactGrid,
+        MR.strings.action_display_comfortable_grid to LibraryDisplayMode.ComfortableGrid,
+        MR.strings.action_display_cover_only_grid to LibraryDisplayMode.CoverOnlyGrid,
+        MR.strings.action_display_list to LibraryDisplayMode.List,
     )
 }

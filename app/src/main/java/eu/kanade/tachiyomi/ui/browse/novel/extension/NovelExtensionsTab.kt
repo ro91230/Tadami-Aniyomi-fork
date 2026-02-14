@@ -52,7 +52,7 @@ fun novelExtensionsTab(
                 onInstallExtension = extensionsScreenModel::installExtension,
                 onCancelInstall = extensionsScreenModel::cancelInstall,
                 onUpdateExtension = extensionsScreenModel::updateExtension,
-                onOpenExtension = { navigator.push(NovelExtensionDetailsScreen(it.id)) },
+                onOpenExtension = { navigator.push(novelExtensionDetailsScreen(it.id)) },
                 onUninstallExtension = { pluginToUninstall = it },
                 onUpdateAll = extensionsScreenModel::updateAllExtensions,
                 onRefresh = extensionsScreenModel::refresh,
@@ -83,4 +83,8 @@ fun novelExtensionsTab(
             }
         },
     )
+}
+
+internal fun novelExtensionDetailsScreen(pluginId: String): NovelExtensionDetailsScreen {
+    return NovelExtensionDetailsScreen(pluginId)
 }

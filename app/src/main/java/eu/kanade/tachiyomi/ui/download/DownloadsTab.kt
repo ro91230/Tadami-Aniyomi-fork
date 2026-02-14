@@ -111,7 +111,8 @@ data object DownloadsTab : Tab {
             derivedStateOf { novelDownloadsState.downloadCount }
         }
 
-        val state = rememberPagerState { 3 }
+        val queueTabs = downloadQueueTabs()
+        val state = rememberPagerState { queueTabs.size }
         val snackbarHostState = remember { SnackbarHostState() }
 
         val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
@@ -163,10 +164,10 @@ data object DownloadsTab : Tab {
                     },
                     navigateUp = navigator::pop,
                     actions = {
-                        when (state.currentPage) {
-                            0 -> AnimeActions(animeScreenModel, animeDownloadList)
-                            1 -> MangaActions(mangaScreenModel, mangaDownloadList)
-                            2 -> Unit
+                        when (queueTabs[state.currentPage]) {
+                            DownloadQueueTab.ANIME -> AnimeActions(animeScreenModel, animeDownloadList)
+                            DownloadQueueTab.MANGA -> MangaActions(mangaScreenModel, mangaDownloadList)
+                            DownloadQueueTab.NOVEL -> Unit
                         }
                     },
                     scrollBehavior = scrollBehavior,
@@ -174,11 +175,10 @@ data object DownloadsTab : Tab {
             },
             floatingActionButton = {
                 AnimatedVisibility(
-                    visible = when (state.currentPage) {
-                        0 -> animeDownloadList.isNotEmpty()
-                        1 -> mangaDownloadList.isNotEmpty()
-                        2 -> false
-                        else -> false
+                    visible = when (queueTabs[state.currentPage]) {
+                        DownloadQueueTab.ANIME -> animeDownloadList.isNotEmpty()
+                        DownloadQueueTab.MANGA -> mangaDownloadList.isNotEmpty()
+                        DownloadQueueTab.NOVEL -> false
                     },
                     enter = fadeIn(),
                     exit = fadeOut(),
@@ -187,53 +187,51 @@ data object DownloadsTab : Tab {
                     val mangaIsRunning by mangaScreenModel.isDownloaderRunning.collectAsState()
                     ExtendedFloatingActionButton(
                         text = {
-                            val id = when (state.currentPage) {
-                                0 -> if (animeIsRunning) {
+                            val id = when (queueTabs[state.currentPage]) {
+                                DownloadQueueTab.ANIME -> if (animeIsRunning) {
                                     AYMR.strings.action_stop
                                 } else {
                                     AYMR.strings.action_continue
                                 }
-                                1 -> if (mangaIsRunning) {
+                                DownloadQueueTab.MANGA -> if (mangaIsRunning) {
                                     MR.strings.action_pause
                                 } else {
                                     MR.strings.action_resume
                                 }
-                                2 -> MR.strings.action_retry
-                                else -> MR.strings.action_pause
+                                DownloadQueueTab.NOVEL -> MR.strings.action_retry
                             }
                             Text(text = stringResource(id))
                         },
                         icon = {
-                            val icon = when (state.currentPage) {
-                                0 -> if (animeIsRunning) {
+                            val icon = when (queueTabs[state.currentPage]) {
+                                DownloadQueueTab.ANIME -> if (animeIsRunning) {
                                     Icons.Outlined.Pause
                                 } else {
                                     Icons.Filled.PlayArrow
                                 }
-                                1 -> if (mangaIsRunning) {
+                                DownloadQueueTab.MANGA -> if (mangaIsRunning) {
                                     Icons.Outlined.Pause
                                 } else {
                                     Icons.Filled.PlayArrow
                                 }
-                                2 -> Icons.Filled.PlayArrow
-                                else -> Icons.Filled.PlayArrow
+                                DownloadQueueTab.NOVEL -> Icons.Filled.PlayArrow
                             }
                             Icon(imageVector = icon, contentDescription = null)
                         },
                         onClick = {
-                            when (state.currentPage) {
-                                0 -> if (animeIsRunning) {
+                            when (queueTabs[state.currentPage]) {
+                                DownloadQueueTab.ANIME -> if (animeIsRunning) {
                                     animeScreenModel.pauseDownloads()
                                 } else {
                                     animeScreenModel.startDownloads()
                                 }
 
-                                1 -> if (mangaIsRunning) {
+                                DownloadQueueTab.MANGA -> if (mangaIsRunning) {
                                     mangaScreenModel.pauseDownloads()
                                 } else {
                                     mangaScreenModel.startDownloads()
                                 }
-                                2 -> Unit
+                                DownloadQueueTab.NOVEL -> Unit
                             }
                         },
                         expanded = fabExpanded,
@@ -252,41 +250,24 @@ data object DownloadsTab : Tab {
                     selectedTabIndex = state.currentPage,
                     modifier = Modifier.zIndex(1f),
                 ) {
-                    listOf(
+                    queueTabs.forEachIndexed { index, tab ->
+                        val (label, badgeCount) = when (tab) {
+                            DownloadQueueTab.ANIME -> AYMR.strings.label_anime to animeDownloadCount
+                            DownloadQueueTab.MANGA -> AYMR.strings.manga to mangaDownloadCount
+                            DownloadQueueTab.NOVEL -> AYMR.strings.label_novel to novelDownloadCount
+                        }
                         Tab(
-                            selected = state.currentPage == 0,
-                            onClick = { scope.launch { state.animateScrollToPage(0) } },
+                            selected = state.currentPage == index,
+                            onClick = { scope.launch { state.animateScrollToPage(index) } },
                             text = {
                                 TabText(
-                                    text = stringResource(AYMR.strings.label_anime),
-                                    badgeCount = animeDownloadCount,
+                                    text = stringResource(label),
+                                    badgeCount = badgeCount,
                                 )
                             },
                             unselectedContentColor = MaterialTheme.colorScheme.onSurface,
-                        ),
-                        Tab(
-                            selected = state.currentPage == 1,
-                            onClick = { scope.launch { state.animateScrollToPage(1) } },
-                            text = {
-                                TabText(
-                                    text = stringResource(AYMR.strings.manga),
-                                    badgeCount = mangaDownloadCount,
-                                )
-                            },
-                            unselectedContentColor = MaterialTheme.colorScheme.onSurface,
-                        ),
-                        Tab(
-                            selected = state.currentPage == 2,
-                            onClick = { scope.launch { state.animateScrollToPage(2) } },
-                            text = {
-                                TabText(
-                                    text = stringResource(AYMR.strings.label_novel),
-                                    badgeCount = novelDownloadCount,
-                                )
-                            },
-                            unselectedContentColor = MaterialTheme.colorScheme.onSurface,
-                        ),
-                    )
+                        )
+                    }
                 }
 
                 HorizontalPager(
@@ -295,20 +276,20 @@ data object DownloadsTab : Tab {
                     verticalAlignment = Alignment.Top,
                     pageNestedScrollConnection = nestedScrollConnection,
                 ) { page ->
-                    when (page) {
-                        0 -> animeDownloadTab(
+                    when (queueTabs[page]) {
+                        DownloadQueueTab.ANIME -> animeDownloadTab(
                             nestedScrollConnection,
                         ).content(
                             PaddingValues(bottom = contentPadding.calculateBottomPadding()),
                             snackbarHostState,
                         )
-                        1 -> mangaDownloadTab(
+                        DownloadQueueTab.MANGA -> mangaDownloadTab(
                             nestedScrollConnection,
                         ).content(
                             PaddingValues(bottom = contentPadding.calculateBottomPadding()),
                             snackbarHostState,
                         )
-                        2 -> novelDownloadTab(
+                        DownloadQueueTab.NOVEL -> novelDownloadTab(
                             nestedScrollConnection,
                         ).content(
                             PaddingValues(bottom = contentPadding.calculateBottomPadding()),
@@ -487,4 +468,18 @@ data object DownloadsTab : Tab {
             )
         }
     }
+}
+
+internal enum class DownloadQueueTab {
+    ANIME,
+    MANGA,
+    NOVEL,
+}
+
+internal fun downloadQueueTabs(): List<DownloadQueueTab> {
+    return listOf(
+        DownloadQueueTab.ANIME,
+        DownloadQueueTab.MANGA,
+        DownloadQueueTab.NOVEL,
+    )
 }

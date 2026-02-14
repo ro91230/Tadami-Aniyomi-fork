@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.collectLatest
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 data class NovelExtensionDetailsScreen(
-    private val pluginId: String,
+    internal val pluginId: String,
 ) : Screen() {
 
     @Composable
@@ -38,7 +38,7 @@ data class NovelExtensionDetailsScreen(
         NovelExtensionDetailsScreen(
             navigateUp = navigator::pop,
             state = state,
-            onClickSourcePreferences = { navigator.push(NovelSourcePreferencesScreen(it)) },
+            onClickSourcePreferences = { navigator.push(novelSourcePreferencesScreen(it)) },
             onClickEnableAll = { screenModel.toggleSources(true) },
             onClickDisableAll = { screenModel.toggleSources(false) },
             onClickClearCookies = screenModel::clearCookies,
@@ -55,4 +55,8 @@ data class NovelExtensionDetailsScreen(
             }
         }
     }
+}
+
+internal fun novelSourcePreferencesScreen(sourceId: Long): NovelSourcePreferencesScreen {
+    return NovelSourcePreferencesScreen(sourceId)
 }

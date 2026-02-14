@@ -16,7 +16,7 @@ import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.storage.anime.animeStorageTab
 import eu.kanade.tachiyomi.ui.storage.manga.mangaStorageTab
 import eu.kanade.tachiyomi.ui.storage.novel.novelStorageTab
-import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import tachiyomi.i18n.aniyomi.AYMR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -38,11 +38,15 @@ data object StorageTab : Tab {
     override fun Content() {
         val context = LocalContext.current
 
-        val tabs = persistentListOf(
-            animeStorageTab(),
-            mangaStorageTab(),
-            novelStorageTab(),
-        )
+        val tabs = storageContentTabs()
+            .map { tab ->
+                when (tab) {
+                    StorageContentTab.ANIME -> animeStorageTab()
+                    StorageContentTab.MANGA -> mangaStorageTab()
+                    StorageContentTab.NOVEL -> novelStorageTab()
+                }
+            }
+            .toPersistentList()
         val state = rememberPagerState { tabs.size }
 
         TabbedScreen(
@@ -55,4 +59,18 @@ data object StorageTab : Tab {
             (context as? MainActivity)?.ready = true
         }
     }
+}
+
+internal enum class StorageContentTab {
+    ANIME,
+    MANGA,
+    NOVEL,
+}
+
+internal fun storageContentTabs(): List<StorageContentTab> {
+    return listOf(
+        StorageContentTab.ANIME,
+        StorageContentTab.MANGA,
+        StorageContentTab.NOVEL,
+    )
 }

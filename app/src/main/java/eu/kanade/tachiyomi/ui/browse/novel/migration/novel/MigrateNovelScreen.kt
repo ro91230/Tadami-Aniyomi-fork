@@ -18,7 +18,7 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 data class MigrateNovelScreen(
-    private val sourceId: Long,
+    internal val sourceId: Long,
 ) : Screen() {
 
     @Composable

@@ -41,11 +41,15 @@ fun Screen.migrateNovelSourceTab(): TabContent {
                 state = state,
                 contentPadding = contentPadding,
                 onClickItem = { source ->
-                    navigator.push(MigrateNovelScreen(source.id))
+                    navigator.push(migrateNovelScreen(source.id))
                 },
                 onToggleSortingDirection = screenModel::toggleSortingDirection,
                 onToggleSortingMode = screenModel::toggleSortingMode,
             )
         },
     )
+}
+
+internal fun migrateNovelScreen(sourceId: Long): MigrateNovelScreen {
+    return MigrateNovelScreen(sourceId)
 }
