@@ -99,19 +99,31 @@ class BackupRestorer(
         val backupNovelMaps = backup.backupNovelSources
         novelSourceMapping = backupNovelMaps.associate { it.sourceId to it.name }
 
+        val shouldRestoreManga = options.libraryEntries && options.restoreManga
+        val shouldRestoreAnime = options.libraryEntries && options.restoreAnime
+        val shouldRestoreNovel = options.libraryEntries && options.restoreNovel
+        val includeAllCategories = !options.libraryEntries
+        val shouldRestoreMangaCategories = options.categories && (includeAllCategories || options.restoreManga)
+        val shouldRestoreAnimeCategories = options.categories && (includeAllCategories || options.restoreAnime)
+        val shouldRestoreNovelCategories = options.categories && (includeAllCategories || options.restoreNovel)
+
         if (options.libraryEntries) {
-            restoreAmount += backup.backupManga.size + backup.backupAnime.size + backup.backupNovel.size
+            if (options.restoreManga) restoreAmount += backup.backupManga.size
+            if (options.restoreAnime) restoreAmount += backup.backupAnime.size
+            if (options.restoreNovel) restoreAmount += backup.backupNovel.size
         }
         if (options.categories) {
-            restoreAmount += 3 // +3 for anime, manga and novel categories
+            if (shouldRestoreAnimeCategories) restoreAmount += 1
+            if (shouldRestoreMangaCategories) restoreAmount += 1
+            if (shouldRestoreNovelCategories) restoreAmount += 1
         }
         if (options.appSettings) {
             restoreAmount += 1
         }
         if (options.extensionRepoSettings) {
-            restoreAmount += backup.backupAnimeExtensionRepo.size +
-                backup.backupMangaExtensionRepo.size +
-                backup.backupNovelExtensionRepo.size
+            if (options.restoreAnime) restoreAmount += backup.backupAnimeExtensionRepo.size
+            if (options.restoreManga) restoreAmount += backup.backupMangaExtensionRepo.size
+            if (options.restoreNovel) restoreAmount += backup.backupNovelExtensionRepo.size
         }
         if (options.customButtons) {
             restoreAmount += 1
@@ -126,9 +138,12 @@ class BackupRestorer(
         coroutineScope {
             if (options.categories) {
                 restoreCategories(
-                    backupAnimeCategories = backup.backupAnimeCategories,
-                    backupMangaCategories = backup.backupCategories,
-                    backupNovelCategories = backup.backupNovelCategories,
+                    backupAnimeCategories = if (shouldRestoreAnimeCategories) backup.backupAnimeCategories else emptyList(),
+                    backupMangaCategories = if (shouldRestoreMangaCategories) backup.backupCategories else emptyList(),
+                    backupNovelCategories = if (shouldRestoreNovelCategories) backup.backupNovelCategories else emptyList(),
+                    restoreAnimeCategories = shouldRestoreAnimeCategories,
+                    restoreMangaCategories = shouldRestoreMangaCategories,
+                    restoreNovelCategories = shouldRestoreNovelCategories,
                 )
             }
             if (options.appSettings) {
@@ -138,15 +153,30 @@ class BackupRestorer(
                 restoreSourcePreferences(backup.backupSourcePreferences)
             }
             if (options.libraryEntries) {
-                restoreAnime(backup.backupAnime, if (options.categories) backup.backupAnimeCategories else emptyList())
-                restoreManga(backup.backupManga, if (options.categories) backup.backupCategories else emptyList())
-                restoreNovel(backup.backupNovel, if (options.categories) backup.backupNovelCategories else emptyList())
+                if (shouldRestoreAnime) {
+                    restoreAnime(
+                        backup.backupAnime,
+                        if (shouldRestoreAnimeCategories) backup.backupAnimeCategories else emptyList(),
+                    )
+                }
+                if (shouldRestoreManga) {
+                    restoreManga(
+                        backup.backupManga,
+                        if (shouldRestoreMangaCategories) backup.backupCategories else emptyList(),
+                    )
+                }
+                if (shouldRestoreNovel) {
+                    restoreNovel(
+                        backup.backupNovel,
+                        if (shouldRestoreNovelCategories) backup.backupNovelCategories else emptyList(),
+                    )
+                }
             }
             if (options.extensionRepoSettings) {
                 restoreExtensionRepos(
-                    backup.backupAnimeExtensionRepo,
-                    backup.backupMangaExtensionRepo,
-                    backup.backupNovelExtensionRepo,
+                    if (options.restoreAnime) backup.backupAnimeExtensionRepo else emptyList(),
+                    if (options.restoreManga) backup.backupMangaExtensionRepo else emptyList(),
+                    if (options.restoreNovel) backup.backupNovelExtensionRepo else emptyList(),
                 )
             }
             if (options.customButtons) {
@@ -174,19 +204,48 @@ class BackupRestorer(
         backupAnimeCategories: List<BackupCategory>,
         backupMangaCategories: List<BackupCategory>,
         backupNovelCategories: List<BackupCategory>,
+        restoreAnimeCategories: Boolean,
+        restoreMangaCategories: Boolean,
+        restoreNovelCategories: Boolean,
     ) = launch {
         ensureActive()
-        animeCategoriesRestorer(backupAnimeCategories)
-        mangaCategoriesRestorer(backupMangaCategories)
-        novelCategoriesRestorer(backupNovelCategories)
+        if (restoreAnimeCategories) {
+            if (backupAnimeCategories.isNotEmpty()) {
+                animeCategoriesRestorer(backupAnimeCategories)
+            }
+            restoreProgress += 1
+            notifier.showRestoreProgress(
+                context.stringResource(MR.strings.categories),
+                restoreProgress,
+                restoreAmount,
+                isSync,
+            )
+        }
+        if (restoreMangaCategories) {
+            if (backupMangaCategories.isNotEmpty()) {
+                mangaCategoriesRestorer(backupMangaCategories)
+            }
+            restoreProgress += 1
+            notifier.showRestoreProgress(
+                context.stringResource(MR.strings.categories),
+                restoreProgress,
+                restoreAmount,
+                isSync,
+            )
+        }
+        if (restoreNovelCategories) {
+            if (backupNovelCategories.isNotEmpty()) {
+                novelCategoriesRestorer(backupNovelCategories)
+            }
+            restoreProgress += 1
+            notifier.showRestoreProgress(
+                context.stringResource(MR.strings.categories),
+                restoreProgress,
+                restoreAmount,
+                isSync,
+            )
+        }
 
-        restoreProgress += 3
-        notifier.showRestoreProgress(
-            context.stringResource(MR.strings.categories),
-            restoreProgress,
-            restoreAmount,
-            isSync,
-        )
     }
 
     private fun CoroutineScope.restoreAnime(

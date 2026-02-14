@@ -113,46 +113,65 @@ class BackupCreator(
                 throw IllegalStateException(context.stringResource(MR.strings.create_backup_file_error))
             }
 
-            val nonFavoriteAnime = if (options.readEntries) {
+            val shouldBackupAnime = options.libraryEntries && options.backupAnime
+            val shouldBackupManga = options.libraryEntries && options.backupManga
+            val shouldBackupNovel = options.libraryEntries && options.backupNovel
+            val includeAnimeType = if (options.libraryEntries) options.backupAnime else true
+            val includeMangaType = if (options.libraryEntries) options.backupManga else true
+            val includeNovelType = if (options.libraryEntries) options.backupNovel else true
+            val includeAnimeCategories = options.categories && includeAnimeType
+            val includeMangaCategories = options.categories && includeMangaType
+            val includeNovelCategories = options.categories && includeNovelType
+
+            val nonFavoriteAnime = if (options.readEntries && shouldBackupAnime) {
                 animeRepository.getWatchedAnimeNotInLibrary()
             } else {
                 emptyList()
             }
-            val backupAnime = backupAnimes(getAnimeFavorites.await() + nonFavoriteAnime, options)
-            val nonFavoriteManga = if (options.readEntries) {
+            val backupAnime = backupAnimes(
+                animes = if (shouldBackupAnime) getAnimeFavorites.await() + nonFavoriteAnime else emptyList(),
+                options = options,
+            )
+            val nonFavoriteManga = if (options.readEntries && shouldBackupManga) {
                 mangaRepository.getReadMangaNotInLibrary()
             } else {
                 emptyList()
             }
-            val backupManga = backupMangas(getMangaFavorites.await() + nonFavoriteManga, options)
-            val nonFavoriteNovel = if (options.readEntries) {
+            val backupManga = backupMangas(
+                mangas = if (shouldBackupManga) getMangaFavorites.await() + nonFavoriteManga else emptyList(),
+                options = options,
+            )
+            val nonFavoriteNovel = if (options.readEntries && shouldBackupNovel) {
                 novelRepository.getReadNovelNotInLibrary()
             } else {
                 emptyList()
             }
-            val backupNovel = backupNovels(novelRepository.getNovelFavorites() + nonFavoriteNovel, options)
+            val backupNovel = backupNovels(
+                novels = if (shouldBackupNovel) novelRepository.getNovelFavorites() + nonFavoriteNovel else emptyList(),
+                options = options,
+            )
 
             val achievementData = achievementBackupCreator(options)
 
             val backup = Backup(
                 backupManga = backupManga,
-                backupCategories = backupMangaCategories(options),
+                backupCategories = backupMangaCategories(options, includeMangaCategories),
                 backupSources = backupMangaSources(backupManga),
                 backupPreferences = backupAppPreferences(options),
                 backupSourcePreferences = backupSourcePreferences(options),
-                backupMangaExtensionRepo = backupMangaExtensionRepos(options),
+                backupMangaExtensionRepo = backupMangaExtensionRepos(options, includeMangaType),
 
                 isLegacy = false,
                 backupAnime = backupAnime,
-                backupAnimeCategories = backupAnimeCategories(options),
+                backupAnimeCategories = backupAnimeCategories(options, includeAnimeCategories),
                 backupAnimeSources = backupAnimeSources(backupAnime),
                 backupNovel = backupNovel,
-                backupNovelCategories = backupNovelCategories(options),
+                backupNovelCategories = backupNovelCategories(options, includeNovelCategories),
                 backupNovelSources = backupNovelSources(backupNovel),
                 backupExtensions = backupExtensions(options),
-                backupAnimeExtensionRepo = backupAnimeExtensionRepos(options),
+                backupAnimeExtensionRepo = backupAnimeExtensionRepos(options, includeAnimeType),
                 backupCustomButton = backupCustomButtons(options),
-                backupNovelExtensionRepo = backupNovelExtensionRepos(options),
+                backupNovelExtensionRepo = backupNovelExtensionRepos(options, includeNovelType),
                 backupAchievements = achievementData.achievements,
                 backupUserProfile = achievementData.userProfile,
                 backupActivityLog = achievementData.activityLog,
@@ -194,38 +213,38 @@ class BackupCreator(
         }
     }
 
-    private suspend fun backupAnimeCategories(options: BackupOptions): List<BackupCategory> {
-        if (!options.categories) return emptyList()
+    private suspend fun backupAnimeCategories(options: BackupOptions, includeType: Boolean): List<BackupCategory> {
+        if (!options.categories || !includeType) return emptyList()
 
         return animeCategoriesBackupCreator()
     }
 
-    private suspend fun backupMangaCategories(options: BackupOptions): List<BackupCategory> {
-        if (!options.categories) return emptyList()
+    private suspend fun backupMangaCategories(options: BackupOptions, includeType: Boolean): List<BackupCategory> {
+        if (!options.categories || !includeType) return emptyList()
 
         return mangaCategoriesBackupCreator()
     }
 
-    private suspend fun backupNovelCategories(options: BackupOptions): List<BackupCategory> {
-        if (!options.categories) return emptyList()
+    private suspend fun backupNovelCategories(options: BackupOptions, includeType: Boolean): List<BackupCategory> {
+        if (!options.categories || !includeType) return emptyList()
 
         return novelCategoriesBackupCreator()
     }
 
     private suspend fun backupMangas(mangas: List<Manga>, options: BackupOptions): List<BackupManga> {
-        if (!options.libraryEntries) return emptyList()
+        if (!options.libraryEntries || !options.backupManga) return emptyList()
 
         return mangaBackupCreator(mangas, options)
     }
 
     private suspend fun backupAnimes(animes: List<Anime>, options: BackupOptions): List<BackupAnime> {
-        if (!options.libraryEntries) return emptyList()
+        if (!options.libraryEntries || !options.backupAnime) return emptyList()
 
         return animeBackupCreator(animes, options)
     }
 
     private suspend fun backupNovels(novels: List<Novel>, options: BackupOptions): List<BackupNovel> {
-        if (!options.libraryEntries) return emptyList()
+        if (!options.libraryEntries || !options.backupNovel) return emptyList()
 
         return novelBackupCreator(novels, options)
     }
@@ -247,20 +266,20 @@ class BackupCreator(
         return preferenceBackupCreator.createApp(includePrivatePreferences = options.privateSettings)
     }
 
-    private suspend fun backupAnimeExtensionRepos(options: BackupOptions): List<BackupExtensionRepos> {
-        if (!options.extensionRepoSettings) return emptyList()
+    private suspend fun backupAnimeExtensionRepos(options: BackupOptions, includeType: Boolean): List<BackupExtensionRepos> {
+        if (!options.extensionRepoSettings || !includeType) return emptyList()
 
         return animeExtensionRepoBackupCreator()
     }
 
-    private suspend fun backupMangaExtensionRepos(options: BackupOptions): List<BackupExtensionRepos> {
-        if (!options.extensionRepoSettings) return emptyList()
+    private suspend fun backupMangaExtensionRepos(options: BackupOptions, includeType: Boolean): List<BackupExtensionRepos> {
+        if (!options.extensionRepoSettings || !includeType) return emptyList()
 
         return mangaExtensionRepoBackupCreator()
     }
 
-    private suspend fun backupNovelExtensionRepos(options: BackupOptions): List<BackupExtensionRepos> {
-        if (!options.extensionRepoSettings) return emptyList()
+    private suspend fun backupNovelExtensionRepos(options: BackupOptions, includeType: Boolean): List<BackupExtensionRepos> {
+        if (!options.extensionRepoSettings || !includeType) return emptyList()
 
         return novelExtensionRepoBackupCreator()
     }
