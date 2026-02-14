@@ -27,6 +27,10 @@ class NovelBackupCreator(
     private suspend fun backupNovel(novel: Novel, options: BackupOptions): BackupNovel {
         val novelObject = novel.toBackupNovel()
 
+        novelObject.excludedScanlators = handler.awaitList {
+            novel_excluded_scanlatorsQueries.getExcludedScanlatorsByNovelId(novel.id)
+        }
+
         if (options.chapters) {
             handler.awaitList {
                 novel_chaptersQueries.getChaptersByNovelId(

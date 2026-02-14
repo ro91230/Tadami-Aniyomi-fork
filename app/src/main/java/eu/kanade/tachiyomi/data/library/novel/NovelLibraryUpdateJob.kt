@@ -23,6 +23,7 @@ import eu.kanade.domain.entries.novel.model.toSNovel
 import eu.kanade.domain.items.novelchapter.interactor.SyncNovelChaptersWithSource
 import eu.kanade.tachiyomi.data.download.novel.NovelDownloadManager
 import eu.kanade.tachiyomi.data.notification.Notifications
+import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.util.system.isCharging
 import eu.kanade.tachiyomi.util.system.isConnectedToWifi
 import eu.kanade.tachiyomi.util.system.isRunning
@@ -49,11 +50,16 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_CHARGING
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_NETWORK_NOT_METERED
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_ONLY_ON_WIFI
+import tachiyomi.domain.library.service.LibraryPreferences.Companion.ENTRY_HAS_UNVIEWED
+import tachiyomi.domain.library.service.LibraryPreferences.Companion.ENTRY_NON_COMPLETED
+import tachiyomi.domain.library.service.LibraryPreferences.Companion.ENTRY_NON_VIEWED
+import tachiyomi.domain.library.service.LibraryPreferences.Companion.ENTRY_OUTSIDE_RELEASE_PERIOD
 import tachiyomi.domain.source.novel.model.SourceNotInstalledException
 import tachiyomi.domain.source.novel.service.NovelSourceManager
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.time.ZonedDateTime
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -164,10 +170,52 @@ class NovelLibraryUpdateJob(
             .groupBy { it.novel.id }
             .mapValues { (_, entries) -> entries.map { it.category }.toSet() }
 
+        val restrictions = libraryPreferences.autoUpdateItemRestrictions().get()
+        val (_, fetchWindowUpperBound) = getNovelFetchWindow(ZonedDateTime.now())
+        val skippedUpdates = mutableListOf<Pair<Novel, String?>>()
+
         novelToUpdate = listToUpdate
             .distinctBy { it.novel.id }
-            .filter { it.novel.updateStrategy == eu.kanade.tachiyomi.source.model.UpdateStrategy.ALWAYS_UPDATE }
+            .filter { libraryNovel ->
+                val isEligible = isNovelEligibleForAutoUpdate(
+                    item = libraryNovel,
+                    restrictions = restrictions,
+                    fetchWindowUpperBound = fetchWindowUpperBound,
+                )
+                if (!isEligible) {
+                    val reason = getNovelAutoUpdateSkipReason(
+                        item = libraryNovel,
+                        restrictions = restrictions,
+                        fetchWindowUpperBound = fetchWindowUpperBound,
+                    )
+                    skippedUpdates.add(
+                        libraryNovel.novel to when (reason) {
+                            NovelAutoUpdateSkipReason.NOT_ALWAYS_UPDATE ->
+                                context.stringResource(MR.strings.skipped_reason_not_always_update)
+                            NovelAutoUpdateSkipReason.COMPLETED ->
+                                context.stringResource(MR.strings.skipped_reason_completed)
+                            NovelAutoUpdateSkipReason.HAS_UNREAD ->
+                                context.stringResource(MR.strings.skipped_reason_not_caught_up)
+                            NovelAutoUpdateSkipReason.NOT_STARTED ->
+                                context.stringResource(MR.strings.skipped_reason_not_started)
+                            NovelAutoUpdateSkipReason.OUTSIDE_RELEASE_PERIOD ->
+                                context.stringResource(MR.strings.skipped_reason_not_in_release_period)
+                            null -> null
+                        },
+                    )
+                }
+                isEligible
+            }
             .sortedBy { it.novel.title }
+
+        if (skippedUpdates.isNotEmpty()) {
+            logcat {
+                skippedUpdates
+                    .groupBy { it.second }
+                    .map { (reason, entries) -> "$reason: [${entries.map { it.first.title }.sorted().joinToString()}]" }
+                    .joinToString()
+            }
+        }
     }
 
     private suspend fun updateChapterList() {
@@ -234,6 +282,14 @@ class NovelLibraryUpdateJob(
 
     private suspend fun updateNovel(novel: Novel): List<NovelChapter> {
         val source = sourceManager.getOrStub(novel.source)
+        if (libraryPreferences.autoUpdateMetadata().get()) {
+            val networkNovel = source.getNovelDetails(novel.toSNovel())
+            updateNovel.awaitUpdateFromSource(
+                localNovel = novel,
+                remoteNovel = networkNovel,
+                manualFetch = false,
+            )
+        }
         val sourceChapters = source.getChapterList(novel.toSNovel())
         val dbNovel = getNovel.await(novel.id)?.takeIf { it.favorite } ?: return emptyList()
 
@@ -293,6 +349,7 @@ class NovelLibraryUpdateJob(
         private const val WORK_NAME_AUTO = "NovelLibraryUpdate-auto"
         private const val WORK_NAME_MANUAL = "NovelLibraryUpdate-manual"
         private const val KEY_CATEGORY = "category"
+        private const val GRACE_PERIOD_DAYS = 1L
 
         fun cancelAllWorks(context: Context) {
             context.workManager.cancelAllWorkByTag(TAG)
@@ -373,4 +430,51 @@ class NovelLibraryUpdateJob(
             }
         }
     }
+
+    private fun getNovelFetchWindow(dateTime: ZonedDateTime): Pair<Long, Long> {
+        val today = dateTime.toLocalDate().atStartOfDay(dateTime.zone)
+        val lowerBound = today.minusDays(GRACE_PERIOD_DAYS)
+        val upperBound = today.plusDays(GRACE_PERIOD_DAYS)
+        return Pair(lowerBound.toEpochSecond() * 1000, upperBound.toEpochSecond() * 1000 - 1)
+    }
+}
+
+internal enum class NovelAutoUpdateSkipReason {
+    NOT_ALWAYS_UPDATE,
+    COMPLETED,
+    HAS_UNREAD,
+    NOT_STARTED,
+    OUTSIDE_RELEASE_PERIOD,
+}
+
+internal fun getNovelAutoUpdateSkipReason(
+    item: LibraryNovel,
+    restrictions: Set<String>,
+    fetchWindowUpperBound: Long,
+): NovelAutoUpdateSkipReason? {
+    return when {
+        item.novel.updateStrategy != eu.kanade.tachiyomi.source.model.UpdateStrategy.ALWAYS_UPDATE ->
+            NovelAutoUpdateSkipReason.NOT_ALWAYS_UPDATE
+        ENTRY_NON_COMPLETED in restrictions && item.novel.status.toInt() == SManga.COMPLETED ->
+            NovelAutoUpdateSkipReason.COMPLETED
+        ENTRY_HAS_UNVIEWED in restrictions && item.unreadCount != 0L ->
+            NovelAutoUpdateSkipReason.HAS_UNREAD
+        ENTRY_NON_VIEWED in restrictions && item.totalChapters > 0L && !item.hasStarted ->
+            NovelAutoUpdateSkipReason.NOT_STARTED
+        ENTRY_OUTSIDE_RELEASE_PERIOD in restrictions && item.novel.nextUpdate > fetchWindowUpperBound ->
+            NovelAutoUpdateSkipReason.OUTSIDE_RELEASE_PERIOD
+        else -> null
+    }
+}
+
+internal fun isNovelEligibleForAutoUpdate(
+    item: LibraryNovel,
+    restrictions: Set<String>,
+    fetchWindowUpperBound: Long,
+): Boolean {
+    return getNovelAutoUpdateSkipReason(
+        item = item,
+        restrictions = restrictions,
+        fetchWindowUpperBound = fetchWindowUpperBound,
+    ) == null
 }

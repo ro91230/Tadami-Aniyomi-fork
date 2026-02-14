@@ -53,6 +53,7 @@ class NovelRestorer(
                 categories = backupNovel.categories,
                 backupCategories = backupCategories,
                 history = backupNovel.history,
+                excludedScanlators = backupNovel.excludedScanlators,
             )
         }
     }
@@ -241,10 +242,12 @@ class NovelRestorer(
         categories: List<Long>,
         backupCategories: List<BackupCategory>,
         history: List<BackupHistory>,
+        excludedScanlators: List<String>,
     ): Novel {
         restoreCategories(novel, categories, backupCategories)
         restoreChapters(novel, chapters)
         restoreHistory(history)
+        restoreExcludedScanlators(novel, excludedScanlators)
         return novel
     }
 
@@ -308,6 +311,21 @@ class NovelRestorer(
                         it.readAt,
                         it.readDuration,
                     )
+                }
+            }
+        }
+    }
+
+    private suspend fun restoreExcludedScanlators(novel: Novel, excludedScanlators: List<String>) {
+        if (excludedScanlators.isEmpty()) return
+        val existingExcludedScanlators = handler.awaitList {
+            novel_excluded_scanlatorsQueries.getExcludedScanlatorsByNovelId(novel.id)
+        }
+        val toInsert = excludedScanlators.filter { it !in existingExcludedScanlators }
+        if (toInsert.isNotEmpty()) {
+            handler.await {
+                toInsert.forEach { scanlator ->
+                    novel_excluded_scanlatorsQueries.insert(novel.id, scanlator)
                 }
             }
         }
