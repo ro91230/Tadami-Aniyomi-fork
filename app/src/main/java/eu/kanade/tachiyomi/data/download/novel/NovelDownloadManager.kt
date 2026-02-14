@@ -51,8 +51,52 @@ class NovelDownloadManager(
         }
     }
 
+    fun getDownloadCount(): Int {
+        val scopedCount = rootDir
+            ?.listFiles()
+            ?.sumOf { sourceDir -> sourceDir.listFiles()?.size ?: 0 }
+            ?: 0
+        if (scopedCount > 0) return scopedCount
+
+        val legacyBaseDir = legacyRootDir
+        return if (legacyBaseDir?.exists() == true) {
+            legacyBaseDir.listFiles()
+                ?.sumOf { sourceDir ->
+                    sourceDir.listFiles()
+                        ?.sumOf { novelDir -> novelDir.listFiles()?.size ?: 0 }
+                        ?: 0
+                } ?: 0
+        } else {
+            0
+        }
+    }
+
     fun hasAnyDownloadedChapter(novel: Novel): Boolean {
         return getDownloadCount(novel) > 0
+    }
+
+    fun getDownloadSize(novel: Novel): Long {
+        val scopedSize = novelDirectory(novel)?.let(::calculateScopedDirectorySize) ?: 0L
+        if (scopedSize > 0L) return scopedSize
+
+        val legacyNovelDir = legacyNovelDirectory(novel)
+        return if (legacyNovelDir?.exists() == true) {
+            calculateLegacyDirectorySize(legacyNovelDir)
+        } else {
+            0L
+        }
+    }
+
+    fun getDownloadSize(): Long {
+        val scopedSize = rootDir?.let(::calculateScopedDirectorySize) ?: 0L
+        if (scopedSize > 0L) return scopedSize
+
+        val legacyBaseDir = legacyRootDir
+        return if (legacyBaseDir?.exists() == true) {
+            calculateLegacyDirectorySize(legacyBaseDir)
+        } else {
+            0L
+        }
     }
 
     suspend fun downloadChapter(novel: Novel, chapter: NovelChapter): Boolean {
@@ -87,6 +131,20 @@ class NovelDownloadManager(
             chapterFile(novel, chapterId)?.delete()
             legacyChapterFile(novel, chapterId)?.delete()
         }
+        cleanupDirectories(novel)
+    }
+
+    fun deleteNovel(novel: Novel) {
+        val scopedDir = novelDirectory(novel)
+        if (scopedDir?.exists() == true) {
+            scopedDir.delete()
+        }
+
+        val legacyDir = legacyNovelDirectory(novel)
+        if (legacyDir?.exists() == true) {
+            legacyDir.deleteRecursively()
+        }
+
         cleanupDirectories(novel)
     }
 
@@ -166,6 +224,18 @@ class NovelDownloadManager(
         if (legacySourceDir.exists() && legacySourceDir.listFiles().isNullOrEmpty()) {
             legacySourceDir.delete()
         }
+    }
+
+    private fun calculateScopedDirectorySize(directory: UniFile): Long {
+        if (!directory.exists()) return 0L
+        if (!directory.isDirectory) return directory.length().takeIf { it > 0L } ?: 0L
+        return directory.listFiles()?.sumOf(::calculateScopedDirectorySize) ?: 0L
+    }
+
+    private fun calculateLegacyDirectorySize(directory: File): Long {
+        if (!directory.exists()) return 0L
+        if (directory.isFile) return directory.length()
+        return directory.listFiles()?.sumOf(::calculateLegacyDirectorySize) ?: 0L
     }
 
     private fun getSourceDirName(novel: Novel): String {

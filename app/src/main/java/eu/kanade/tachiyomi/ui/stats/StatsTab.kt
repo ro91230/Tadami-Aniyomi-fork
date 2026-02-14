@@ -19,6 +19,7 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.stats.anime.animeStatsTab
 import eu.kanade.tachiyomi.ui.stats.manga.mangaStatsTab
+import eu.kanade.tachiyomi.ui.stats.novel.novelStatsTab
 import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.data.achievement.handler.AchievementHandler
 import tachiyomi.data.achievement.model.AchievementEvent
@@ -51,6 +52,7 @@ data object StatsTab : Tab {
         val tabs = persistentListOf(
             animeStatsTab(),
             mangaStatsTab(),
+            novelStatsTab(),
         )
         val state = rememberPagerState { tabs.size }
 

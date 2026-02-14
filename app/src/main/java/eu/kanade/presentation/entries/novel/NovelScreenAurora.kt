@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -72,6 +73,7 @@ fun NovelScreenAuroraImpl(
     onRefresh: () -> Unit,
     onShare: (() -> Unit)?,
     onWebView: (() -> Unit)?,
+    onMigrateClicked: (() -> Unit)?,
     onOpenBatchDownloadDialog: (() -> Unit)?,
     onOpenEpubExportDialog: (() -> Unit)?,
     onChapterClick: (Long) -> Unit,
@@ -327,6 +329,13 @@ fun NovelScreenAuroraImpl(
                 icon = Icons.Default.Refresh,
                 contentDescription = null,
             )
+            if (onMigrateClicked != null) {
+                AuroraActionButton(
+                    onClick = onMigrateClicked,
+                    icon = Icons.Outlined.SwapHoriz,
+                    contentDescription = null,
+                )
+            }
             if (onWebView != null) {
                 AuroraActionButton(
                     onClick = onWebView,

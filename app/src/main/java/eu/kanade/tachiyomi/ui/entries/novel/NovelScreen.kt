@@ -45,6 +45,7 @@ import eu.kanade.tachiyomi.novelsource.NovelSource
 import eu.kanade.tachiyomi.source.novel.NovelSiteSource
 import eu.kanade.tachiyomi.source.novel.NovelWebUrlSource
 import eu.kanade.tachiyomi.ui.browse.novel.extension.details.NovelSourcePreferencesScreen
+import eu.kanade.tachiyomi.ui.browse.novel.migration.search.MigrateNovelSearchScreen
 import eu.kanade.tachiyomi.ui.reader.novel.NovelReaderScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.storage.getUriCompat
@@ -146,6 +147,9 @@ class NovelScreen(
             } else {
                 null
             },
+            onMigrateClicked = {
+                navigator.push(MigrateNovelSearchScreen(successState.novel.id))
+            }.takeIf { successState.novel.favorite },
             onOpenBatchDownloadDialog = { showBatchDownloadDialog = true },
             onOpenEpubExportDialog = { showEpubExportDialog = true },
             onChapterClick = { chapterId ->

@@ -66,6 +66,8 @@ import eu.kanade.tachiyomi.ui.download.anime.animeDownloadTab
 import eu.kanade.tachiyomi.ui.download.manga.MangaDownloadHeaderItem
 import eu.kanade.tachiyomi.ui.download.manga.MangaDownloadQueueScreenModel
 import eu.kanade.tachiyomi.ui.download.manga.mangaDownloadTab
+import eu.kanade.tachiyomi.ui.download.novel.NovelDownloadQueueScreenModel
+import eu.kanade.tachiyomi.ui.download.novel.novelDownloadTab
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
 import tachiyomi.i18n.MR
@@ -95,16 +97,21 @@ data object DownloadsTab : Tab {
         val scope = rememberCoroutineScope()
         val animeScreenModel = rememberScreenModel { AnimeDownloadQueueScreenModel() }
         val mangaScreenModel = rememberScreenModel { MangaDownloadQueueScreenModel() }
+        val novelScreenModel = rememberScreenModel { NovelDownloadQueueScreenModel() }
         val animeDownloadList by animeScreenModel.state.collectAsState()
         val mangaDownloadList by mangaScreenModel.state.collectAsState()
+        val novelDownloadsState by novelScreenModel.state.collectAsState()
         val animeDownloadCount by remember {
             derivedStateOf { animeDownloadList.sumOf { it.subItems.size } }
         }
         val mangaDownloadCount by remember {
             derivedStateOf { mangaDownloadList.sumOf { it.subItems.size } }
         }
+        val novelDownloadCount by remember(novelDownloadsState.downloadCount) {
+            derivedStateOf { novelDownloadsState.downloadCount }
+        }
 
-        val state = rememberPagerState { 2 }
+        val state = rememberPagerState { 3 }
         val snackbarHostState = remember { SnackbarHostState() }
 
         val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
@@ -159,6 +166,7 @@ data object DownloadsTab : Tab {
                         when (state.currentPage) {
                             0 -> AnimeActions(animeScreenModel, animeDownloadList)
                             1 -> MangaActions(mangaScreenModel, mangaDownloadList)
+                            2 -> Unit
                         }
                     },
                     scrollBehavior = scrollBehavior,
@@ -169,6 +177,7 @@ data object DownloadsTab : Tab {
                     visible = when (state.currentPage) {
                         0 -> animeDownloadList.isNotEmpty()
                         1 -> mangaDownloadList.isNotEmpty()
+                        2 -> false
                         else -> false
                     },
                     enter = fadeIn(),
@@ -189,6 +198,7 @@ data object DownloadsTab : Tab {
                                 } else {
                                     MR.strings.action_resume
                                 }
+                                2 -> MR.strings.action_retry
                                 else -> MR.strings.action_pause
                             }
                             Text(text = stringResource(id))
@@ -205,6 +215,7 @@ data object DownloadsTab : Tab {
                                 } else {
                                     Icons.Filled.PlayArrow
                                 }
+                                2 -> Icons.Filled.PlayArrow
                                 else -> Icons.Filled.PlayArrow
                             }
                             Icon(imageVector = icon, contentDescription = null)
@@ -222,6 +233,7 @@ data object DownloadsTab : Tab {
                                 } else {
                                     mangaScreenModel.startDownloads()
                                 }
+                                2 -> Unit
                             }
                         },
                         expanded = fabExpanded,
@@ -263,6 +275,17 @@ data object DownloadsTab : Tab {
                             },
                             unselectedContentColor = MaterialTheme.colorScheme.onSurface,
                         ),
+                        Tab(
+                            selected = state.currentPage == 2,
+                            onClick = { scope.launch { state.animateScrollToPage(2) } },
+                            text = {
+                                TabText(
+                                    text = stringResource(AYMR.strings.label_novel),
+                                    badgeCount = novelDownloadCount,
+                                )
+                            },
+                            unselectedContentColor = MaterialTheme.colorScheme.onSurface,
+                        ),
                     )
                 }
 
@@ -280,6 +303,12 @@ data object DownloadsTab : Tab {
                             snackbarHostState,
                         )
                         1 -> mangaDownloadTab(
+                            nestedScrollConnection,
+                        ).content(
+                            PaddingValues(bottom = contentPadding.calculateBottomPadding()),
+                            snackbarHostState,
+                        )
+                        2 -> novelDownloadTab(
                             nestedScrollConnection,
                         ).content(
                             PaddingValues(bottom = contentPadding.calculateBottomPadding()),

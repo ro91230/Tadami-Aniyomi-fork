@@ -49,6 +49,7 @@ import eu.kanade.domain.source.manga.interactor.ToggleMangaSource
 import eu.kanade.domain.source.manga.interactor.ToggleMangaSourcePin
 import eu.kanade.domain.source.novel.interactor.GetEnabledNovelSources
 import eu.kanade.domain.source.novel.interactor.GetLanguagesWithNovelSources
+import eu.kanade.domain.source.novel.interactor.GetNovelSourcesWithFavoriteCount
 import eu.kanade.domain.source.novel.interactor.ToggleNovelIncognito
 import eu.kanade.domain.source.novel.interactor.ToggleNovelSource
 import eu.kanade.domain.source.novel.interactor.ToggleNovelSourcePin
@@ -221,6 +222,7 @@ import tachiyomi.domain.history.manga.interactor.GetTotalReadDuration
 import tachiyomi.domain.history.manga.interactor.RemoveMangaHistory
 import tachiyomi.domain.history.manga.interactor.UpsertMangaHistory
 import tachiyomi.domain.history.manga.repository.MangaHistoryRepository
+import tachiyomi.domain.history.novel.interactor.GetTotalNovelReadDuration
 import tachiyomi.domain.history.novel.repository.NovelHistoryRepository
 import tachiyomi.domain.items.chapter.interactor.GetChapter
 import tachiyomi.domain.items.chapter.interactor.GetChapterByUrlAndMangaId
@@ -460,6 +462,7 @@ class DomainModule : InjektModule {
         addFactory { GetTotalReadDuration(get()) }
 
         addSingletonFactory<NovelHistoryRepository> { NovelHistoryRepositoryImpl(get()) }
+        addFactory { GetTotalNovelReadDuration(get()) }
 
         addFactory { DeleteChapterDownload(get(), get()) }
 
@@ -523,6 +526,7 @@ class DomainModule : InjektModule {
             )
         }
         addFactory { GetRemoteNovel(get()) }
+        addFactory { GetNovelSourcesWithFavoriteCount(get(), get()) }
         addFactory { GetNovelSourcesWithNonLibraryNovels(get()) }
         addFactory { ToggleNovelSource(get<SourcePreferences>().disabledNovelSources()) }
         addFactory { ToggleNovelSourcePin(get<SourcePreferences>().pinnedNovelSources()) }

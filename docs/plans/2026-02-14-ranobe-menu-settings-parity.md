@@ -6,33 +6,37 @@
 - [x] Commit existing unrelated working-tree changes as baseline checkpoint.
 
 ## 1. Critical parity in existing novel screens
-- [ ] Add source settings action from novel entry screen toolbar.
-- [ ] Add migrate action from novel entry screen toolbar.
+- [x] Add source settings action from novel entry screen toolbar.
+- [x] Add migrate action from novel entry screen toolbar.
 - [ ] Add tracking action parity in novel entry screens (Aurora + standard) with backend support.
-- [ ] Bring `NovelLibrarySettingsDialog` to parity with anime/manga for display/filter toggles where backend exists.
+- [x] Bring `NovelLibrarySettingsDialog` to parity with anime/manga for display/filter toggles where backend exists.
 - [ ] Add/adjust tests for novel entry toolbar actions and novel library settings parity.
 
 ## 2. Browse parity (novel extension details + source preferences + migration)
-- [ ] Add `browse/novel/extension/details/*` screens + screen model parity.
-- [ ] Wire novel extensions list to open details screen.
-- [ ] Add `NovelSourcePreferencesScreen` for `ConfigurableNovelSource`.
-- [ ] Wire novel source toolbar/settings entry points to source preferences screen.
-- [ ] Add novel migration flow in browse (source tab + screen model + screen/dialogs).
+- [x] Add `browse/novel/extension/details/*` screens + screen model parity.
+- [x] Wire novel extensions list to open details screen.
+- [x] Add `NovelSourcePreferencesScreen` for `ConfigurableNovelSource`.
+- [x] Wire novel source toolbar/settings entry points to source preferences screen.
+- [x] Add novel migration flow in browse (source tab + screen model + screen/dialogs).
 - [ ] Add tests for novel extension details/source prefs/migration navigation.
 
 ## 3. More tabs parity (history/downloads/stats/storage)
-- [ ] Add novel history tab + screen model + UI and include in `HistoriesTab`.
-- [ ] Add novel download queue tab + screen model + UI and include in `DownloadsTab`.
-- [ ] Add novel stats tab and include in `StatsTab`.
-- [ ] Add novel storage tab and include in `StorageTab`.
+- [x] Add novel history tab + screen model + UI and include in `HistoriesTab`.
+- [x] Add novel download queue tab + screen model + UI and include in `DownloadsTab`.
+- [x] Add novel stats tab and include in `StatsTab`.
+- [x] Add novel storage tab and include in `StorageTab`.
 - [ ] Add/adjust tests for all added novel tabs.
 
 ## 4. Deeplink + tracking backend parity
-- [ ] Add novel deeplink flow (`Activity` + `Screen` + `ScreenModel`).
+- [x] Add novel deeplink flow (`Activity` + `Screen` + `ScreenModel`).
 - [ ] Implement full novel tracking backend/domain parity (repo/interactors/models) and UI integration.
 - [ ] Add tests for novel deeplink and tracking flows.
 
 ## 5. Final verification
-- [ ] Run targeted unit/UI tests for touched modules.
-- [ ] Run project verification subset for changed features.
-- [ ] Update this plan with final statuses.
+- [x] Run targeted unit/UI tests for touched modules.
+- [x] Run project verification subset for changed features.
+- [x] Update this plan with final statuses.
+
+## Remaining blockers
+- Novel tracking parity items remain open because there is currently no full novel tracking domain stack (equivalents of manga/anime track models + interactors + UI flows).
+- Test-parity items remain open because dedicated test coverage for newly added novel tabs/flows has not yet been implemented in this pass.

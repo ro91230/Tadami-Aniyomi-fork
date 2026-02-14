@@ -43,6 +43,7 @@ import eu.kanade.tachiyomi.ui.browse.manga.migration.sources.migrateMangaSourceT
 import eu.kanade.tachiyomi.ui.browse.manga.source.mangaSourcesTab
 import eu.kanade.tachiyomi.ui.browse.novel.extension.NovelExtensionsScreenModel
 import eu.kanade.tachiyomi.ui.browse.novel.extension.novelExtensionsTab
+import eu.kanade.tachiyomi.ui.browse.novel.migration.sources.migrateNovelSourceTab
 import eu.kanade.tachiyomi.ui.browse.novel.source.novelSourcesTab
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import kotlinx.collections.immutable.toPersistentList
@@ -142,6 +143,7 @@ data object BrowseTab : Tab {
         val novelTabs = buildList {
             add(novelSourcesTab())
             add(novelExtensionsTab(novelExtensionsScreenModel))
+            add(migrateNovelSourceTab())
         }.toPersistentList()
 
         val sections = remember(showMangaSection, showNovelSection) {

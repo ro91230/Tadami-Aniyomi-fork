@@ -93,9 +93,11 @@ import eu.kanade.tachiyomi.ui.browse.anime.source.browse.BrowseAnimeSourceScreen
 import eu.kanade.tachiyomi.ui.browse.anime.source.globalsearch.GlobalAnimeSearchScreen
 import eu.kanade.tachiyomi.ui.browse.manga.source.browse.BrowseMangaSourceScreen
 import eu.kanade.tachiyomi.ui.browse.manga.source.globalsearch.GlobalMangaSearchScreen
+import eu.kanade.tachiyomi.ui.browse.novel.source.globalsearch.GlobalNovelSearchScreen
 import eu.kanade.tachiyomi.ui.deeplink.DeepLinkScreenType
 import eu.kanade.tachiyomi.ui.deeplink.anime.DeepLinkAnimeScreen
 import eu.kanade.tachiyomi.ui.deeplink.manga.DeepLinkMangaScreen
+import eu.kanade.tachiyomi.ui.deeplink.novel.DeepLinkNovelScreen
 import eu.kanade.tachiyomi.ui.entries.anime.AnimeScreen
 import eu.kanade.tachiyomi.ui.entries.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
@@ -607,6 +609,10 @@ class MainActivity : BaseActivity() {
                             navigator.push(GlobalAnimeSearchScreen(query))
                             navigator.push(DeepLinkAnimeScreen(query))
                         }
+                        DeepLinkScreenType.NOVEL -> {
+                            navigator.push(GlobalNovelSearchScreen(query))
+                            navigator.push(DeepLinkNovelScreen(query))
+                        }
                     }
                 }
                 null
@@ -626,6 +632,14 @@ class MainActivity : BaseActivity() {
                     val filter = intent.getStringExtra(INTENT_SEARCH_FILTER)
                     navigator.popUntilRoot()
                     navigator.push(GlobalAnimeSearchScreen(query, filter))
+                }
+                null
+            }
+            INTENT_NOVELSEARCH -> { // Same as above
+                val query = intent.getStringExtra(INTENT_SEARCH_QUERY)
+                if (!query.isNullOrEmpty()) {
+                    navigator.popUntilRoot()
+                    navigator.push(GlobalNovelSearchScreen(query))
                 }
                 null
             }
@@ -678,6 +692,7 @@ class MainActivity : BaseActivity() {
     companion object {
         const val INTENT_SEARCH = "eu.kanade.tachiyomi.SEARCH"
         const val INTENT_ANIMESEARCH = "eu.kanade.tachiyomi.ANIMESEARCH"
+        const val INTENT_NOVELSEARCH = "eu.kanade.tachiyomi.NOVELSEARCH"
         const val INTENT_SEARCH_QUERY = "query"
         const val INTENT_SEARCH_FILTER = "filter"
         const val INTENT_SEARCH_TYPE = "type"
