@@ -468,15 +468,15 @@ private fun InlineNovelLibraryHeader(
                 )
 
                 Row {
+                    IconButton(onClick = onSearchClick) {
+                        Icon(Icons.Filled.Search, null, tint = colors.accent)
+                    }
                     IconButton(onClick = onFilterClicked) {
                         Icon(
                             Icons.Filled.FilterList,
                             null,
                             tint = if (hasActiveFilters) colors.accent else colors.textSecondary,
                         )
-                    }
-                    IconButton(onClick = onSearchClick) {
-                        Icon(Icons.Filled.Search, null, tint = colors.accent)
                     }
                     Box {
                         IconButton(onClick = { showMenu = true }) {

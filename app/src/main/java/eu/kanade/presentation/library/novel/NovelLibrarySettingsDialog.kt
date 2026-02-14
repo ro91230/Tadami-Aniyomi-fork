@@ -3,6 +3,7 @@ package eu.kanade.presentation.library.novel
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -17,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
@@ -46,9 +48,12 @@ fun NovelLibrarySettingsDialog(
     screenModel: NovelLibraryScreenModel,
 ) {
     val libraryPreferences = remember { Injekt.get<LibraryPreferences>() }
+    val configuration = LocalConfiguration.current
+    val maxSheetHeight = (configuration.screenHeightDp * 0.72f).dp
 
     TabbedDialog(
         onDismissRequest = onDismissRequest,
+        modifier = Modifier.heightIn(max = maxSheetHeight),
         tabTitles = persistentListOf(
             stringResource(MR.strings.action_filter),
             stringResource(MR.strings.action_sort),
