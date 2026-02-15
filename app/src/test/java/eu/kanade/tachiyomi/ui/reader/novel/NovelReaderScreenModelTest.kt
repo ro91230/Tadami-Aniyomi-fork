@@ -10,19 +10,26 @@ import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderTheme
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import kotlinx.serialization.json.Json
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.core.common.preference.Preference
+import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.domain.entries.novel.interactor.GetNovel
 import tachiyomi.domain.entries.novel.model.Novel
 import tachiyomi.domain.entries.novel.model.NovelUpdate
@@ -40,15 +47,26 @@ import tachiyomi.domain.source.novel.service.NovelSourceManager
 import java.util.Date
 
 class NovelReaderScreenModelTest {
-
-    @BeforeEach
-    fun setup() {
-        Dispatchers.setMain(Dispatchers.Unconfined)
-    }
+    private val activeScreenModels = mutableListOf<NovelReaderScreenModel>()
 
     @AfterEach
     fun tearDown() {
-        Dispatchers.resetMain()
+        activeScreenModels.forEach { it.onDispose() }
+        activeScreenModels.clear()
+    }
+
+    companion object {
+        @JvmStatic
+        @BeforeAll
+        fun setupMainDispatcher() {
+            Dispatchers.setMain(Dispatchers.Unconfined)
+        }
+
+        @JvmStatic
+        @AfterAll
+        fun resetMainDispatcher() {
+            Dispatchers.resetMain()
+        }
     }
 
     @Test
@@ -62,7 +80,7 @@ class NovelReaderScreenModelTest {
                 url = "https://example.org/ch1",
             )
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = FakeNovelChapterRepository(chapter),
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -97,7 +115,7 @@ class NovelReaderScreenModelTest {
                 url = "https://example.org/ch1",
             )
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = FakeNovelChapterRepository(chapter),
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -130,7 +148,7 @@ class NovelReaderScreenModelTest {
                 url = "https://example.org/ch1",
             )
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = FakeNovelChapterRepository(chapter),
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -171,7 +189,7 @@ class NovelReaderScreenModelTest {
                 url = "https://example.org/book/ch1",
             )
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = FakeNovelChapterRepository(chapter),
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -235,7 +253,7 @@ class NovelReaderScreenModelTest {
                 }
             """.trimIndent()
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = FakeNovelChapterRepository(chapter),
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -294,7 +312,7 @@ class NovelReaderScreenModelTest {
             """.trimIndent()
             val escapedPayload = Json.encodeToString(structuredPayload)
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = FakeNovelChapterRepository(chapter),
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -329,7 +347,7 @@ class NovelReaderScreenModelTest {
             val jsonLikePayload =
                 "{type:'doc',content:[{type:'paragraph',content:[{type:'text',text:'Intro'}]},{type:'bulletList',content:[{type:'listItem',content:[{type:'paragraph',content:[{type:'text',text:'Bullet line'}]}]}]}],}"
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = FakeNovelChapterRepository(chapter),
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -364,7 +382,7 @@ class NovelReaderScreenModelTest {
             val malformedPayload =
                 "{\"type: \"bulletList\", \"content: [{\"type\": \"listItem\", \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Магия в этом мире основана на математике и формулах\"}]}]}, {\"type\": \"listItem\", \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Второй пункт\"}]}]}]}"
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = FakeNovelChapterRepository(chapter),
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -403,7 +421,7 @@ class NovelReaderScreenModelTest {
             val htmlWithMalformedFragment =
                 "<div><p>Эта информация не обязательна для понимания.</p><p>{\"type: \"bulletList\", \"content: [{\"type\": \"listItem\", \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Магия в этом мире основана на математике и формулах\"}]}]}]}</p><p>Финальная строка.</p></div>"
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = FakeNovelChapterRepository(chapter),
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -463,7 +481,7 @@ class NovelReaderScreenModelTest {
                 url = "https://example.org/ch1",
             )
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = FakeNovelChapterRepository(chapter),
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -522,7 +540,7 @@ class NovelReaderScreenModelTest {
                 url = "/book/chapter-1",
             )
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = FakeNovelChapterRepository(chapter),
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -556,7 +574,7 @@ class NovelReaderScreenModelTest {
                 url = "book-slug/1/1/0",
             )
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = FakeNovelChapterRepository(chapter),
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -628,7 +646,7 @@ class NovelReaderScreenModelTest {
                 url = "https://example.org/ch1",
             )
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = FakeNovelChapterRepository(chapter),
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -659,9 +677,68 @@ class NovelReaderScreenModelTest {
     }
 
     @Test
+    fun `reuses parsed content blocks when settings change`() {
+        runBlocking {
+            val store = ReactivePreferenceStore()
+            val prefs = NovelReaderPreferences(
+                preferenceStore = store,
+                json = Json { encodeDefaults = true },
+            )
+            val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+            )
+
+            val screenModel = trackedNovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = FakeNovelChapterRepository(chapter),
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(
+                    sourceId = novel.source,
+                    chapterHtml = "<p>Intro</p><p>Outro</p>",
+                ),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = prefs,
+                isSystemDark = { false },
+            )
+
+            try {
+                withTimeout(1_000) {
+                    while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                        yield()
+                    }
+                }
+
+                val initialState = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+                val initialBlocks = initialState.contentBlocks
+
+                prefs.fontSize().set(22)
+
+                withTimeout(1_000) {
+                    while (true) {
+                        val state = screenModel.state.value
+                        if (state is NovelReaderScreenModel.State.Success && state.readerSettings.fontSize == 22) {
+                            break
+                        }
+                        yield()
+                    }
+                }
+
+                val updatedState = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+                (updatedState.contentBlocks === initialBlocks) shouldBe true
+            } finally {
+                screenModel.onDispose()
+            }
+        }
+    }
+
+    @Test
     fun `missing chapter shows error state`() {
         runBlocking {
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = 99L,
                 novelChapterRepository = FakeNovelChapterRepository(null),
                 getNovel = GetNovel(FakeNovelRepository(Novel.create())),
@@ -694,7 +771,7 @@ class NovelReaderScreenModelTest {
             )
             val chapterRepo = FakeNovelChapterRepository(chapter)
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = chapterRepo,
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -730,7 +807,7 @@ class NovelReaderScreenModelTest {
             )
             val chapterRepo = FakeNovelChapterRepository(chapter)
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = chapterRepo,
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -770,7 +847,7 @@ class NovelReaderScreenModelTest {
                 lastPageRead = encodeWebScrollProgressPercent(42),
             )
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = FakeNovelChapterRepository(chapter),
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -805,7 +882,7 @@ class NovelReaderScreenModelTest {
             )
             val chapterRepo = FakeNovelChapterRepository(chapter)
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = chapterRepo,
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -848,7 +925,7 @@ class NovelReaderScreenModelTest {
             val chapterRepo = FakeNovelChapterRepository(chapter)
             val historyRepository = FakeNovelHistoryRepository()
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = chapterRepo,
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -888,7 +965,7 @@ class NovelReaderScreenModelTest {
             )
             val chapterRepo = FakeNovelChapterRepository(chapter)
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = chapterRepo,
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -924,7 +1001,7 @@ class NovelReaderScreenModelTest {
             )
             val chapterRepo = FakeNovelChapterRepository(chapter)
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = chapterRepo,
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -967,7 +1044,7 @@ class NovelReaderScreenModelTest {
             )
             val chapterRepo = FakeNovelChapterRepository(chapter)
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = chapterRepo,
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -1023,7 +1100,7 @@ class NovelReaderScreenModelTest {
             )
             val chapterRepo = FakeNovelChapterRepository(chapter2, listOf(chapter1, chapter2, chapter3))
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter2.id,
                 novelChapterRepository = chapterRepo,
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -1060,7 +1137,7 @@ class NovelReaderScreenModelTest {
             )
             val chapterRepo = FakeNovelChapterRepository(chapter)
 
-            val screenModel = NovelReaderScreenModel(
+            val screenModel = trackedNovelReaderScreenModel(
                 chapterId = chapter.id,
                 novelChapterRepository = chapterRepo,
                 getNovel = GetNovel(FakeNovelRepository(novel)),
@@ -1151,6 +1228,86 @@ class NovelReaderScreenModelTest {
         )
     }
 
+    private fun trackedNovelReaderScreenModel(
+        chapterId: Long,
+        novelChapterRepository: NovelChapterRepository,
+        getNovel: GetNovel,
+        sourceManager: NovelSourceManager,
+        pluginStorage: NovelPluginStorage,
+        novelReaderPreferences: NovelReaderPreferences,
+        isSystemDark: () -> Boolean,
+        historyRepository: NovelHistoryRepository = FakeNovelHistoryRepository(),
+    ): NovelReaderScreenModel {
+        return NovelReaderScreenModel(
+            chapterId = chapterId,
+            novelChapterRepository = novelChapterRepository,
+            getNovel = getNovel,
+            sourceManager = sourceManager,
+            pluginStorage = pluginStorage,
+            historyRepository = historyRepository,
+            novelReaderPreferences = novelReaderPreferences,
+            isSystemDark = isSystemDark,
+        ).also(activeScreenModels::add)
+    }
+
+    private class ReactivePreferenceStore : PreferenceStore {
+        private val values = mutableMapOf<String, Any?>()
+        private val flows = mutableMapOf<String, MutableStateFlow<Any?>>()
+
+        override fun getString(key: String, defaultValue: String): Preference<String> = createPreference(key, defaultValue)
+
+        override fun getLong(key: String, defaultValue: Long): Preference<Long> = createPreference(key, defaultValue)
+
+        override fun getInt(key: String, defaultValue: Int): Preference<Int> = createPreference(key, defaultValue)
+
+        override fun getFloat(key: String, defaultValue: Float): Preference<Float> = createPreference(key, defaultValue)
+
+        override fun getBoolean(key: String, defaultValue: Boolean): Preference<Boolean> = createPreference(key, defaultValue)
+
+        override fun getStringSet(key: String, defaultValue: Set<String>): Preference<Set<String>> =
+            createPreference(key, defaultValue)
+
+        override fun <T> getObject(
+            key: String,
+            defaultValue: T,
+            serializer: (T) -> String,
+            deserializer: (String) -> T,
+        ): Preference<T> = createPreference(key, defaultValue)
+
+        override fun getAll(): Map<String, *> = values.toMap()
+
+        @Suppress("UNCHECKED_CAST")
+        private fun <T> createPreference(key: String, defaultValue: T): Preference<T> {
+            val stateFlow = flows.getOrPut(key) {
+                MutableStateFlow(values[key] ?: defaultValue)
+            }
+            return object : Preference<T> {
+                override fun key(): String = key
+
+                override fun get(): T = (values[key] as T?) ?: (stateFlow.value as T?) ?: defaultValue
+
+                override fun set(value: T) {
+                    values[key] = value
+                    stateFlow.value = value
+                }
+
+                override fun isSet(): Boolean = values.containsKey(key)
+
+                override fun delete() {
+                    values.remove(key)
+                    stateFlow.value = defaultValue
+                }
+
+                override fun defaultValue(): T = defaultValue
+
+                override fun changes(): Flow<T> = stateFlow.map { (it as T?) ?: defaultValue }
+
+                override fun stateIn(scope: CoroutineScope) =
+                    changes().stateIn(scope, SharingStarted.Eagerly, get())
+            }
+        }
+    }
+
     private class FakeNovelRepository(
         private val novel: Novel,
     ) : NovelRepository {
@@ -1213,4 +1370,5 @@ class NovelReaderScreenModelTest {
         }
     }
 }
+
 

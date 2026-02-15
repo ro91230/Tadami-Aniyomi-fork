@@ -11,9 +11,12 @@ import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderSettings
 import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderTheme
 import eu.kanade.tachiyomi.util.system.isNightMode
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -61,6 +64,8 @@ class NovelReaderScreenModel(
     private var customJs: String? = null
     private var pluginSite: String? = null
     private var chapterWebUrl: String? = null
+    private var parsedContentBlocks: List<ContentBlock>? = null
+    private var parsedTextBlocks: List<String>? = null
     private var lastSavedProgress: Long? = null
     private var lastSavedRead: Boolean? = null
     private var initialProgressIndex: Int = 0
@@ -101,11 +106,15 @@ class NovelReaderScreenModel(
         val pluginPackage = pluginStorage.getAll()
             .firstOrNull { it.entry.id.hashCode().toLong() == novel.source }
         val sourceSiteUrl = (source as? NovelSiteSource)?.siteUrl
-        rawHtml = html
-            .normalizeStructuredChapterPayload()
-            .prependChapterHeadingIfMissing(chapter.name)
+        rawHtml = withContext(Dispatchers.Default) {
+            html
+                .normalizeStructuredChapterPayload()
+                .prependChapterHeadingIfMissing(chapter.name)
+        }
         currentNovel = novel
         currentChapter = chapter
+        parsedContentBlocks = null
+        parsedTextBlocks = null
         lastSavedProgress = chapter.lastPageRead
         lastSavedRead = chapter.read
         val savedNativeProgress = decodeNativeScrollProgress(chapter.lastPageRead)
@@ -123,16 +132,31 @@ class NovelReaderScreenModel(
             novelUrl = novel.url,
             pluginSite = pluginSite,
         )
+        parseAndCacheContentBlocks(
+            rawHtml = rawHtml ?: return setError("Chapter content is empty"),
+            chapterWebUrl = chapterWebUrl,
+            novelUrl = novel.url,
+            pluginSite = pluginSite,
+        )
         chapterReadStartTimeMs = System.currentTimeMillis()
+        val initialSettings = novelReaderPreferences.resolveSettings(novel.source)
 
         settingsJob?.cancel()
         settingsJob = screenModelScope.launch {
-            novelReaderPreferences.settingsFlow(novel.source).collect { settings ->
-                updateContent(settings)
-            }
+            var skippedInitialEmission = false
+            novelReaderPreferences.settingsFlow(novel.source)
+                .distinctUntilChanged()
+                .collect { settings ->
+                    if (!skippedInitialEmission && settings == initialSettings) {
+                        skippedInitialEmission = true
+                        return@collect
+                    }
+                    skippedInitialEmission = true
+                    updateContent(settings)
+                }
         }
-        updateContent(novelReaderPreferences.resolveSettings(novel.source))
         saveHistorySnapshot(chapter.id, sessionReadDurationMs = 0L)
+        updateContent(initialSettings)
     }
 
     private fun setError(message: String?) {
@@ -170,17 +194,22 @@ class NovelReaderScreenModel(
             customCss = pluginCss,
             customJs = pluginJs,
         )
-        val contentBlocks = extractContentBlocks(
-            rawHtml = html,
-            chapterWebUrl = chapterWebUrl,
-            novelUrl = novel.url,
-            pluginSite = pluginSite,
-        ).ifEmpty {
-            extractTextBlocks(html).map(ContentBlock::Text)
-        }
-        val textBlocks = contentBlocks
-            .filterIsInstance<ContentBlock.Text>()
-            .map { it.text }
+        val contentBlocks = parsedContentBlocks
+            ?: extractContentBlocks(
+                rawHtml = html,
+                chapterWebUrl = chapterWebUrl,
+                novelUrl = novel.url,
+                pluginSite = pluginSite,
+            ).ifEmpty {
+                extractTextBlocks(html).map(ContentBlock::Text)
+            }.also {
+                parsedContentBlocks = it
+            }
+        val textBlocks = parsedTextBlocks
+            ?: contentBlocks
+                .filterIsInstance<ContentBlock.Text>()
+                .map { it.text }
+                .also { parsedTextBlocks = it }
         mutableState.value = State.Success(
             novel = novel,
             chapter = chapter,
@@ -196,6 +225,28 @@ class NovelReaderScreenModel(
             nextChapterId = chapterNavigation.second,
             chapterWebUrl = chapterWebUrl,
         )
+    }
+
+    private suspend fun parseAndCacheContentBlocks(
+        rawHtml: String,
+        chapterWebUrl: String?,
+        novelUrl: String,
+        pluginSite: String?,
+    ) {
+        val blocks = withContext(Dispatchers.Default) {
+            extractContentBlocks(
+                rawHtml = rawHtml,
+                chapterWebUrl = chapterWebUrl,
+                novelUrl = novelUrl,
+                pluginSite = pluginSite,
+            ).ifEmpty {
+                extractTextBlocks(rawHtml).map(ContentBlock::Text)
+            }
+        }
+        parsedContentBlocks = blocks
+        parsedTextBlocks = blocks
+            .filterIsInstance<ContentBlock.Text>()
+            .map { it.text }
     }
 
     private suspend fun resolveChapterWebUrl(

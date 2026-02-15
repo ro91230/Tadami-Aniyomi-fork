@@ -256,9 +256,16 @@ fun NovelReaderScreen(
             basePaddingPx = baseContentPadding.roundToPx(),
         ).toDp()
     }
+    val scrollContentBlocks = remember(state.chapter.id, state.contentBlocks) {
+        state.contentBlocks.takeIf { it.isNotEmpty() }
+            ?: state.textBlocks.map { NovelReaderScreenModel.ContentBlock.Text(it) }
+    }
+    val shouldPaginateForPageReader = state.readerSettings.pageReader &&
+        scrollContentBlocks.none { it is NovelReaderScreenModel.ContentBlock.Image }
     val pageReaderBlocks: List<String> = remember(
         state.chapter.id,
         state.textBlocks,
+        shouldPaginateForPageReader,
         state.readerSettings.fontSize,
         state.readerSettings.lineHeight,
         state.readerSettings.margin,
@@ -268,10 +275,10 @@ fun NovelReaderScreen(
         contentPaddingPx,
         statusBarTopPadding,
     ) {
-        val chapterText = state.textBlocks.joinToString("\n\n").trim()
-        if (chapterText.isBlank()) {
-            emptyList<String>()
-        } else {
+        resolvePageReaderBlocks(
+            shouldPaginate = shouldPaginateForPageReader,
+            textBlocks = state.textBlocks,
+        ) { chapterText ->
             val screenWidthPx = pageViewportSize.width.takeIf { it > 0 }
                 ?: with(density) { configuration.screenWidthDp.dp.roundToPx() }
             val screenHeightPx = pageViewportSize.height.takeIf { it > 0 }
@@ -290,16 +297,8 @@ fun NovelReaderScreen(
                 textAlign = state.readerSettings.textAlign,
             )
         }
-    }.ifEmpty {
-        state.textBlocks.takeIf { it.isNotEmpty() } ?: listOf("")
     }
-    val scrollContentBlocks = remember(state.chapter.id, state.contentBlocks) {
-        state.contentBlocks.takeIf { it.isNotEmpty() }
-            ?: state.textBlocks.map { NovelReaderScreenModel.ContentBlock.Text(it) }
-    }
-    val usePageReader = state.readerSettings.pageReader &&
-        scrollContentBlocks.none { it is NovelReaderScreenModel.ContentBlock.Image } &&
-        pageReaderBlocks.isNotEmpty()
+    val usePageReader = shouldPaginateForPageReader && pageReaderBlocks.isNotEmpty()
     val pagerState = rememberPagerState(
         initialPage = state.lastSavedIndex.coerceIn(0, pageReaderBlocks.lastIndex.coerceAtLeast(0)),
         pageCount = { pageReaderBlocks.size.coerceAtLeast(1) },
@@ -1741,6 +1740,20 @@ internal fun shouldStartInWebView(
     contentBlocksCount: Int,
 ): Boolean {
     return preferWebViewRenderer || contentBlocksCount <= 0
+}
+
+internal fun resolvePageReaderBlocks(
+    shouldPaginate: Boolean,
+    textBlocks: List<String>,
+    paginate: (String) -> List<String>,
+): List<String> {
+    val fallbackBlocks = textBlocks.takeIf { it.isNotEmpty() } ?: listOf("")
+    if (!shouldPaginate) return fallbackBlocks
+
+    val chapterText = textBlocks.joinToString("\n\n").trim()
+    if (chapterText.isBlank()) return fallbackBlocks
+
+    return paginate(chapterText).ifEmpty { fallbackBlocks }
 }
 
 internal fun shouldEnableJavaScriptInReaderWebView(

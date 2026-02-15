@@ -305,6 +305,22 @@ class NovelReaderUiVisibilityTest {
     }
 
     @Test
+    fun `page paginator is skipped when page reader mode is disabled`() {
+        var invocationCount = 0
+
+        val blocks = resolvePageReaderBlocks(
+            shouldPaginate = false,
+            textBlocks = listOf("First", "Second"),
+        ) {
+            invocationCount++
+            listOf("paged")
+        }
+
+        assertTrue(blocks == listOf("First", "Second"))
+        assertTrue(invocationCount == 0)
+    }
+
+    @Test
     fun `vertical swipe up near chapter end opens next chapter`() {
         val result = resolveVerticalChapterSwipeAction(
             swipeToNextChapter = true,
