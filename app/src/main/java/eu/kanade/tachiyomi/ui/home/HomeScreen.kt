@@ -83,11 +83,11 @@ object HomeScreen : Screen() {
     private val uiPreferences: UiPreferences by injectLazy()
     private val startScreen = uiPreferences.startScreen().get()
     private val defaultTab = startScreen.tab
-    private val moreTab = uiPreferences.navStyle().get().moreTab
 
     @Composable
     override fun Content() {
         val navStyle by uiPreferences.navStyle().collectAsState()
+        val currentMoreTab = navStyle.moreTab
         val theme by uiPreferences.appTheme().collectAsState()
         val isAurora = theme.isAuroraStyle
         val navigator = LocalNavigator.currentOrThrow
@@ -113,7 +113,7 @@ object HomeScreen : Screen() {
                                 showBottomNavEvent.receiveAsFlow().collectLatest { value = it }
                             }
                             AnimatedVisibility(
-                                visible = bottomNavVisible && tabNavigator.current != navStyle.moreTab,
+                                visible = bottomNavVisible && tabNavigator.current != currentMoreTab,
                                 enter = expandVertically(),
                                 exit = shrinkVertically(),
                             ) {
@@ -168,15 +168,17 @@ object HomeScreen : Screen() {
             }
 
             val goToStartScreen = {
-                if (defaultTab != moreTab) {
-                    tabNavigator.current = defaultTab
-                } else {
-                    tabNavigator.current = AnimeLibraryTab
-                }
+                tabNavigator.current = resolveHomeStartTab(
+                    defaultTab = defaultTab,
+                    currentMoreTab = currentMoreTab,
+                )
             }
             BackHandler(
-                enabled = (tabNavigator.current == moreTab || tabNavigator.current != defaultTab) &&
-                    (tabNavigator.current != AnimeLibraryTab || defaultTab != moreTab),
+                enabled = shouldHandleBackInHome(
+                    currentTab = tabNavigator.current,
+                    defaultTab = defaultTab,
+                    currentMoreTab = currentMoreTab,
+                ),
                 onBack = goToStartScreen,
             )
 
@@ -419,4 +421,20 @@ object HomeScreen : Screen() {
         data class More(val toDownloads: Boolean) : Tab
         data object HomeHub : Tab
     }
+}
+
+internal fun resolveHomeStartTab(
+    defaultTab: cafe.adriel.voyager.navigator.tab.Tab,
+    currentMoreTab: cafe.adriel.voyager.navigator.tab.Tab,
+): cafe.adriel.voyager.navigator.tab.Tab {
+    return if (defaultTab != currentMoreTab) defaultTab else AnimeLibraryTab
+}
+
+internal fun shouldHandleBackInHome(
+    currentTab: cafe.adriel.voyager.navigator.tab.Tab,
+    defaultTab: cafe.adriel.voyager.navigator.tab.Tab,
+    currentMoreTab: cafe.adriel.voyager.navigator.tab.Tab,
+): Boolean {
+    return (currentTab == currentMoreTab || currentTab != defaultTab) &&
+        (currentTab != AnimeLibraryTab || defaultTab != currentMoreTab)
 }
