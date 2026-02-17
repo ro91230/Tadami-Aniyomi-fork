@@ -62,6 +62,7 @@ import eu.kanade.presentation.entries.novel.components.aurora.NovelInfoCard
 import eu.kanade.presentation.theme.AuroraTheme
 import eu.kanade.tachiyomi.ui.entries.novel.NovelScreenModel
 import tachiyomi.i18n.MR
+import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.presentation.core.i18n.stringResource
 import java.time.Instant
 
@@ -87,6 +88,9 @@ fun NovelScreenAuroraImpl(
     onChapterReadToggle: (Long) -> Unit,
     onChapterBookmarkToggle: (Long) -> Unit,
     onChapterDownloadToggle: (Long) -> Unit,
+    chapterSwipeStartAction: LibraryPreferences.NovelSwipeAction,
+    chapterSwipeEndAction: LibraryPreferences.NovelSwipeAction,
+    onChapterSwipe: (Long, LibraryPreferences.NovelSwipeAction) -> Unit,
     onFilterButtonClicked: () -> Unit,
     scanlatorChapterCounts: Map<String, Int>,
     selectedScanlator: String?,
@@ -239,6 +243,9 @@ fun NovelScreenAuroraImpl(
                         onToggleBookmark = { onChapterBookmarkToggle(chapter.id) },
                         onToggleRead = { onChapterReadToggle(chapter.id) },
                         onToggleDownload = { onChapterDownloadToggle(chapter.id) },
+                        chapterSwipeStartAction = chapterSwipeStartAction,
+                        chapterSwipeEndAction = chapterSwipeEndAction,
+                        onChapterSwipe = { action -> onChapterSwipe(chapter.id, action) },
                         downloaded = chapter.id in state.downloadedChapterIds,
                         downloading = chapter.id in state.downloadingChapterIds,
                         modifier = Modifier

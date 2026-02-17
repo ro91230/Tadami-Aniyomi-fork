@@ -112,6 +112,9 @@ class NovelScreenModel(
     val isAnyChapterSelected: Boolean
         get() = successState?.selectedChapterIds?.isNotEmpty() ?: false
 
+    val chapterSwipeStartAction = libraryPreferences.swipeNovelChapterEndAction().get()
+    val chapterSwipeEndAction = libraryPreferences.swipeNovelChapterStartAction().get()
+
     private var scanlatorSelectionJob: Job? = null
 
     fun isReadingStarted(): Boolean {
@@ -432,6 +435,18 @@ class NovelScreenModel(
                     bookmark = !chapter.bookmark,
                 ),
             )
+        }
+    }
+
+    /**
+     * @throws IllegalStateException if the swipe action is [LibraryPreferences.NovelSwipeAction.Disabled]
+     */
+    fun chapterSwipe(chapterId: Long, swipeAction: LibraryPreferences.NovelSwipeAction) {
+        when (swipeAction) {
+            LibraryPreferences.NovelSwipeAction.ToggleRead -> toggleChapterRead(chapterId)
+            LibraryPreferences.NovelSwipeAction.ToggleBookmark -> toggleChapterBookmark(chapterId)
+            LibraryPreferences.NovelSwipeAction.Download -> toggleChapterDownload(chapterId)
+            LibraryPreferences.NovelSwipeAction.Disabled -> throw IllegalStateException()
         }
     }
 

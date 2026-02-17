@@ -25,8 +25,8 @@ import tachiyomi.domain.entries.novel.interactor.GetLibraryNovel
 import tachiyomi.domain.entries.novel.model.Novel
 import tachiyomi.domain.items.novelchapter.model.NovelChapter
 import tachiyomi.domain.items.novelchapter.repository.NovelChapterRepository
-import tachiyomi.domain.library.manga.model.MangaLibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.library.novel.model.NovelLibrarySort
 import tachiyomi.domain.library.novel.LibraryNovel
 
 class NovelLibraryScreenModelTest {
@@ -158,8 +158,8 @@ class NovelLibraryScreenModelTest {
 
         testDispatcher.scheduler.advanceUntilIdle()
         screenModel.setSort(
-            MangaLibrarySort.Type.LastRead,
-            MangaLibrarySort.Direction.Descending,
+            NovelLibrarySort.Type.LastRead,
+            NovelLibrarySort.Direction.Descending,
         )
         testDispatcher.scheduler.advanceUntilIdle()
 

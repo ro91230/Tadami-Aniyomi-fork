@@ -47,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -67,8 +68,10 @@ import eu.kanade.presentation.theme.AuroraTheme
 import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.entries.novel.NovelScreenModel
+import me.saket.swipe.SwipeableActionsBox
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.aniyomi.AYMR
+import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.pluralStringResource
@@ -104,6 +107,9 @@ fun NovelScreen(
     onChapterReadToggle: (Long) -> Unit,
     onChapterBookmarkToggle: (Long) -> Unit,
     onChapterDownloadToggle: (Long) -> Unit,
+    chapterSwipeStartAction: LibraryPreferences.NovelSwipeAction,
+    chapterSwipeEndAction: LibraryPreferences.NovelSwipeAction,
+    onChapterSwipe: (Long, LibraryPreferences.NovelSwipeAction) -> Unit,
     onFilterButtonClicked: () -> Unit,
     scanlatorChapterCounts: Map<String, Int>,
     selectedScanlator: String?,
@@ -142,6 +148,9 @@ fun NovelScreen(
             onChapterReadToggle = onChapterReadToggle,
             onChapterBookmarkToggle = onChapterBookmarkToggle,
             onChapterDownloadToggle = onChapterDownloadToggle,
+            chapterSwipeStartAction = chapterSwipeStartAction,
+            chapterSwipeEndAction = chapterSwipeEndAction,
+            onChapterSwipe = onChapterSwipe,
             onFilterButtonClicked = onFilterButtonClicked,
             scanlatorChapterCounts = scanlatorChapterCounts,
             selectedScanlator = selectedScanlator,
@@ -504,116 +513,150 @@ fun NovelScreen(
                 key = { it.id },
             ) { chapter ->
                 val selected = chapter.id in selectedIds
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = MaterialTheme.padding.medium, vertical = 4.dp)
-                        .clip(MaterialTheme.shapes.medium)
-                        .combinedClickable(
-                            onClick = { onChapterClick(chapter.id) },
-                            onLongClick = { onChapterLongClick(chapter.id) },
-                        ),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (selected) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.surfaceContainer
-                        },
-                    ),
-                ) {
-                    Row(
+                val downloaded = chapter.id in state.downloadedChapterIds
+                val downloading = chapter.id in state.downloadingChapterIds
+                val chapterCard: @Composable () -> Unit = {
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = MaterialTheme.padding.medium, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                            .padding(horizontal = MaterialTheme.padding.medium, vertical = 4.dp)
+                            .clip(MaterialTheme.shapes.medium)
+                            .combinedClickable(
+                                onClick = { onChapterClick(chapter.id) },
+                                onLongClick = { onChapterLongClick(chapter.id) },
+                            ),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (selected) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainer
+                            },
+                        ),
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            val chapterTitle = when (state.novel.displayMode) {
-                                DomainNovel.CHAPTER_DISPLAY_NUMBER -> {
-                                    stringResource(
-                                        MR.strings.display_mode_chapter,
-                                        formatChapterNumber(chapter.chapterNumber),
-                                    )
-                                }
-                                else -> {
-                                    chapter.name.ifBlank {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = MaterialTheme.padding.medium, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                val chapterTitle = when (state.novel.displayMode) {
+                                    DomainNovel.CHAPTER_DISPLAY_NUMBER -> {
                                         stringResource(
                                             MR.strings.display_mode_chapter,
                                             formatChapterNumber(chapter.chapterNumber),
                                         )
                                     }
+                                    else -> {
+                                        chapter.name.ifBlank {
+                                            stringResource(
+                                                MR.strings.display_mode_chapter,
+                                                formatChapterNumber(chapter.chapterNumber),
+                                            )
+                                        }
+                                    }
+                                }
+                                Text(
+                                    text = chapterTitle,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = if (chapter.read) {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface
+                                    },
+                                )
+                                if (chapter.dateUpload > 0) {
+                                    Text(
+                                        text = relativeDateTimeText(chapter.dateUpload),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                 }
                             }
-                            Text(
-                                text = chapterTitle,
-                                style = MaterialTheme.typography.bodyLarge,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                color = if (chapter.read) {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
-                                },
-                            )
-                            if (chapter.dateUpload > 0) {
-                                Text(
-                                    text = relativeDateTimeText(chapter.dateUpload),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                        if (!isAnySelected) {
-                            val downloaded = chapter.id in state.downloadedChapterIds
-                            val downloading = chapter.id in state.downloadingChapterIds
-                            IconButton(
-                                onClick = { onChapterDownloadToggle(chapter.id) },
-                                modifier = Modifier.padding(start = 2.dp),
-                            ) {
-                                Icon(
-                                    imageVector = when {
-                                        downloading -> Icons.Outlined.FileDownloadOff
-                                        downloaded -> Icons.Outlined.Delete
-                                        else -> Icons.Outlined.Download
-                                    },
-                                    contentDescription = null,
-                                    tint = when {
-                                        downloading -> MaterialTheme.colorScheme.tertiary
-                                        downloaded -> MaterialTheme.colorScheme.error
-                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
-                                )
-                            }
-                            IconButton(
-                                onClick = { onChapterBookmarkToggle(chapter.id) },
-                                modifier = Modifier.padding(start = 2.dp),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Bookmark,
-                                    contentDescription = null,
-                                    tint = if (chapter.bookmark) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
-                                )
-                            }
-                            IconButton(
-                                onClick = { onChapterReadToggle(chapter.id) },
-                                modifier = Modifier.padding(start = 2.dp),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.CheckCircle,
-                                    contentDescription = null,
-                                    tint = if (chapter.read) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
-                                )
+                            if (!isAnySelected) {
+                                IconButton(
+                                    onClick = { onChapterDownloadToggle(chapter.id) },
+                                    modifier = Modifier.padding(start = 2.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = when {
+                                            downloading -> Icons.Outlined.FileDownloadOff
+                                            downloaded -> Icons.Outlined.Delete
+                                            else -> Icons.Outlined.Download
+                                        },
+                                        contentDescription = null,
+                                        tint = when {
+                                            downloading -> MaterialTheme.colorScheme.tertiary
+                                            downloaded -> MaterialTheme.colorScheme.error
+                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { onChapterBookmarkToggle(chapter.id) },
+                                    modifier = Modifier.padding(start = 2.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Bookmark,
+                                        contentDescription = null,
+                                        tint = if (chapter.bookmark) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { onChapterReadToggle(chapter.id) },
+                                    modifier = Modifier.padding(start = 2.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.CheckCircle,
+                                        contentDescription = null,
+                                        tint = if (chapter.read) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
+                }
+
+                if (!isAnySelected) {
+                    val startSwipeAction = novelSwipeAction(
+                        action = chapterSwipeStartAction,
+                        read = chapter.read,
+                        bookmark = chapter.bookmark,
+                        downloaded = downloaded,
+                        downloading = downloading,
+                        background = MaterialTheme.colorScheme.primaryContainer,
+                        onSwipe = { onChapterSwipe(chapter.id, chapterSwipeStartAction) },
+                    )
+                    val endSwipeAction = novelSwipeAction(
+                        action = chapterSwipeEndAction,
+                        read = chapter.read,
+                        bookmark = chapter.bookmark,
+                        downloaded = downloaded,
+                        downloading = downloading,
+                        background = MaterialTheme.colorScheme.primaryContainer,
+                        onSwipe = { onChapterSwipe(chapter.id, chapterSwipeEndAction) },
+                    )
+                    SwipeableActionsBox(
+                        modifier = Modifier.clipToBounds(),
+                        startActions = listOfNotNull(startSwipeAction),
+                        endActions = listOfNotNull(endSwipeAction),
+                        swipeThreshold = novelSwipeActionThreshold,
+                        backgroundUntilSwipeThreshold = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    ) {
+                        chapterCard()
+                    }
+                } else {
+                    chapterCard()
                 }
             }
             if (visibleChapterCount < chapters.size) {
