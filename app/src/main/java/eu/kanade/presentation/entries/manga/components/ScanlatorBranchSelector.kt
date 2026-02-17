@@ -43,16 +43,6 @@ fun ScanlatorBranchSelector(
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            item(key = "all_scanlators") {
-                FilterChip(
-                    selected = selectedScanlator == null,
-                    onClick = { onScanlatorSelected(null) },
-                    label = {
-                        Text(text = stringResource(MR.strings.all))
-                    },
-                )
-            }
-
             items(
                 items = sortedEntries,
                 key = { it.key },

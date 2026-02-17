@@ -54,6 +54,14 @@ class MangaScreenModelScanlatorSelectionTest {
     }
 
     @Test
+    fun `resolveExcludedScanlatorsForSelection handles extra spaces in available values`() {
+        resolveExcludedScanlatorsForSelection(
+            selectedScanlator = "Team B",
+            availableScanlators = setOf(" Team A ", "Team B ", "Team C"),
+        ) shouldBe setOf("Team A", "Team C")
+    }
+
+    @Test
     fun `resolveExcludedScanlatorsForSelection keeps all branches when selected is unknown`() {
         resolveExcludedScanlatorsForSelection(
             selectedScanlator = "Unknown",

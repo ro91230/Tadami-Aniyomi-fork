@@ -1377,8 +1377,13 @@ internal fun resolveExcludedScanlatorsForSelection(
 ): Set<String> {
     val selection = selectedScanlator?.trim().orEmpty()
     if (selection.isEmpty()) return emptySet()
-    if (selection !in availableScanlators) return emptySet()
-    return availableScanlators - selection
+    val normalizedAvailable = availableScanlators
+        .asSequence()
+        .map { scanlator -> scanlator.trim() }
+        .filter { scanlator -> scanlator.isNotEmpty() }
+        .toSet()
+    if (selection !in normalizedAvailable) return emptySet()
+    return normalizedAvailable - selection
 }
 
 @Immutable
