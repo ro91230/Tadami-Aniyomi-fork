@@ -54,7 +54,7 @@ fun Screen.novelHistoryTab(
     }
 
     return TabContent(
-        titleRes = AYMR.strings.label_history,
+        titleRes = AYMR.strings.label_novel,
         content = { _, _ ->
             NovelHistoryScreen(
                 state = state,
