@@ -15,8 +15,8 @@
 Tadami is a community fork of Aniyomi with a stronger focus on UI quality and reading experience, including active novel/ranobe support.
 
 Current source version:
-- `versionName`: `0.23`
-- `versionCode`: `136`
+- `versionName`: `0.25`
+- `versionCode`: `137`
 
 ## What Is Different In This Fork
 
