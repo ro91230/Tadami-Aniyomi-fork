@@ -5,7 +5,7 @@ import io.kotest.matchers.maps.shouldNotContainKey
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.domain.source.novel.model.Source
@@ -15,7 +15,7 @@ class GetLanguagesWithNovelSourcesTest {
 
     @Test
     fun `groups sources by language and drops blank language`() {
-        runBlocking {
+        runTest {
             val enabledLanguages = FakePreference<Set<String>>(setOf("ru"))
             val disabledSources = FakePreference<Set<String>>(setOf("2"))
             val sources = MutableStateFlow(
@@ -33,7 +33,9 @@ class GetLanguagesWithNovelSourcesTest {
                 disabledSources = disabledSources,
             )
 
-            val result = interactor.subscribe().first()
+            val result = interactor.subscribe().first { grouped ->
+                grouped.containsKey("en") && grouped.containsKey("ru")
+            }
 
             result.shouldContainKey("en")
             result.shouldContainKey("ru")

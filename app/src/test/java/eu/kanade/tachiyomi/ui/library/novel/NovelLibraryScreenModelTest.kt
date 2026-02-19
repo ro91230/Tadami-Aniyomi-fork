@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -34,12 +35,13 @@ class NovelLibraryScreenModelTest {
     private val getLibraryNovel: GetLibraryNovel = mockk()
     private val chapterRepository: NovelChapterRepository = mockk()
     private val libraryFlow = MutableStateFlow<List<LibraryNovel>>(emptyList())
-    private val testDispatcher = StandardTestDispatcher()
+    private lateinit var testDispatcher: TestDispatcher
     private lateinit var basePreferences: BasePreferences
     private lateinit var libraryPreferences: LibraryPreferences
 
     @BeforeEach
     fun setup() {
+        testDispatcher = StandardTestDispatcher()
         Dispatchers.setMain(testDispatcher)
         every { getLibraryNovel.subscribe() } returns libraryFlow
         coEvery { chapterRepository.getChapterByNovelId(any(), any()) } returns emptyList()
@@ -57,7 +59,7 @@ class NovelLibraryScreenModelTest {
     }
 
     @Test
-    fun `filters library novels by search query`() = runTest {
+    fun `filters library novels by search query`() = runTest(testDispatcher) {
         val first = libraryNovel(id = 1L, title = "First Novel")
         val second = libraryNovel(id = 2L, title = "Second Story")
         libraryFlow.value = listOf(first, second)
@@ -79,7 +81,7 @@ class NovelLibraryScreenModelTest {
     }
 
     @Test
-    fun `unread filter keeps only unread entries`() = runTest {
+    fun `unread filter keeps only unread entries`() = runTest(testDispatcher) {
         val unread = libraryNovel(id = 1L, title = "Unread", total = 10L, read = 1L)
         val read = libraryNovel(id = 2L, title = "Read", total = 10L, read = 10L)
         libraryFlow.value = listOf(unread, read)
@@ -102,7 +104,7 @@ class NovelLibraryScreenModelTest {
     }
 
     @Test
-    fun `completed filter keeps only completed entries`() = runTest {
+    fun `completed filter keeps only completed entries`() = runTest(testDispatcher) {
         val ongoing = libraryNovel(id = 1L, title = "Ongoing", status = SManga.ONGOING.toLong())
         val completed = libraryNovel(id = 2L, title = "Completed", status = SManga.COMPLETED.toLong())
         libraryFlow.value = listOf(ongoing, completed)
@@ -124,7 +126,7 @@ class NovelLibraryScreenModelTest {
     }
 
     @Test
-    fun `downloaded filter keeps only downloaded entries`() = runTest {
+    fun `downloaded filter keeps only downloaded entries`() = runTest(testDispatcher) {
         val downloaded = libraryNovel(id = 1L, title = "Downloaded")
         val notDownloaded = libraryNovel(id = 2L, title = "Not Downloaded")
         libraryFlow.value = listOf(downloaded, notDownloaded)
@@ -147,7 +149,7 @@ class NovelLibraryScreenModelTest {
     }
 
     @Test
-    fun `sort preference reorders entries`() = runTest {
+    fun `sort preference reorders entries`() = runTest(testDispatcher) {
         val older = libraryNovel(id = 1L, title = "Older", lastRead = 10L)
         val newer = libraryNovel(id = 2L, title = "Newer", lastRead = 50L)
         libraryFlow.value = listOf(older, newer)
@@ -172,7 +174,7 @@ class NovelLibraryScreenModelTest {
     }
 
     @Test
-    fun `interval custom filter keeps only custom interval entries`() = runTest {
+    fun `interval custom filter keeps only custom interval entries`() = runTest(testDispatcher) {
         val custom = libraryNovel(id = 1L, title = "Custom Interval", fetchInterval = -1)
         val regular = libraryNovel(id = 2L, title = "Regular Interval", fetchInterval = 0)
         libraryFlow.value = listOf(custom, regular)
@@ -195,7 +197,7 @@ class NovelLibraryScreenModelTest {
     }
 
     @Test
-    fun `next unread follows reader order when source and chapter number order differ`() = runTest {
+    fun `next unread follows reader order when source and chapter number order differ`() = runTest(testDispatcher) {
         val novel = Novel.create().copy(
             id = 10L,
             title = "Novel",
