@@ -35,13 +35,13 @@ Current source version:
 
 ## Screenshots
 
-| Home | Anime details | Library |
-| --- | --- | --- |
-| <img src="screenshots/main_screen.jpg" alt="Home" width="240" /> | <img src="screenshots/anime_card.jpg" alt="Anime details" width="240" /> | <img src="screenshots/Library.jpg" alt="Library" width="240" /> |
+| Home | Library | Update | Browse |
+| --- | --- | --- | --- |
+| <img src="screenshots/1.jpg" alt="Home" width="240" /> | <img src="screenshots/2.jpg" alt="Library" width="240" /> | <img src="screenshots/3.jpg" alt="Update" width="240" /> | <img src="screenshots/4.jpg" alt="Browse" width="240" /> |
 
-| Browse | Updates | More |
+| Title card | Title card 2 | More |
 | --- | --- | --- |
-| <img src="screenshots/extensions.jpg" alt="Browse" width="240" /> | <img src="screenshots/updates.jpg" alt="Updates" width="240" /> | <img src="screenshots/more.jpg" alt="More" width="240" /> |
+| <img src="screenshots/5.jpg" alt="Title card" width="240" /> | <img src="screenshots/6.jpg" alt="Title card 2" width="240" /> | <img src="screenshots/7.jpg" alt="More" width="240" /> |
 
 ## Download
 
