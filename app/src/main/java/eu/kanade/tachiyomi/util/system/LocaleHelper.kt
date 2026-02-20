@@ -20,7 +20,12 @@ object LocaleHelper {
         } else if (b == "all") {
             1
         } else {
-            getLocalizedDisplayName(a).compareTo(getLocalizedDisplayName(b))
+            val displayNameCompare = getLocalizedDisplayName(a).compareTo(getLocalizedDisplayName(b))
+            if (displayNameCompare != 0) {
+                displayNameCompare
+            } else {
+                a.compareTo(b)
+            }
         }
     }
 
