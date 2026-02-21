@@ -203,7 +203,11 @@ class HomeHubScreenModel(
     }
 
     fun updateUserName(name: String) {
+        val previousName = userProfilePreferences.name().get()
         userProfilePreferences.name().set(name)
+        if (name != previousName) {
+            userProfilePreferences.nameEdited().set(true)
+        }
         fastCache.updateUserName(name)
         mutableState.update { it.copy(userName = name) }
     }
