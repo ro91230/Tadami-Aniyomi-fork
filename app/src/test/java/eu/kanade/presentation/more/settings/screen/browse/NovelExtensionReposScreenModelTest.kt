@@ -32,6 +32,7 @@ class NovelExtensionReposScreenModelTest {
     private val replaceExtensionRepo: ReplaceNovelExtensionRepo = mockk(relaxed = true)
     private val updateExtensionRepo: UpdateNovelExtensionRepo = mockk(relaxed = true)
     private val extensionManager: NovelExtensionManager = mockk(relaxed = true)
+    private val activeScreenModels = mutableListOf<NovelExtensionReposScreenModel>()
 
     @BeforeEach
     fun setup() {
@@ -40,6 +41,8 @@ class NovelExtensionReposScreenModelTest {
 
     @AfterEach
     fun tearDown() {
+        activeScreenModels.forEach { it.onDispose() }
+        activeScreenModels.clear()
         Dispatchers.resetMain()
     }
 
@@ -62,7 +65,7 @@ class NovelExtensionReposScreenModelTest {
                 replaceExtensionRepo = replaceExtensionRepo,
                 updateExtensionRepo = updateExtensionRepo,
                 extensionManager = extensionManager,
-            )
+            ).also(activeScreenModels::add)
 
             withTimeout(1_000) {
                 while (screenModel.state.value !is RepoScreenState.Success) {
@@ -91,7 +94,7 @@ class NovelExtensionReposScreenModelTest {
                 replaceExtensionRepo = replaceExtensionRepo,
                 updateExtensionRepo = updateExtensionRepo,
                 extensionManager = extensionManager,
-            )
+            ).also(activeScreenModels::add)
 
             screenModel.createRepo("https://example.org/plugins.min.json")
 

@@ -32,6 +32,7 @@ class AchievementScreenModelTest {
     private val loader: AchievementLoader = mockk()
     private val pointsManager: PointsManager = mockk()
     private val activityDataRepository: ActivityDataRepository = mockk()
+    private val activeScreenModels = mutableListOf<AchievementScreenModel>()
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -50,6 +51,8 @@ class AchievementScreenModelTest {
 
     @AfterEach
     fun tearDown() {
+        activeScreenModels.forEach { it.onDispose() }
+        activeScreenModels.clear()
         Dispatchers.resetMain()
     }
 
@@ -61,7 +64,12 @@ class AchievementScreenModelTest {
                 listOf(DayActivity(LocalDate.now(), 1, tachiyomi.domain.achievement.model.ActivityType.APP_OPEN))
             coEvery { activityDataRepository.getActivityData(365) } returns flowOf(activity)
 
-            val screenModel = AchievementScreenModel(repository, loader, pointsManager, activityDataRepository)
+            val screenModel = AchievementScreenModel(
+                repository,
+                loader,
+                pointsManager,
+                activityDataRepository,
+            ).also(activeScreenModels::add)
 
             // When
             testDispatcher.scheduler.advanceUntilIdle()
