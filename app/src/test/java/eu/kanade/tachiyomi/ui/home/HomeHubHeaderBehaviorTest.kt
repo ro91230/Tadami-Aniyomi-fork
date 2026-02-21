@@ -196,4 +196,14 @@ class HomeHubHeaderBehaviorTest {
             isNameEdited = false,
         ) shouldBe false
     }
+
+    @Test
+    fun `shouldFillNicknameRowSpace returns false when edit hint is visible`() {
+        shouldFillNicknameRowSpace(showNameEditHint = true) shouldBe false
+    }
+
+    @Test
+    fun `shouldFillNicknameRowSpace returns true when edit hint is hidden`() {
+        shouldFillNicknameRowSpace(showNameEditHint = false) shouldBe true
+    }
 }

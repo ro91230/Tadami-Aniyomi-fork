@@ -224,6 +224,11 @@ internal fun shouldShowNicknameEditHint(
     return !isNameEdited && currentName == UserProfilePreferences.DEFAULT_NAME
 }
 
+internal fun shouldFillNicknameRowSpace(showNameEditHint: Boolean): Boolean {
+    // Keep the edit hint visually attached to the nickname instead of pushing it near the avatar.
+    return !showNameEditHint
+}
+
 private enum class NicknameFontPreset(val key: String, val fontRes: Int?) {
     Default("default", null),
     Montserrat("montserrat", R.font.montserrat_bold),
@@ -733,7 +738,7 @@ private fun HomeHubPinnedHeader(
                             StyledNicknameText(
                                 text = userName,
                                 nicknameStyle = nicknameStyle,
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.weight(1f, fill = shouldFillNicknameRowSpace(showNameEditHint)),
                             )
                             if (showNameEditHint) {
                                 Spacer(Modifier.width(6.dp))
