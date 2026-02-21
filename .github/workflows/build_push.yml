@@ -34,10 +34,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
-            git diff-tree --no-commit-id --name-only -r "${{ github.sha }}" > changed_files.txt
+          before_sha="${{ github.event.before }}"
+          head_sha="${{ github.sha }}"
+
+          if [ "$before_sha" = "0000000000000000000000000000000000000000" ]; then
+            git diff-tree --no-commit-id --name-only -r "$head_sha" > changed_files.txt
+          elif git cat-file -e "${before_sha}^{commit}" 2>/dev/null; then
+            git diff --name-only "$before_sha" "$head_sha" > changed_files.txt
           else
-            git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" > changed_files.txt
+            echo "Base commit $before_sha is unavailable (likely force-push)."
+            if git rev-parse --verify "${head_sha}^" >/dev/null 2>&1; then
+              git diff --name-only "${head_sha}^" "$head_sha" > changed_files.txt
+            else
+              git diff-tree --no-commit-id --name-only -r "$head_sha" > changed_files.txt
+            fi
           fi
           echo "Changed files:"
           cat changed_files.txt
