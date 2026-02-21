@@ -43,6 +43,9 @@ class NovelExtensionsScreenModelTest {
     fun tearDown() {
         activeScreenModels.forEach { it.onDispose() }
         activeScreenModels.clear()
+        runBlocking {
+            repeat(5) { yield() }
+        }
         Dispatchers.resetMain()
     }
 

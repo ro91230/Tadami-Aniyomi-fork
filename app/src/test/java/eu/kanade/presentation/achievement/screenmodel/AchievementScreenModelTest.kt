@@ -7,10 +7,12 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.yield
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -53,6 +55,9 @@ class AchievementScreenModelTest {
     fun tearDown() {
         activeScreenModels.forEach { it.onDispose() }
         activeScreenModels.clear()
+        runBlocking {
+            repeat(5) { yield() }
+        }
         Dispatchers.resetMain()
     }
 

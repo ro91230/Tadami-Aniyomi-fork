@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.yield
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -52,6 +53,9 @@ class BrowseNovelSourceScreenModelTest {
     fun tearDown() {
         activeScreenModels.forEach { it.onDispose() }
         activeScreenModels.clear()
+        runBlocking {
+            repeat(5) { yield() }
+        }
         Dispatchers.resetMain()
     }
 
