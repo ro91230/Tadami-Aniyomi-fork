@@ -702,6 +702,17 @@
     <string name="aurora_greeting_missed_you">Скучали!</string>
     <string name="aurora_greeting_youre_back">С возвращением!</string>
     <string name="aurora_greeting_back_for_more">За добавкой?</string>
+    <string name="aurora_greeting_absence_long_reunion">Перерыв закончился, сезон ждал тебя</string>
+    <string name="aurora_greeting_absence_mid_return">С возвращением, очередь уже начала паниковать</string>
+    <string name="aurora_greeting_frequent_hello_again">Снова ты? Отлично, запускаем.</string>
+    <string name="aurora_greeting_frequent_live_here">Ты тут уже почти на правах арендатора</string>
+    <string name="aurora_greeting_frequent_quick_return">Так быстро вернулся? Уважаем.</string>
+    <string name="aurora_greeting_weekday_monday">Понедельник легче пережить с серией</string>
+    <string name="aurora_greeting_weekday_tuesday">Вторник: понедельник, но с субтитрами</string>
+    <string name="aurora_greeting_weekday_wednesday">Экватор недели. Пора включать аниме.</string>
+    <string name="aurora_greeting_weekday_thursday">Четверг: почти выходные, точно аниме</string>
+    <string name="aurora_greeting_weekday_friday">Пятница открыта. Врубай лучшее.</string>
+    <string name="aurora_greeting_weekday_generic">Будни становятся лучше с аниме</string>
 
     <!-- Morning Greetings -->
     <string name="aurora_greeting_morning_rise">Подъём и аниме!</string>
@@ -1039,5 +1050,4 @@
     <string name="novel_reader_tab_general">Основные</string>
     <string name="novel_reader_tab_reading">Чтение</string>
 </resources>
-
 

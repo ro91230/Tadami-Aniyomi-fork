@@ -783,6 +783,17 @@
     <string name="aurora_greeting_missed_you">Missed you!</string>
     <string name="aurora_greeting_youre_back">You\'re back!</string>
     <string name="aurora_greeting_back_for_more">Back for more?</string>
+    <string name="aurora_greeting_absence_long_reunion">The season finale is over, and so was your break</string>
+    <string name="aurora_greeting_absence_mid_return">Welcome back, your watchlist filed a missing person report</string>
+    <string name="aurora_greeting_frequent_hello_again">You again? Perfect. Press play.</string>
+    <string name="aurora_greeting_frequent_live_here">At this point we should charge rent</string>
+    <string name="aurora_greeting_frequent_quick_return">Back already? Respect.</string>
+    <string name="aurora_greeting_weekday_monday">Monday survives better with one episode</string>
+    <string name="aurora_greeting_weekday_tuesday">Tuesday is just Monday with subtitles</string>
+    <string name="aurora_greeting_weekday_wednesday">Midweek checkpoint: anime approved</string>
+    <string name="aurora_greeting_weekday_thursday">Thursday mood: almost weekend, definitely anime</string>
+    <string name="aurora_greeting_weekday_friday">Friday unlocked. Queue the good stuff.</string>
+    <string name="aurora_greeting_weekday_generic">Weekday routine upgraded with anime</string>
 
     <!-- Morning Greetings -->
     <string name="aurora_greeting_morning_rise">Rise and anime!</string>
