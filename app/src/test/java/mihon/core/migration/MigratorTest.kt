@@ -46,7 +46,7 @@ class MigratorTest {
 
             verify { migrationJobFactory.create(capture(migrations)) }
             assertEquals(1, migrations.captured.size)
-            verify { migrationCompletedListener() }
+            verify(timeout = 1_000) { migrationCompletedListener() }
         }
     }
 
@@ -93,7 +93,7 @@ class MigratorTest {
 
             verify { migrationJobFactory.create(capture(migrations)) }
             assertEquals(2, migrations.captured.size)
-            verify { migrationCompletedListener() }
+            verify(timeout = 1_000) { migrationCompletedListener() }
         }
     }
 
@@ -123,7 +123,7 @@ class MigratorTest {
 
             verify { migrationJobFactory.create(capture(migrations)) }
             assertEquals(10, migrations.captured.size)
-            verify { migrationCompletedListener() }
+            verify(timeout = 1_000) { migrationCompletedListener() }
         }
     }
 
@@ -146,7 +146,7 @@ class MigratorTest {
 
             verify { migrationJobFactory.create(capture(migrations)) }
             assertEquals(2, migrations.captured.size)
-            verify { migrationCompletedListener() }
+            verify(timeout = 1_000) { migrationCompletedListener() }
         }
     }
 

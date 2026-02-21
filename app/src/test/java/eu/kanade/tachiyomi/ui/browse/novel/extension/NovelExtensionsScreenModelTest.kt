@@ -29,6 +29,7 @@ class NovelExtensionsScreenModelTest {
 
     private val sourcePreferences: SourcePreferences = mockk(relaxed = true)
     private val enabledLanguages = MutableStateFlow(setOf("en"))
+    private val activeScreenModels = mutableListOf<NovelExtensionsScreenModel>()
 
     @BeforeEach
     fun setup() {
@@ -40,6 +41,8 @@ class NovelExtensionsScreenModelTest {
 
     @AfterEach
     fun tearDown() {
+        activeScreenModels.forEach { it.onDispose() }
+        activeScreenModels.clear()
         Dispatchers.resetMain()
     }
 
@@ -57,7 +60,7 @@ class NovelExtensionsScreenModelTest {
                     updates = updates,
                 ),
                 sourcePreferences = sourcePreferences,
-            )
+            ).also(activeScreenModels::add)
 
             withTimeout(1_000) {
                 while (screenModel.state.value.isLoading) {
@@ -91,7 +94,7 @@ class NovelExtensionsScreenModelTest {
                     updates = updates,
                 ),
                 sourcePreferences = sourcePreferences,
-            )
+            ).also(activeScreenModels::add)
 
             withTimeout(1_000) {
                 while (screenModel.state.value.isLoading) {
@@ -115,7 +118,7 @@ class NovelExtensionsScreenModelTest {
                     updates = emptyList(),
                 ),
                 sourcePreferences = sourcePreferences,
-            )
+            ).also(activeScreenModels::add)
 
             withTimeout(1_000) {
                 while (screenModel.state.value.isLoading) {
@@ -143,7 +146,7 @@ class NovelExtensionsScreenModelTest {
                     updates = emptyList(),
                 ),
                 sourcePreferences = sourcePreferences,
-            )
+            ).also(activeScreenModels::add)
 
             withTimeout(1_000) {
                 while (screenModel.state.value.isLoading) {

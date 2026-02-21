@@ -19,6 +19,7 @@ import tachiyomi.domain.source.novel.model.Source
 import tachiyomi.domain.source.novel.repository.NovelSourceRepository
 
 class NovelSourcesScreenModelTest {
+    private val activeScreenModels = mutableListOf<NovelSourcesScreenModel>()
 
     @BeforeEach
     fun setup() {
@@ -27,6 +28,8 @@ class NovelSourcesScreenModelTest {
 
     @AfterEach
     fun tearDown() {
+        activeScreenModels.forEach { it.onDispose() }
+        activeScreenModels.clear()
         Dispatchers.resetMain()
     }
 
@@ -60,7 +63,7 @@ class NovelSourcesScreenModelTest {
                 getEnabledSources = getEnabledSources,
                 toggleSource = toggleSource,
                 togglePin = togglePin,
-            )
+            ).also(activeScreenModels::add)
 
             withTimeout(1_000) {
                 while (screenModel.state.value.isLoading) {
