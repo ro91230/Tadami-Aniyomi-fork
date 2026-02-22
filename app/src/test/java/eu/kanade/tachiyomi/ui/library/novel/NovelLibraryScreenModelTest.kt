@@ -34,9 +34,9 @@ import tachiyomi.domain.library.service.LibraryPreferences
 
 class NovelLibraryScreenModelTest {
 
-    private val getLibraryNovel: GetLibraryNovel = mockk()
-    private val chapterRepository: NovelChapterRepository = mockk()
-    private val libraryFlow = MutableStateFlow<List<LibraryNovel>>(emptyList())
+    private lateinit var getLibraryNovel: GetLibraryNovel
+    private lateinit var chapterRepository: NovelChapterRepository
+    private lateinit var libraryFlow: MutableStateFlow<List<LibraryNovel>>
     private val activeScreenModels = mutableListOf<NovelLibraryScreenModel>()
     private lateinit var testDispatcher: TestDispatcher
     private lateinit var basePreferences: BasePreferences
@@ -46,6 +46,9 @@ class NovelLibraryScreenModelTest {
     fun setup() {
         testDispatcher = StandardTestDispatcher()
         Dispatchers.setMain(testDispatcher)
+        getLibraryNovel = mockk()
+        chapterRepository = mockk()
+        libraryFlow = MutableStateFlow(emptyList())
         every { getLibraryNovel.subscribe() } returns libraryFlow
         coEvery { chapterRepository.getChapterByNovelId(any(), any()) } returns emptyList()
         val preferenceStore = FakePreferenceStore()
@@ -59,10 +62,8 @@ class NovelLibraryScreenModelTest {
     @AfterEach
     fun tearDown() {
         activeScreenModels.forEach { it.onDispose() }
+        testDispatcher.scheduler.advanceUntilIdle()
         activeScreenModels.clear()
-        runBlocking {
-            repeat(5) { yield() }
-        }
         Dispatchers.resetMain()
     }
 
