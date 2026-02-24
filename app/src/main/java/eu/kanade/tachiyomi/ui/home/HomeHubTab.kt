@@ -10,7 +10,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -81,6 +84,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -89,6 +93,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.model.rememberScreenModel
@@ -99,6 +104,8 @@ import cafe.adriel.voyager.navigator.tab.TabOptions
 import coil3.compose.AsyncImage
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.UserProfilePreferences
+import eu.kanade.domain.ui.model.HomeHeaderLayoutElement
+import eu.kanade.domain.ui.model.HomeHeaderLayoutSpec
 import eu.kanade.presentation.components.AuroraCard
 import eu.kanade.presentation.components.AuroraTabRow
 import eu.kanade.presentation.components.TabContent
@@ -108,6 +115,9 @@ import eu.kanade.presentation.more.settings.screen.browse.MangaExtensionReposScr
 import eu.kanade.presentation.more.settings.screen.browse.NovelExtensionReposScreen
 import eu.kanade.presentation.theme.AuroraColors
 import eu.kanade.presentation.theme.AuroraTheme
+import eu.kanade.presentation.theme.aurora.adaptive.AuroraDeviceClass
+import eu.kanade.presentation.theme.aurora.adaptive.auroraCenteredMaxWidth
+import eu.kanade.presentation.theme.aurora.adaptive.rememberAuroraAdaptiveSpec
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.browse.BrowseTab
@@ -205,6 +215,10 @@ internal fun resolveHomeHubHeaderVisibility(
 
 internal fun shouldResetHomeHubScroll(previousPage: Int, currentPage: Int): Boolean {
     return previousPage != currentPage
+}
+
+internal fun shouldUseHomeHubWrappedSections(deviceClass: AuroraDeviceClass): Boolean {
+    return deviceClass != AuroraDeviceClass.Phone
 }
 
 internal fun calculateHomeOpenStreak(
@@ -443,6 +457,11 @@ object HomeHubTab : Tab {
         val isNameEdited by userProfilePreferences.nameEdited().collectAsState()
         val showHomeGreeting by userProfilePreferences.showHomeGreeting().collectAsState()
         val showHomeStreak by userProfilePreferences.showHomeStreak().collectAsState()
+        val homeHeaderNicknameAlignRight by userProfilePreferences.homeHeaderNicknameAlignRight().collectAsState()
+        val homeHeaderLayoutJson by userProfilePreferences.homeHeaderLayoutJson().collectAsState()
+        val homeHeaderLayout = remember(homeHeaderLayoutJson) {
+            userProfilePreferences.getHomeHeaderLayoutOrDefault()
+        }
         val nicknameFontKey by userProfilePreferences.nicknameFont().collectAsState()
         val nicknameColorKey by userProfilePreferences.nicknameColor().collectAsState()
         val nicknameCustomColorHex by userProfilePreferences.nicknameCustomColorHex().collectAsState()
@@ -679,6 +698,8 @@ object HomeHubTab : Tab {
                     showNameEditHint = showNameEditHint,
                     currentStreak = currentStreak,
                     showStreak = showHomeStreak,
+                    nicknameAlignRight = homeHeaderNicknameAlignRight,
+                    homeHeaderLayout = homeHeaderLayout,
                     tabs = tabs,
                     selectedIndex = pagerState.currentPage.coerceIn(0, (tabs.size - 1).coerceAtLeast(0)),
                     onTabSelected = onSectionSelected,
@@ -804,6 +825,8 @@ private fun HomeHubPinnedHeader(
     showNameEditHint: Boolean,
     currentStreak: Int,
     showStreak: Boolean,
+    nicknameAlignRight: Boolean,
+    homeHeaderLayout: HomeHeaderLayoutSpec,
     tabs: kotlinx.collections.immutable.ImmutableList<TabContent>,
     selectedIndex: Int,
     onTabSelected: (Int) -> Unit,
@@ -812,8 +835,11 @@ private fun HomeHubPinnedHeader(
     onGreetingClick: () -> Unit,
 ) {
     val colors = AuroraTheme.colors
+    val auroraAdaptiveSpec = rememberAuroraAdaptiveSpec()
+    val contentMaxWidthDp = auroraAdaptiveSpec.updatesMaxWidthDp ?: auroraAdaptiveSpec.entryMaxWidthDp
 
     Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+    Spacer(Modifier.height(5.dp))
     Layout(
         modifier = Modifier
             .fillMaxWidth()
@@ -821,148 +847,27 @@ private fun HomeHubPinnedHeader(
         content = {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .auroraCenteredMaxWidth(contentMaxWidthDp)
                     .padding(horizontal = 16.dp),
             ) {
-                Spacer(Modifier.height(20.dp))
-                Row(
+                Spacer(Modifier.height(10.dp))
+                HomeHubProfileHeaderCanvas(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    val greetingFontFamily = greetingStyle.font.fontRes?.let { FontFamily(Font(it)) }
-                    val greetingColor = resolveNicknameColor(greetingStyle.color, greetingStyle.customColorHex, colors)
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(end = 16.dp),
-                    ) {
-                        if (showGreeting) {
-                            Text(
-                                text = decorateGreetingText(stringResource(greeting), greetingStyle.decoration),
-                                modifier = Modifier.clickable(onClick = onGreetingClick),
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontSize = greetingStyle.fontSize.sp,
-                                    lineHeight = (greetingStyle.fontSize + 4).sp,
-                                    fontStyle = if (greetingStyle.italic) FontStyle.Italic else FontStyle.Normal,
-                                    fontFamily = greetingFontFamily,
-                                ),
-                                color = greetingColor,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Spacer(Modifier.height(12.dp))
-                        }
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable(onClick = onNameClick),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            StyledNicknameText(
-                                text = userName,
-                                nicknameStyle = nicknameStyle,
-                                modifier = Modifier.weight(1f, fill = shouldFillNicknameRowSpace(showNameEditHint)),
-                            )
-                            if (showNameEditHint) {
-                                Spacer(Modifier.width(6.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .size(20.dp)
-                                        .clip(CircleShape)
-                                        .background(colors.accent.copy(alpha = 0.2f))
-                                        .border(
-                                            width = 1.dp,
-                                            color = colors.accent.copy(alpha = 0.45f),
-                                            shape = CircleShape,
-                                        ),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Edit,
-                                        contentDescription = null,
-                                        tint = colors.accent,
-                                        modifier = Modifier.size(12.dp),
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Box(
-                        modifier = Modifier.height(if (showStreak) 72.dp else 48.dp),
-                    ) {
-                        if (showStreak) {
-                            Row(
-                                modifier = Modifier
-                                    .align(Alignment.TopCenter)
-                                    .clip(RoundedCornerShape(50))
-                                    .background(colors.accent.copy(alpha = 0.14f))
-                                    .border(
-                                        width = 1.dp,
-                                        color = colors.accent.copy(alpha = 0.35f),
-                                        shape = RoundedCornerShape(50),
-                                    )
-                                    .padding(horizontal = 8.dp, vertical = 3.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.LocalFireDepartment,
-                                    contentDescription = null,
-                                    tint = colors.accent,
-                                    modifier = Modifier.size(12.dp),
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    text = currentStreak.toString(),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = colors.textPrimary,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                            }
-                        }
-
-                        Box(
-                            Modifier
-                                .align(if (showStreak) Alignment.BottomCenter else Alignment.Center)
-                                .size(48.dp)
-                                .clickable(onClick = onAvatarClick),
-                        ) {
-                            if (userAvatar.isNotEmpty()) {
-                                AsyncImage(
-                                    model = userAvatar,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize().clip(CircleShape),
-                                )
-                            } else {
-                                Icon(
-                                    Icons.Filled.AccountCircle,
-                                    null,
-                                    tint = colors.accent,
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-                            }
-                            if (userAvatar.isEmpty()) {
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomEnd)
-                                        .size(16.dp)
-                                        .background(colors.accent, CircleShape),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        Icons.Filled.CameraAlt,
-                                        null,
-                                        tint = colors.textOnAccent,
-                                        modifier = Modifier.size(10.dp),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+                    layoutSpec = homeHeaderLayout,
+                    greetingText = stringResource(greeting),
+                    userName = userName,
+                    userAvatar = userAvatar,
+                    nicknameStyle = nicknameStyle,
+                    greetingStyle = greetingStyle,
+                    showGreeting = showGreeting,
+                    showNameEditHint = showNameEditHint,
+                    currentStreak = currentStreak,
+                    showStreak = showStreak,
+                    nicknameAlignRight = nicknameAlignRight,
+                    onAvatarClick = onAvatarClick,
+                    onNameClick = onNameClick,
+                    onGreetingClick = onGreetingClick,
+                )
 
                 Spacer(Modifier.height(16.dp))
                 if (tabs.size > 1) {
@@ -991,6 +896,438 @@ private fun HomeHubPinnedHeader(
             placeable.placeRelative(x = 0, y = -collapsedHeight)
         }
     }
+}
+
+@Composable
+private fun HomeHubProfileHeaderCanvas(
+    modifier: Modifier,
+    layoutSpec: HomeHeaderLayoutSpec,
+    greetingText: String,
+    userName: String,
+    userAvatar: String,
+    nicknameStyle: NicknameStyle,
+    greetingStyle: GreetingStyle,
+    showGreeting: Boolean,
+    showNameEditHint: Boolean,
+    currentStreak: Int,
+    showStreak: Boolean,
+    nicknameAlignRight: Boolean,
+    onAvatarClick: () -> Unit,
+    onNameClick: () -> Unit,
+    onGreetingClick: () -> Unit,
+) {
+    val colors = AuroraTheme.colors
+    val density = LocalDensity.current
+    val auroraAdaptiveSpec = rememberAuroraAdaptiveSpec()
+    val isTabletHeaderLayout = auroraAdaptiveSpec.deviceClass != AuroraDeviceClass.Phone
+    val elementSizes = remember { defaultHomeHeaderElementPixelSizes() }
+
+    BoxWithConstraints(
+        modifier = modifier.height(72.dp),
+    ) {
+        val widthPx = with(density) { maxWidth.toPx() }.coerceAtLeast(1f)
+        val heightPx = with(density) { maxHeight.toPx() }.coerceAtLeast(1f)
+        val designWidthPx = layoutSpec.canvas.width.coerceAtLeast(1f)
+        val designHeightPx = layoutSpec.canvas.height.coerceAtLeast(1f)
+        val scaleX = widthPx / designWidthPx
+        val scaleY = heightPx / designHeightPx
+        val defaultLayoutSpec = remember(layoutSpec.canvas) { HomeHeaderLayoutSpec.default(layoutSpec.canvas) }
+
+        fun pointFor(spec: HomeHeaderLayoutSpec, element: HomeHeaderLayoutElement): HomeHeaderPixelPoint {
+            val size = elementSizes.getValue(element)
+            return clampHomeHeaderPixelPoint(
+                point = HomeHeaderPixelPoint(
+                    x = spec.positionOf(element).x,
+                    y = spec.positionOf(element).y,
+                ),
+                elementSize = size,
+                canvasWidth = designWidthPx,
+                canvasHeight = designHeightPx,
+            )
+        }
+
+        fun basePointFor(
+            element: HomeHeaderLayoutElement,
+        ): HomeHeaderPixelPoint = pointFor(layoutSpec, element)
+
+        fun tabletCustomDeltaFor(
+            element: HomeHeaderLayoutElement,
+        ): Pair<androidx.compose.ui.unit.Dp, androidx.compose.ui.unit.Dp> {
+            val current = pointFor(layoutSpec, element)
+            val default = pointFor(defaultLayoutSpec, element)
+            return (current.x - default.x).dp to (current.y - default.y).dp
+        }
+
+        fun clampDpFramePosition(
+            x: androidx.compose.ui.unit.Dp,
+            y: androidx.compose.ui.unit.Dp,
+            width: androidx.compose.ui.unit.Dp,
+            height: androidx.compose.ui.unit.Dp,
+        ): Pair<androidx.compose.ui.unit.Dp, androidx.compose.ui.unit.Dp> {
+            val maxX = (maxWidth - width).coerceAtLeast(0.dp)
+            val maxY = (maxHeight - height).coerceAtLeast(0.dp)
+            return x.coerceIn(0.dp, maxX) to y.coerceIn(0.dp, maxY)
+        }
+
+        fun frameFor(element: HomeHeaderLayoutElement): Pair<Modifier, Modifier> {
+            val size = elementSizes.getValue(element)
+            if (isTabletHeaderLayout) {
+                val greetingSize = elementSizes.getValue(HomeHeaderLayoutElement.Greeting)
+                val nicknameSize = elementSizes.getValue(HomeHeaderLayoutElement.Nickname)
+                val avatarSize = elementSizes.getValue(HomeHeaderLayoutElement.Avatar)
+                val streakSize = elementSizes.getValue(HomeHeaderLayoutElement.Streak)
+
+                val horizontalPadding = 8.dp
+                val avatarWidthDp = avatarSize.width.dp
+                val avatarHeightDp = avatarSize.height.dp
+                val streakWidthDp = streakSize.width.dp
+                val streakHeightDp = streakSize.height.dp
+                val nicknameHeightDp = nicknameSize.height.dp
+                val greetingHeightDp = greetingSize.height.dp
+
+                val baseAvatarXDp = (maxWidth - avatarWidthDp - horizontalPadding).coerceAtLeast(0.dp)
+                val baseAvatarYDp = (maxHeight - avatarHeightDp).coerceAtLeast(0.dp)
+                val baseStreakXDp = (baseAvatarXDp + (avatarWidthDp - streakWidthDp) / 2f).coerceAtLeast(0.dp)
+                // Keep the streak chip visually clear of the status bar on tablets.
+                val baseStreakYDp = 4.dp
+
+                val (avatarDeltaX, avatarDeltaY) = tabletCustomDeltaFor(HomeHeaderLayoutElement.Avatar)
+                val (streakDeltaX, streakDeltaY) = tabletCustomDeltaFor(HomeHeaderLayoutElement.Streak)
+                val (nicknameDeltaX, nicknameDeltaY) = tabletCustomDeltaFor(HomeHeaderLayoutElement.Nickname)
+                val (greetingDeltaX, greetingDeltaY) = tabletCustomDeltaFor(HomeHeaderLayoutElement.Greeting)
+
+                val (avatarXDp, avatarYDp) = clampDpFramePosition(
+                    x = baseAvatarXDp + avatarDeltaX,
+                    y = baseAvatarYDp + avatarDeltaY,
+                    width = avatarWidthDp,
+                    height = avatarHeightDp,
+                )
+                val (streakXDp, streakYDp) = clampDpFramePosition(
+                    x = baseStreakXDp + streakDeltaX,
+                    y = baseStreakYDp + streakDeltaY,
+                    width = streakWidthDp,
+                    height = streakHeightDp,
+                )
+
+                val baseNicknameXDp = horizontalPadding
+                val baseNicknameYDp = 32.dp
+                val nicknameXDpRaw = baseNicknameXDp + nicknameDeltaX
+                val nicknameYDpRaw = baseNicknameYDp + nicknameDeltaY
+                val nicknameXDp = nicknameXDpRaw.coerceAtLeast(0.dp)
+                val nicknameYDp = nicknameYDpRaw.coerceIn(0.dp, (maxHeight - nicknameHeightDp).coerceAtLeast(0.dp))
+                val nicknameWidthDp = (avatarXDp - nicknameXDp - 12.dp)
+                    .coerceIn(160.dp, 520.dp)
+                    .coerceAtMost((maxWidth - nicknameXDp).coerceAtLeast(160.dp))
+
+                val greetingWidthDp = (maxWidth - (horizontalPadding * 2))
+                    .coerceIn(220.dp, 520.dp)
+                val baseGreetingXDp = ((maxWidth - greetingWidthDp) / 2f).coerceAtLeast(0.dp)
+                val baseGreetingYDp = (baseNicknameYDp + (nicknameHeightDp - greetingHeightDp) / 2f).coerceAtLeast(0.dp)
+                val (greetingXDp, greetingYDp) = clampDpFramePosition(
+                    x = baseGreetingXDp + greetingDeltaX,
+                    y = baseGreetingYDp + greetingDeltaY,
+                    width = greetingWidthDp,
+                    height = greetingHeightDp,
+                )
+
+                val xDp: androidx.compose.ui.unit.Dp
+                val yDp: androidx.compose.ui.unit.Dp
+                val widthDp: androidx.compose.ui.unit.Dp
+                val heightDp: androidx.compose.ui.unit.Dp
+                when (element) {
+                    HomeHeaderLayoutElement.Greeting -> {
+                        xDp = greetingXDp
+                        yDp = greetingYDp
+                        widthDp = greetingWidthDp
+                        heightDp = greetingHeightDp
+                    }
+                    HomeHeaderLayoutElement.Nickname -> {
+                        xDp = nicknameXDp
+                        yDp = nicknameYDp
+                        widthDp = nicknameWidthDp
+                        heightDp = nicknameHeightDp
+                    }
+                    HomeHeaderLayoutElement.Avatar -> {
+                        xDp = avatarXDp
+                        yDp = avatarYDp
+                        widthDp = avatarWidthDp
+                        heightDp = avatarHeightDp
+                    }
+                    HomeHeaderLayoutElement.Streak -> {
+                        xDp = streakXDp
+                        yDp = streakYDp
+                        widthDp = streakWidthDp
+                        heightDp = streakHeightDp
+                    }
+                }
+
+                val slotModifier = Modifier
+                    .offset(x = xDp, y = yDp)
+                    .width(widthDp)
+                    .height(heightDp)
+                val contentModifier = Modifier.fillMaxSize()
+                return slotModifier to contentModifier
+            }
+
+            val point = basePointFor(element)
+            val xPx = point.x * scaleX
+            val yPx = point.y * scaleY
+            val widthDp = with(density) { (size.width * scaleX).toDp() }
+            val heightDp = with(density) { (size.height * scaleY).toDp() }
+
+            val slotModifier = Modifier
+                .offset { IntOffset(xPx.roundToInt(), yPx.roundToInt()) }
+                .width(widthDp)
+                .height(heightDp)
+            val contentModifier = Modifier.fillMaxSize()
+            return slotModifier to contentModifier
+        }
+
+        if (showGreeting) {
+            val (slotModifier, contentModifier) = frameFor(HomeHeaderLayoutElement.Greeting)
+            val greetingFontFamily = greetingStyle.font.fontRes?.let { FontFamily(Font(it)) }
+            val greetingColor = resolveNicknameColor(greetingStyle.color, greetingStyle.customColorHex, colors)
+            Box(
+                modifier = slotModifier,
+                contentAlignment = if (isTabletHeaderLayout) Alignment.Center else Alignment.TopStart,
+            ) {
+                Text(
+                    text = decorateGreetingText(greetingText, greetingStyle.decoration),
+                    modifier = contentModifier.clickable(onClick = onGreetingClick),
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontSize = greetingStyle.fontSize.sp,
+                        lineHeight = (greetingStyle.fontSize + 3).sp,
+                        fontStyle = if (greetingStyle.italic) FontStyle.Italic else FontStyle.Normal,
+                        fontFamily = greetingFontFamily,
+                        lineBreak = LineBreak.Heading,
+                    ),
+                    color = greetingColor,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = if (isTabletHeaderLayout) 1 else 2,
+                    textAlign = if (isTabletHeaderLayout) TextAlign.Center else TextAlign.Start,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+
+        run {
+            val (slotModifier, contentModifier) = frameFor(HomeHeaderLayoutElement.Nickname)
+            Box(slotModifier) {
+                Row(
+                    modifier = contentModifier.clickable(onClick = onNameClick),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier.weight(
+                            1f,
+                            fill = if (nicknameAlignRight) {
+                                true
+                            } else {
+                                shouldFillNicknameRowSpace(showNameEditHint)
+                            },
+                        ),
+                        contentAlignment = if (nicknameAlignRight) {
+                            Alignment.CenterEnd
+                        } else {
+                            Alignment.CenterStart
+                        },
+                    ) {
+                        StyledNicknameText(
+                            text = userName,
+                            nicknameStyle = nicknameStyle,
+                        )
+                    }
+                    if (showNameEditHint) {
+                        Spacer(Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(colors.accent.copy(alpha = 0.2f))
+                                .border(
+                                    width = 1.dp,
+                                    color = colors.accent.copy(alpha = 0.45f),
+                                    shape = CircleShape,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Edit,
+                                contentDescription = null,
+                                tint = colors.accent,
+                                modifier = Modifier.size(12.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        val attachStreakToAvatarOnTablet = false
+
+        if (showStreak && !attachStreakToAvatarOnTablet) {
+            val (slotModifier, contentModifier) = frameFor(HomeHeaderLayoutElement.Streak)
+            Box(slotModifier) {
+                Box(contentModifier, contentAlignment = Alignment.Center) {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(colors.accent.copy(alpha = 0.14f))
+                            .border(
+                                width = 1.dp,
+                                color = colors.accent.copy(alpha = 0.35f),
+                                shape = RoundedCornerShape(50),
+                            )
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.LocalFireDepartment,
+                            contentDescription = null,
+                            tint = colors.accent,
+                            modifier = Modifier.size(12.dp),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = currentStreak.toString(),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.textPrimary,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
+        }
+
+        run {
+            val (slotModifier, contentModifier) = frameFor(HomeHeaderLayoutElement.Avatar)
+            Box(slotModifier) {
+                Box(contentModifier, contentAlignment = Alignment.Center) {
+                    if (attachStreakToAvatarOnTablet) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .offset(x = (-42).dp),
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(colors.accent.copy(alpha = 0.14f))
+                                    .border(
+                                        width = 1.dp,
+                                        color = colors.accent.copy(alpha = 0.35f),
+                                        shape = RoundedCornerShape(50),
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.LocalFireDepartment,
+                                    contentDescription = null,
+                                    tint = colors.accent,
+                                    modifier = Modifier.size(12.dp),
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = currentStreak.toString(),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = colors.textPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clickable(onClick = onAvatarClick),
+                    ) {
+                        if (userAvatar.isNotEmpty()) {
+                            AsyncImage(
+                                model = userAvatar,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape),
+                            )
+                        } else {
+                            Icon(
+                                Icons.Filled.AccountCircle,
+                                null,
+                                tint = colors.accent,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        if (userAvatar.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .size(16.dp)
+                                    .background(colors.accent, CircleShape),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    Icons.Filled.CameraAlt,
+                                    null,
+                                    tint = colors.textOnAccent,
+                                    modifier = Modifier.size(10.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun HomeHeaderLayoutLivePreview(
+    modifier: Modifier = Modifier,
+    layoutSpec: HomeHeaderLayoutSpec,
+    nicknameAlignRight: Boolean = false,
+) {
+    val nicknameStyle = remember {
+        NicknameStyle(
+            font = NicknameFontPreset.Default,
+            color = NicknameColorPreset.Theme,
+            outline = false,
+            outlineWidth = 2,
+            glow = false,
+            effect = NicknameEffectPreset.None,
+            customColorHex = "#FFFFFF",
+        )
+    }
+    val greetingStyle = remember {
+        GreetingStyle(
+            font = NicknameFontPreset.Default,
+            color = NicknameColorPreset.Theme,
+            customColorHex = "#FFFFFF",
+            fontSize = 12,
+            decoration = GreetingDecorationPreset.Auto,
+            italic = false,
+        )
+    }
+
+    HomeHubProfileHeaderCanvas(
+        modifier = modifier,
+        layoutSpec = layoutSpec,
+        greetingText = stringResource(AYMR.strings.home_header_layout_editor_preview_greeting),
+        userName = stringResource(AYMR.strings.home_header_layout_editor_preview_nickname),
+        userAvatar = "",
+        nicknameStyle = nicknameStyle,
+        greetingStyle = greetingStyle,
+        showGreeting = true,
+        showNameEditHint = false,
+        currentStreak = 7,
+        showStreak = true,
+        nicknameAlignRight = nicknameAlignRight,
+        onAvatarClick = {},
+        onNameClick = {},
+        onGreetingClick = {},
+    )
 }
 
 @Composable
@@ -1271,9 +1608,11 @@ private fun HomeHubScreen(
 @Composable
 private fun WelcomeSection(onBrowseClick: () -> Unit, onExtensionClick: () -> Unit) {
     val colors = AuroraTheme.colors
+    val auroraAdaptiveSpec = rememberAuroraAdaptiveSpec()
+    val contentMaxWidthDp = auroraAdaptiveSpec.updatesMaxWidthDp ?: auroraAdaptiveSpec.entryMaxWidthDp
 
     Box(
-        modifier = Modifier.fillMaxWidth().padding(16.dp).clip(RoundedCornerShape(24.dp))
+        modifier = Modifier.auroraCenteredMaxWidth(contentMaxWidthDp).padding(16.dp).clip(RoundedCornerShape(24.dp))
             .background(colors.cardBackground).padding(32.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -1342,6 +1681,8 @@ private fun HeroSection(
     onEntryClick: () -> Unit,
 ) {
     val colors = AuroraTheme.colors
+    val auroraAdaptiveSpec = rememberAuroraAdaptiveSpec()
+    val contentMaxWidthDp = auroraAdaptiveSpec.updatesMaxWidthDp ?: auroraAdaptiveSpec.entryMaxWidthDp
     val overlayGradient = remember(colors) {
         Brush.verticalGradient(
             listOf(Color.Transparent, colors.gradientEnd.copy(alpha = 0.8f)),
@@ -1351,7 +1692,7 @@ private fun HeroSection(
     }
 
     Box(
-        modifier = Modifier.fillMaxWidth().height(
+        modifier = Modifier.auroraCenteredMaxWidth(contentMaxWidthDp).height(
             440.dp,
         ).padding(16.dp).clip(RoundedCornerShape(24.dp)).clickable(onClick = onEntryClick),
     ) {
@@ -1417,10 +1758,12 @@ private fun HeroSection(
 @Composable
 private fun QuickSourceButton(sourceName: String?, onClick: () -> Unit) {
     val colors = AuroraTheme.colors
+    val auroraAdaptiveSpec = rememberAuroraAdaptiveSpec()
+    val contentMaxWidthDp = auroraAdaptiveSpec.updatesMaxWidthDp ?: auroraAdaptiveSpec.entryMaxWidthDp
 
     Box(
         modifier = Modifier
-            .fillMaxWidth()
+            .auroraCenteredMaxWidth(contentMaxWidthDp)
             .padding(horizontal = 24.dp, vertical = 16.dp),
     ) {
         Button(
@@ -1443,6 +1786,7 @@ private fun QuickSourceButton(sourceName: String?, onClick: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun HistoryRow(
     history: List<HomeHubHistory>,
@@ -1450,10 +1794,31 @@ private fun HistoryRow(
     onViewAllClick: () -> Unit,
 ) {
     val colors = AuroraTheme.colors
+    val auroraAdaptiveSpec = rememberAuroraAdaptiveSpec()
+    val contentMaxWidthDp = auroraAdaptiveSpec.updatesMaxWidthDp ?: auroraAdaptiveSpec.entryMaxWidthDp
+    val sectionHorizontalPadding = when (auroraAdaptiveSpec.deviceClass) {
+        AuroraDeviceClass.Phone -> 24.dp
+        AuroraDeviceClass.TabletCompact -> 28.dp
+        AuroraDeviceClass.TabletExpanded -> 32.dp
+    }
+    val cardWidth = when (auroraAdaptiveSpec.deviceClass) {
+        AuroraDeviceClass.Phone -> 128.dp
+        AuroraDeviceClass.TabletCompact -> 152.dp
+        AuroraDeviceClass.TabletExpanded -> 176.dp
+    }
+    val rowSpacing = when (auroraAdaptiveSpec.deviceClass) {
+        AuroraDeviceClass.Phone -> 14.dp
+        AuroraDeviceClass.TabletCompact -> 16.dp
+        AuroraDeviceClass.TabletExpanded -> 18.dp
+    }
+    val useWrappedSections = shouldUseHomeHubWrappedSections(auroraAdaptiveSpec.deviceClass)
 
     Column(modifier = Modifier.padding(top = 24.dp)) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+            Modifier
+                .fillMaxWidth()
+                .auroraCenteredMaxWidth(contentMaxWidthDp)
+                .padding(horizontal = sectionHorizontalPadding),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1472,27 +1837,56 @@ private fun HistoryRow(
             )
         }
         Spacer(Modifier.height(16.dp))
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            items(history, key = { it.entryId }) { item ->
-                AuroraCard(
-                    modifier = Modifier.width(128.dp).aspectRatio(0.68f),
-                    title = item.title,
-                    coverData = item.coverData,
-                    subtitle = stringResource(
-                        AYMR.strings.aurora_episode_number,
-                        (item.progressNumber % 1000).toInt().toString(),
-                    ),
-                    onClick = { onEntryClick(item.entryId) },
-                    imagePadding = 6.dp,
-                )
+        if (useWrappedSections) {
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .auroraCenteredMaxWidth(contentMaxWidthDp)
+                    .padding(horizontal = sectionHorizontalPadding),
+                horizontalArrangement = Arrangement.spacedBy(rowSpacing),
+                verticalArrangement = Arrangement.spacedBy(rowSpacing),
+            ) {
+                history.forEach { item ->
+                    AuroraCard(
+                        modifier = Modifier.width(cardWidth).aspectRatio(0.68f),
+                        title = item.title,
+                        coverData = item.coverData,
+                        subtitle = stringResource(
+                            AYMR.strings.aurora_episode_number,
+                            (item.progressNumber % 1000).toInt().toString(),
+                        ),
+                        onClick = { onEntryClick(item.entryId) },
+                        imagePadding = 6.dp,
+                    )
+                }
+            }
+        } else {
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .auroraCenteredMaxWidth(contentMaxWidthDp),
+                contentPadding = PaddingValues(horizontal = sectionHorizontalPadding),
+                horizontalArrangement = Arrangement.spacedBy(rowSpacing),
+            ) {
+                items(history, key = { it.entryId }) { item ->
+                    AuroraCard(
+                        modifier = Modifier.width(cardWidth).aspectRatio(0.68f),
+                        title = item.title,
+                        coverData = item.coverData,
+                        subtitle = stringResource(
+                            AYMR.strings.aurora_episode_number,
+                            (item.progressNumber % 1000).toInt().toString(),
+                        ),
+                        onClick = { onEntryClick(item.entryId) },
+                        imagePadding = 6.dp,
+                    )
+                }
             }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RecommendationsGrid(
     recommendations: List<HomeHubRecommendation>,
@@ -1500,10 +1894,31 @@ private fun RecommendationsGrid(
     onMoreClick: () -> Unit,
 ) {
     val colors = AuroraTheme.colors
+    val auroraAdaptiveSpec = rememberAuroraAdaptiveSpec()
+    val contentMaxWidthDp = auroraAdaptiveSpec.updatesMaxWidthDp ?: auroraAdaptiveSpec.entryMaxWidthDp
+    val sectionHorizontalPadding = when (auroraAdaptiveSpec.deviceClass) {
+        AuroraDeviceClass.Phone -> 24.dp
+        AuroraDeviceClass.TabletCompact -> 28.dp
+        AuroraDeviceClass.TabletExpanded -> 32.dp
+    }
+    val cardWidth = when (auroraAdaptiveSpec.deviceClass) {
+        AuroraDeviceClass.Phone -> 128.dp
+        AuroraDeviceClass.TabletCompact -> 152.dp
+        AuroraDeviceClass.TabletExpanded -> 176.dp
+    }
+    val rowSpacing = when (auroraAdaptiveSpec.deviceClass) {
+        AuroraDeviceClass.Phone -> 14.dp
+        AuroraDeviceClass.TabletCompact -> 16.dp
+        AuroraDeviceClass.TabletExpanded -> 18.dp
+    }
+    val useWrappedSections = shouldUseHomeHubWrappedSections(auroraAdaptiveSpec.deviceClass)
 
-    Column(modifier = Modifier.padding(top = 32.dp, start = 24.dp, end = 24.dp)) {
+    Column(modifier = Modifier.padding(top = 32.dp)) {
         Row(
-            Modifier.fillMaxWidth(),
+            Modifier
+                .fillMaxWidth()
+                .auroraCenteredMaxWidth(contentMaxWidthDp)
+                .padding(horizontal = sectionHorizontalPadding),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1523,19 +1938,45 @@ private fun RecommendationsGrid(
         }
         Spacer(Modifier.height(16.dp))
 
-        // Horizontal scrollable row instead of grid
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            items(recommendations, key = { it.entryId }) { item ->
-                AuroraCard(
-                    modifier = Modifier.width(128.dp).aspectRatio(0.68f),
-                    title = item.title,
-                    coverData = item.coverData,
-                    subtitle = item.subtitle,
-                    onClick = { onEntryClick(item.entryId) },
-                    imagePadding = 6.dp,
-                )
+        if (useWrappedSections) {
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .auroraCenteredMaxWidth(contentMaxWidthDp)
+                    .padding(horizontal = sectionHorizontalPadding),
+                horizontalArrangement = Arrangement.spacedBy(rowSpacing),
+                verticalArrangement = Arrangement.spacedBy(rowSpacing),
+            ) {
+                recommendations.forEach { item ->
+                    AuroraCard(
+                        modifier = Modifier.width(cardWidth).aspectRatio(0.68f),
+                        title = item.title,
+                        coverData = item.coverData,
+                        subtitle = item.subtitle,
+                        onClick = { onEntryClick(item.entryId) },
+                        imagePadding = 6.dp,
+                    )
+                }
+            }
+        } else {
+            // Horizontal scrollable row instead of grid
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .auroraCenteredMaxWidth(contentMaxWidthDp),
+                contentPadding = PaddingValues(horizontal = sectionHorizontalPadding),
+                horizontalArrangement = Arrangement.spacedBy(rowSpacing),
+            ) {
+                items(recommendations, key = { it.entryId }) { item ->
+                    AuroraCard(
+                        modifier = Modifier.width(cardWidth).aspectRatio(0.68f),
+                        title = item.title,
+                        coverData = item.coverData,
+                        subtitle = item.subtitle,
+                        onClick = { onEntryClick(item.entryId) },
+                        imagePadding = 6.dp,
+                    )
+                }
             }
         }
     }
