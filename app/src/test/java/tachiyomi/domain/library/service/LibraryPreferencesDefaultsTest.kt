@@ -40,5 +40,7 @@ class LibraryPreferencesDefaultsTest {
         prefs.novelLandscapeColumns().get() shouldBe 3
 
         prefs.showContinueViewingButton().get() shouldBe true
+
+        prefs.autoUpdateItemRestrictions().get() shouldBe emptySet()
     }
 }

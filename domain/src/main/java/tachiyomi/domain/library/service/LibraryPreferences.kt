@@ -116,12 +116,7 @@ class LibraryPreferences(
 
     fun autoUpdateItemRestrictions() = preferenceStore.getStringSet(
         "library_update_manga_restriction",
-        setOf(
-            ENTRY_HAS_UNVIEWED,
-            ENTRY_NON_COMPLETED,
-            ENTRY_NON_VIEWED,
-            ENTRY_OUTSIDE_RELEASE_PERIOD,
-        ),
+        emptySet(),
     )
 
     fun autoUpdateMetadata() = preferenceStore.getBoolean("auto_update_metadata", false)

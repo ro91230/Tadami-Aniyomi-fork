@@ -25,6 +25,10 @@ class UserProfilePreferences(
 
     fun showHomeGreeting() = preferenceStore.getBoolean("user_profile_show_home_greeting", true)
     fun showHomeStreak() = preferenceStore.getBoolean("user_profile_show_home_streak", true)
+    fun homeHeaderGreetingAlignRight() = preferenceStore.getBoolean(
+        "user_profile_home_header_greeting_align_right",
+        false,
+    )
     fun homeHeaderNicknameAlignRight() = preferenceStore.getBoolean(
         "user_profile_home_header_nickname_align_right",
         false,

@@ -1065,6 +1065,8 @@
     <string name="novel_reader_auto_scroll">Автопрокрутка</string>
     <string name="novel_reader_auto_scroll_interval">Интервал автопрокрутки (сек)</string>
     <string name="novel_reader_auto_scroll_offset">Смещение автопрокрутки (px)</string>
+    <string name="novel_reader_prefetch_next_chapter">Предзагрузка следующей главы</string>
+    <string name="novel_reader_prefetch_next_chapter_summary">Тихо предзагружать следующую главу после достижения 50% прогресса</string>
     <string name="novel_reader_show_scroll_percentage">Показывать процент чтения</string>
     <string name="novel_reader_show_battery_time">Показывать батарею и время</string>
     <string name="novel_reader_bionic_reading">Бионическое чтение</string>
@@ -1075,6 +1077,7 @@
     <string name="home_header_layout_editor_title">Расположение шапки Home</string>
     <string name="home_header_layout_editor_description">Перетаскивайте элементы, чтобы изменить их положение в шапке Home.</string>
     <string name="home_header_layout_editor_show_grid">Показывать сетку</string>
+    <string name="home_header_layout_editor_greeting_align_right">Выравнивать приветствие по правому краю блока</string>
     <string name="home_header_layout_editor_nickname_align_right">Выравнивать никнейм по правому краю блока</string>
     <string name="home_header_layout_editor_selected">Выбрано: %s</string>
     <string name="home_header_layout_editor_reset">Сбросить</string>

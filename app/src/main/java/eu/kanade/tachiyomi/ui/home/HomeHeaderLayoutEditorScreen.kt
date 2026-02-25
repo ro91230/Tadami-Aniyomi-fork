@@ -33,6 +33,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,8 +73,23 @@ class HomeHeaderLayoutEditorScreen : Screen() {
         var selectedElement by remember { mutableStateOf(HomeHeaderLayoutElement.Nickname) }
         var showGrid by rememberSaveable { mutableStateOf(true) }
         var showOnlySelectedOverlay by rememberSaveable { mutableStateOf(false) }
+        var showHomeGreeting by rememberSaveable { mutableStateOf(prefs.showHomeGreeting().get()) }
+        var showHomeStreak by rememberSaveable { mutableStateOf(prefs.showHomeStreak().get()) }
+        var greetingAlignRight by rememberSaveable { mutableStateOf(prefs.homeHeaderGreetingAlignRight().get()) }
         var nicknameAlignRight by rememberSaveable { mutableStateOf(prefs.homeHeaderNicknameAlignRight().get()) }
         var showResetConfirm by rememberSaveable { mutableStateOf(false) }
+        val visibleElements = remember(showHomeGreeting, showHomeStreak) {
+            homeHeaderLayoutEditorVisibleElements(
+                showGreeting = showHomeGreeting,
+                showStreak = showHomeStreak,
+            )
+        }
+
+        LaunchedEffect(visibleElements, selectedElement) {
+            if (selectedElement !in visibleElements && visibleElements.isNotEmpty()) {
+                selectedElement = visibleElements.first()
+            }
+        }
 
         if (showResetConfirm) {
             AlertDialog(
@@ -143,6 +159,57 @@ class HomeHeaderLayoutEditorScreen : Screen() {
                         modifier = Modifier
                             .weight(1f)
                             .padding(end = 12.dp),
+                        text = stringResource(AYMR.strings.pref_show_home_greeting),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Switch(
+                        checked = showHomeGreeting,
+                        onCheckedChange = { showHomeGreeting = it },
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 12.dp),
+                        text = stringResource(AYMR.strings.pref_show_home_streak),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Switch(
+                        checked = showHomeStreak,
+                        onCheckedChange = { showHomeStreak = it },
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 12.dp),
+                        text = stringResource(AYMR.strings.home_header_layout_editor_greeting_align_right),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Switch(
+                        checked = greetingAlignRight,
+                        onCheckedChange = { greetingAlignRight = it },
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 12.dp),
                         text = stringResource(AYMR.strings.home_header_layout_editor_nickname_align_right),
                         style = MaterialTheme.typography.bodyMedium,
                     )
@@ -175,6 +242,9 @@ class HomeHeaderLayoutEditorScreen : Screen() {
                     selectedElement = selectedElement,
                     showGrid = showGrid,
                     showOnlySelectedOverlay = showOnlySelectedOverlay,
+                    showGreeting = showHomeGreeting,
+                    showStreak = showHomeStreak,
+                    greetingAlignRight = greetingAlignRight,
                     nicknameAlignRight = nicknameAlignRight,
                     onSelectedElementChange = { selectedElement = it },
                     onLayoutChange = { workingLayout = it },
@@ -211,6 +281,9 @@ class HomeHeaderLayoutEditorScreen : Screen() {
                         ),
                         onClick = {
                             prefs.setHomeHeaderLayout(workingLayout)
+                            prefs.showHomeGreeting().set(showHomeGreeting)
+                            prefs.showHomeStreak().set(showHomeStreak)
+                            prefs.homeHeaderGreetingAlignRight().set(greetingAlignRight)
                             prefs.homeHeaderNicknameAlignRight().set(nicknameAlignRight)
                             navigator.pop()
                         },
@@ -233,6 +306,9 @@ private fun HomeHeaderLayoutEditorCanvas(
     selectedElement: HomeHeaderLayoutElement,
     showGrid: Boolean,
     showOnlySelectedOverlay: Boolean,
+    showGreeting: Boolean,
+    showStreak: Boolean,
+    greetingAlignRight: Boolean,
     nicknameAlignRight: Boolean,
     onSelectedElementChange: (HomeHeaderLayoutElement) -> Unit,
     onLayoutChange: (HomeHeaderLayoutSpec) -> Unit,
@@ -242,6 +318,9 @@ private fun HomeHeaderLayoutEditorCanvas(
     val latestLayout by rememberUpdatedState(layout)
     val guideColumns = 12
     val guideRows = 6
+    val visibleElements = remember(showGreeting, showStreak) {
+        homeHeaderLayoutEditorVisibleElements(showGreeting = showGreeting, showStreak = showStreak)
+    }
 
     BoxWithConstraints(
         modifier = Modifier
@@ -261,6 +340,9 @@ private fun HomeHeaderLayoutEditorCanvas(
         HomeHeaderLayoutLivePreview(
             modifier = Modifier.fillMaxSize(),
             layoutSpec = layout,
+            showGreeting = showGreeting,
+            showStreak = showStreak,
+            greetingAlignRight = greetingAlignRight,
             nicknameAlignRight = nicknameAlignRight,
         )
 
@@ -278,7 +360,7 @@ private fun HomeHeaderLayoutEditorCanvas(
             }
         }
 
-        HomeHeaderLayoutElement.entries.forEach { element ->
+        visibleElements.forEach { element ->
             val elementSize = elementSizes.getValue(element)
             val point = clampHomeHeaderPixelPoint(
                 point = HomeHeaderPixelPoint(layout.positionOf(element).x, layout.positionOf(element).y),
@@ -353,6 +435,21 @@ private fun HomeHeaderLayoutEditorCanvas(
                     )
                 }
             }
+        }
+    }
+}
+
+internal fun homeHeaderLayoutEditorVisibleElements(
+    showGreeting: Boolean,
+    showStreak: Boolean,
+): List<HomeHeaderLayoutElement> {
+    return HomeHeaderLayoutElement.entries.filter { element ->
+        when (element) {
+            HomeHeaderLayoutElement.Greeting -> showGreeting
+            HomeHeaderLayoutElement.Streak -> showStreak
+            HomeHeaderLayoutElement.Nickname,
+            HomeHeaderLayoutElement.Avatar,
+            -> true
         }
     }
 }

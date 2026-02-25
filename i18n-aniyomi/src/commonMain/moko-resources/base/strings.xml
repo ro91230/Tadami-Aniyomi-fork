@@ -447,6 +447,8 @@
     <string name="novel_reader_auto_scroll">Auto-scroll</string>
     <string name="novel_reader_auto_scroll_interval">Auto-scroll interval (sec)</string>
     <string name="novel_reader_auto_scroll_offset">Auto-scroll offset (px)</string>
+    <string name="novel_reader_prefetch_next_chapter">Prefetch next chapter</string>
+    <string name="novel_reader_prefetch_next_chapter_summary">Silently prefetch next chapter after reaching 50% progress</string>
 
     <!-- Accessibility -->
     <string name="novel_reader_fullscreen">Fullscreen mode</string>
@@ -1036,6 +1038,7 @@
     <string name="home_header_layout_editor_title">Home Header Layout</string>
     <string name="home_header_layout_editor_description">Drag elements to reposition them inside the Home header.</string>
     <string name="home_header_layout_editor_show_grid">Show grid</string>
+    <string name="home_header_layout_editor_greeting_align_right">Align greeting to right side</string>
     <string name="home_header_layout_editor_nickname_align_right">Align nickname to right side</string>
     <string name="home_header_layout_editor_only_selected_overlay">Show only selected outline</string>
     <string name="home_header_layout_editor_selected">Selected: %s</string>

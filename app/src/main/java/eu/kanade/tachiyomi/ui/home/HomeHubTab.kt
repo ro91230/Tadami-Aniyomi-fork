@@ -30,9 +30,9 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -371,6 +371,7 @@ private data class HomeHubUiState(
     val userName: String,
     val userAvatar: String,
     val greeting: dev.icerock.moko.resources.StringResource,
+    val isLoading: Boolean,
     val showWelcome: Boolean,
 )
 
@@ -463,6 +464,7 @@ object HomeHubTab : Tab {
         val isNameEdited by userProfilePreferences.nameEdited().collectAsState()
         val showHomeGreeting by userProfilePreferences.showHomeGreeting().collectAsState()
         val showHomeStreak by userProfilePreferences.showHomeStreak().collectAsState()
+        val homeHeaderGreetingAlignRight by userProfilePreferences.homeHeaderGreetingAlignRight().collectAsState()
         val homeHeaderNicknameAlignRight by userProfilePreferences.homeHeaderNicknameAlignRight().collectAsState()
         val homeHeaderLayoutJson by userProfilePreferences.homeHeaderLayoutJson().collectAsState()
         val homeHeaderLayout = remember(homeHeaderLayoutJson) {
@@ -580,8 +582,9 @@ object HomeHubTab : Tab {
             )
         }
 
-        var headerOffsetPx by rememberSaveable { mutableStateOf(0f) }
-        var headerHeightPx by rememberSaveable { mutableIntStateOf(0) }
+        // Do not persist collapsed header position across app relaunches.
+        var headerOffsetPx by remember { mutableStateOf(0f) }
+        var headerHeightPx by remember { mutableIntStateOf(0) }
         var scrollResetToken by rememberSaveable { mutableIntStateOf(0) }
 
         val onScrollSignal: (HomeHubSection, Float, Boolean) -> Unit = { section, deltaY, atTop ->
@@ -707,6 +710,7 @@ object HomeHubTab : Tab {
                     showNameEditHint = showNameEditHint,
                     currentStreak = currentStreak,
                     showStreak = showHomeStreak,
+                    greetingAlignRight = homeHeaderGreetingAlignRight,
                     nicknameAlignRight = homeHeaderNicknameAlignRight,
                     homeHeaderLayout = homeHeaderLayout,
                     tabs = tabs,
@@ -750,6 +754,7 @@ private fun HomeHubScreenModel.State.toUiState(): HomeHubUiState {
         userName = userName,
         userAvatar = userAvatar,
         greeting = greeting,
+        isLoading = isLoading,
         showWelcome = showWelcome,
     )
 }
@@ -784,6 +789,7 @@ private fun MangaHomeHubScreenModel.State.toUiState(): HomeHubUiState {
         userName = userName,
         userAvatar = userAvatar,
         greeting = greeting,
+        isLoading = isLoading,
         showWelcome = showWelcome,
     )
 }
@@ -817,6 +823,7 @@ private fun NovelHomeHubScreenModel.State.toUiState(): HomeHubUiState {
         userName = userName,
         userAvatar = userAvatar,
         greeting = greeting,
+        isLoading = isLoading,
         showWelcome = showWelcome,
     )
 }
@@ -834,6 +841,7 @@ private fun HomeHubPinnedHeader(
     showNameEditHint: Boolean,
     currentStreak: Int,
     showStreak: Boolean,
+    greetingAlignRight: Boolean,
     nicknameAlignRight: Boolean,
     homeHeaderLayout: HomeHeaderLayoutSpec,
     tabs: kotlinx.collections.immutable.ImmutableList<TabContent>,
@@ -872,6 +880,7 @@ private fun HomeHubPinnedHeader(
                     showNameEditHint = showNameEditHint,
                     currentStreak = currentStreak,
                     showStreak = showStreak,
+                    greetingAlignRight = greetingAlignRight,
                     nicknameAlignRight = nicknameAlignRight,
                     onAvatarClick = onAvatarClick,
                     onNameClick = onNameClick,
@@ -920,6 +929,7 @@ private fun HomeHubProfileHeaderCanvas(
     showNameEditHint: Boolean,
     currentStreak: Int,
     showStreak: Boolean,
+    greetingAlignRight: Boolean,
     nicknameAlignRight: Boolean,
     onAvatarClick: () -> Unit,
     onNameClick: () -> Unit,
@@ -1142,7 +1152,11 @@ private fun HomeHubProfileHeaderCanvas(
             val greetingColor = resolveNicknameColor(greetingStyle.color, greetingStyle.customColorHex, colors)
             Box(
                 modifier = slotModifier,
-                contentAlignment = if (isTabletHeaderLayout) Alignment.Center else Alignment.TopStart,
+                contentAlignment = when {
+                    isTabletHeaderLayout -> Alignment.Center
+                    greetingAlignRight -> Alignment.TopEnd
+                    else -> Alignment.TopStart
+                },
             ) {
                 Text(
                     text = decorateGreetingText(greetingText, greetingStyle.decoration),
@@ -1157,7 +1171,11 @@ private fun HomeHubProfileHeaderCanvas(
                     color = greetingColor,
                     fontWeight = FontWeight.Medium,
                     maxLines = if (isTabletHeaderLayout) 2 else 2,
-                    textAlign = if (isTabletHeaderLayout) TextAlign.Center else TextAlign.Start,
+                    textAlign = when {
+                        isTabletHeaderLayout -> TextAlign.Center
+                        greetingAlignRight -> TextAlign.End
+                        else -> TextAlign.Start
+                    },
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -1359,6 +1377,9 @@ private fun HomeHubProfileHeaderCanvas(
 internal fun HomeHeaderLayoutLivePreview(
     modifier: Modifier = Modifier,
     layoutSpec: HomeHeaderLayoutSpec,
+    showGreeting: Boolean = true,
+    showStreak: Boolean = true,
+    greetingAlignRight: Boolean = false,
     nicknameAlignRight: Boolean = false,
 ) {
     val nicknameStyle = remember {
@@ -1392,10 +1413,11 @@ internal fun HomeHeaderLayoutLivePreview(
         userAvatar = "",
         nicknameStyle = nicknameStyle,
         greetingStyle = greetingStyle,
-        showGreeting = true,
+        showGreeting = showGreeting,
         showNameEditHint = false,
         currentStreak = 7,
-        showStreak = true,
+        showStreak = showStreak,
+        greetingAlignRight = greetingAlignRight,
         nicknameAlignRight = nicknameAlignRight,
         onAvatarClick = {},
         onNameClick = {},
@@ -1591,7 +1613,8 @@ private fun HomeHubScreen(
         !isFiltering || title.contains(trimmedQuery, ignoreCase = true)
     }
 
-    val listState = rememberLazyListState()
+    // Home hub should open from the top after app relaunch; avoid saveable scroll restoration.
+    val listState = remember(section) { LazyListState() }
     LaunchedEffect(section, activeSection, scrollResetToken) {
         if (section == activeSection) {
             listState.scrollToItem(0)
@@ -1624,6 +1647,12 @@ private fun HomeHubScreen(
     val history = state.history.filter { matchesQuery(it.title) }
     val recommendations = state.recommendations.filter { matchesQuery(it.title) }
     val showWelcome = state.showWelcome && !isFiltering
+    val reserveHeroSlot = shouldReserveHomeHubHeroSlot(
+        hasHero = state.hero != null,
+        isLoading = state.isLoading,
+        showWelcome = showWelcome,
+        isFiltering = isFiltering,
+    )
 
     LazyColumn(
         state = listState,
@@ -1637,15 +1666,17 @@ private fun HomeHubScreen(
                 WelcomeSection(onBrowseClick = onBrowseClick, onExtensionClick = onExtensionClick)
             }
         } else {
-            hero?.let { heroData ->
+            if (hero != null || reserveHeroSlot) {
                 item(key = "hero") {
-                    HeroSection(
-                        hero = heroData,
-                        actionLabelRes = heroActionLabelRes,
-                        progressLabelRes = heroProgressLabelRes,
-                        onPlayClick = onPlayHero,
-                        onEntryClick = { onEntryClick(heroData.entryId) },
-                    )
+                    hero?.let { heroData ->
+                        HeroSection(
+                            hero = heroData,
+                            actionLabelRes = heroActionLabelRes,
+                            progressLabelRes = heroProgressLabelRes,
+                            onPlayClick = onPlayHero,
+                            onEntryClick = { onEntryClick(heroData.entryId) },
+                        )
+                    } ?: HeroSectionPlaceholder()
                 }
             }
 
@@ -1745,6 +1776,19 @@ private fun WelcomeSection(onBrowseClick: () -> Unit, onExtensionClick: () -> Un
     }
 }
 
+internal fun shouldReserveHomeHubHeroSlot(
+    hasHero: Boolean,
+    isLoading: Boolean,
+    showWelcome: Boolean,
+    isFiltering: Boolean,
+): Boolean {
+    if (hasHero) return false
+    if (!isLoading) return false
+    if (showWelcome) return false
+    if (isFiltering) return false
+    return true
+}
+
 @Composable
 private fun HeroSection(
     hero: HomeHubHero,
@@ -1826,6 +1870,22 @@ private fun HeroSection(
             }
         }
     }
+}
+
+@Composable
+private fun HeroSectionPlaceholder() {
+    val colors = AuroraTheme.colors
+    val auroraAdaptiveSpec = rememberAuroraAdaptiveSpec()
+    val contentMaxWidthDp = auroraAdaptiveSpec.updatesMaxWidthDp ?: auroraAdaptiveSpec.entryMaxWidthDp
+
+    Box(
+        modifier = Modifier
+            .auroraCenteredMaxWidth(contentMaxWidthDp)
+            .height(440.dp)
+            .padding(16.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(colors.cardBackground.copy(alpha = 0.55f)),
+    )
 }
 
 @Composable

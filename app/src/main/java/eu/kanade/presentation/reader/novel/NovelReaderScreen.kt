@@ -6,6 +6,8 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import android.os.Build
+import android.os.SystemClock
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
@@ -68,6 +70,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -167,7 +170,7 @@ fun NovelReaderScreen(
         mutableIntStateOf(intervalToAutoScrollSpeed(state.readerSettings.autoScrollInterval))
     }
     var autoScrollExpanded by remember(state.chapter.id) { mutableStateOf(false) }
-    var webViewInstance by remember(state.chapter.id) { mutableStateOf<WebView?>(null) }
+    var webViewInstance by remember { mutableStateOf<WebView?>(null) }
     var webProgressPercent by remember(state.chapter.id) {
         mutableIntStateOf(state.lastSavedWebProgressPercent.coerceIn(0, 100))
     }
@@ -840,6 +843,12 @@ fun NovelReaderScreen(
                             100,
                             encodeWebScrollProgressPercent(finalProgress),
                         )
+                    }
+                }
+
+                DisposableEffect(Unit) {
+                    onDispose {
+                        val webView = webViewInstance
                         webView?.apply {
                             setOnTouchListener(null)
                             setOnScrollChangeListener(null)
@@ -851,12 +860,63 @@ fun NovelReaderScreen(
                     }
                 }
 
+                val initialWebReaderPaddingPx = with(density) { 4.dp.roundToPx() }
+                val initialMaxWebViewStatusInsetPx = with(density) { 16.dp.roundToPx() }
+                val initialPaddingTop = resolveWebViewPaddingTopPx(
+                    statusBarHeightPx = statusBarHeight,
+                    showReaderUi = showReaderUI,
+                    appBarHeightPx = appBarHeight,
+                    basePaddingPx = initialWebReaderPaddingPx,
+                    maxStatusBarInsetPx = initialMaxWebViewStatusInsetPx,
+                )
+                val initialPaddingBottom = resolveWebViewPaddingBottomPx(
+                    navigationBarHeightPx = navigationBarHeight,
+                    showReaderUi = showReaderUI,
+                    bottomBarHeightPx = bottomBarHeight,
+                    basePaddingPx = initialWebReaderPaddingPx,
+                )
+                val initialPaddingHorizontal = state.readerSettings.margin
+                val initialCssTextAlign = resolveWebViewTextAlignCss(state.readerSettings.textAlign)
+                val initialSelectedFontFamily = state.readerSettings.fontFamily.takeIf { it.isNotBlank() }
+                val initialFontAssetFile = novelReaderFonts
+                    .firstOrNull { it.id == state.readerSettings.fontFamily }
+                    ?.assetFileName
+                    .orEmpty()
+                val initialFontFaceCss = if (initialFontAssetFile.isNotBlank()) {
+                    """
+                    @font-face {
+                        font-family: '${state.readerSettings.fontFamily}';
+                        src: url('file:///android_asset/fonts/$initialFontAssetFile');
+                    }
+                    """.trimIndent()
+                } else {
+                    ""
+                }
+                val initialReaderCss = buildWebReaderCssText(
+                    fontFaceCss = initialFontFaceCss,
+                    paddingTop = initialPaddingTop,
+                    paddingBottom = initialPaddingBottom,
+                    paddingHorizontal = initialPaddingHorizontal,
+                    fontSizePx = state.readerSettings.fontSize,
+                    lineHeightMultiplier = state.readerSettings.lineHeight,
+                    textAlignCss = initialCssTextAlign,
+                    textColorHex = colorToCssHex(textColor),
+                    backgroundHex = colorToCssHex(textBackground),
+                    fontFamilyName = initialSelectedFontFamily,
+                    customCss = state.readerSettings.customCSS,
+                )
+                val initialFactoryWebViewHtml = buildInitialWebReaderHtml(
+                    rawHtml = state.html,
+                    readerCss = initialReaderCss,
+                )
+
                 AndroidView(
                     modifier = Modifier.fillMaxSize(),
                     factory = { context ->
                         WebView(context).apply {
                             webViewInstance = this
                             setBackgroundColor(backgroundColor)
+                            alpha = 0f
                             settings.javaScriptEnabled = shouldEnableJavaScriptInReaderWebView(state.enableJs)
                             settings.domStorageEnabled = false
 
@@ -878,7 +938,7 @@ fun NovelReaderScreen(
                                     onReadingProgress(newPercent, 100, encodeWebScrollProgressPercent(newPercent))
                                 }
                             }
-                            loadDataWithBaseURL(baseUrl, state.html, "text/html", "utf-8", null)
+                            loadDataWithBaseURL(baseUrl, initialFactoryWebViewHtml, "text/html", "utf-8", null)
                             tag = state.html
                         }
                     },
@@ -1011,6 +1071,23 @@ fun NovelReaderScreen(
                         val currentRestoreProgress = state.lastSavedWebProgressPercent.coerceIn(0, 100)
                         val currentFontSize = state.readerSettings.fontSize
                         val currentLineHeight = state.readerSettings.lineHeight
+                        val currentReaderCss = buildWebReaderCssText(
+                            fontFaceCss = fontFaceCss,
+                            paddingTop = paddingTop,
+                            paddingBottom = paddingBottom,
+                            paddingHorizontal = paddingHorizontal,
+                            fontSizePx = currentFontSize,
+                            lineHeightMultiplier = currentLineHeight,
+                            textAlignCss = cssTextAlign,
+                            textColorHex = currentTextColorCss,
+                            backgroundHex = currentBackgroundCss,
+                            fontFamilyName = selectedFontFamily,
+                            customCss = currentCustomCss,
+                        )
+                        val initialWebViewHtml = buildInitialWebReaderHtml(
+                            rawHtml = state.html,
+                            readerCss = currentReaderCss,
+                        )
                         webView.webViewClient = object : WebViewClient() {
                             override fun shouldInterceptRequest(
                                 view: WebView?,
@@ -1077,6 +1154,7 @@ fun NovelReaderScreen(
                                                     encodeWebScrollProgressPercent(settledProgress),
                                                 )
                                             }
+                                            view?.revealReaderDocumentAndWebView()
                                         },
                                     )
                                 } else {
@@ -1090,6 +1168,7 @@ fun NovelReaderScreen(
                                             encodeWebScrollProgressPercent(settledProgress),
                                         )
                                     }
+                                    view?.revealReaderDocumentAndWebView()
                                 }
                             }
                         }
@@ -1097,7 +1176,9 @@ fun NovelReaderScreen(
                         if (webView.tag != state.html) {
                             shouldRestoreWebScroll = true
                             appliedWebCssFingerprint = null
-                            webView.loadDataWithBaseURL(baseUrl, state.html, "text/html", "utf-8", null)
+                            webView.animate().cancel()
+                            webView.alpha = 0f
+                            webView.loadDataWithBaseURL(baseUrl, initialWebViewHtml, "text/html", "utf-8", null)
                             webView.tag = state.html
                         } else if (appliedWebCssFingerprint != styleFingerprint) {
                             webView.applyReaderCss(
@@ -1492,7 +1573,94 @@ private fun WebView.resolveWebViewContentHeightPx(): Int {
     return maxOf(childHeight, scaledContentHeight)
 }
 
-private fun WebView.applyReaderCss(
+private const val WEB_READER_STYLE_ELEMENT_ID = "__an_reader_style__"
+private const val WEB_READER_BOOTSTRAP_STYLE_ELEMENT_ID = "__an_reader_bootstrap_style__"
+
+private fun WebView.revealReaderDocumentAndWebView() {
+    evaluateJavascript(
+        """
+        (function() {
+            const bootstrapStyle = document.getElementById('$WEB_READER_BOOTSTRAP_STYLE_ELEMENT_ID');
+            if (bootstrapStyle) {
+                bootstrapStyle.remove();
+            }
+        })();
+        """.trimIndent(),
+        { _ ->
+            val reveal = {
+                animate().cancel()
+                if (alpha >= 1f) {
+                    alpha = 1f
+                } else {
+                    animate()
+                        .alpha(1f)
+                        .setDuration(120L)
+                        .start()
+                }
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                postVisualStateCallback(
+                    SystemClock.uptimeMillis(),
+                    object : WebView.VisualStateCallback() {
+                        override fun onComplete(requestId: Long) {
+                            post(reveal)
+                        }
+                    },
+                )
+            } else {
+                post(reveal)
+            }
+        },
+    )
+}
+
+internal fun buildInitialWebReaderHtml(
+    rawHtml: String,
+    readerCss: String,
+): String {
+    val injection = buildString {
+        append("<style id=\"")
+        append(WEB_READER_STYLE_ELEMENT_ID)
+        append("\">")
+        append(escapeCssForInlineStyleTag(readerCss))
+        append("</style>")
+        append("<style id=\"")
+        append(WEB_READER_BOOTSTRAP_STYLE_ELEMENT_ID)
+        append("\">")
+        append(buildWebReaderBootstrapCss())
+        append("</style>")
+    }
+    return injectHtmlFragmentIntoHead(rawHtml, injection)
+}
+
+internal fun escapeCssForInlineStyleTag(css: String): String {
+    return css.replace("</style", "<\\\\/style", ignoreCase = true)
+}
+
+private fun buildWebReaderBootstrapCss(): String {
+    return "html, body { visibility: hidden !important; }"
+}
+
+private fun injectHtmlFragmentIntoHead(
+    rawHtml: String,
+    fragment: String,
+): String {
+    val headCloseRegex = Regex("</head>", RegexOption.IGNORE_CASE)
+    if (headCloseRegex.containsMatchIn(rawHtml)) {
+        return headCloseRegex.replaceFirst(rawHtml, "$fragment</head>")
+    }
+
+    val bodyOpenRegex = Regex("<body[^>]*>", RegexOption.IGNORE_CASE)
+    val bodyOpenMatch = bodyOpenRegex.find(rawHtml)
+    if (bodyOpenMatch != null) {
+        val insertIndex = bodyOpenMatch.range.last + 1
+        return rawHtml.substring(0, insertIndex) + fragment + rawHtml.substring(insertIndex)
+    }
+
+    return fragment + rawHtml
+}
+
+internal fun buildWebReaderCssText(
     fontFaceCss: String,
     paddingTop: Int,
     paddingBottom: Int,
@@ -1504,14 +1672,13 @@ private fun WebView.applyReaderCss(
     backgroundHex: String,
     fontFamilyName: String?,
     customCss: String,
-) {
+): String {
     val escapedFontFamily = fontFamilyName
         ?.replace("\\", "\\\\")
         ?.replace("'", "\\'")
-    val shouldForceFontFamily = escapedFontFamily != null
     val fontVariable = escapedFontFamily?.let { "'$it', sans-serif" }.orEmpty()
 
-    val css = buildString {
+    return buildString {
         append(fontFaceCss)
         append('\n')
         append(":root {\n")
@@ -1619,13 +1786,45 @@ private fun WebView.applyReaderCss(
         append("}\n")
         append(customCss)
     }
+}
+
+private fun WebView.applyReaderCss(
+    fontFaceCss: String,
+    paddingTop: Int,
+    paddingBottom: Int,
+    paddingHorizontal: Int,
+    fontSizePx: Int,
+    lineHeightMultiplier: Float,
+    textAlignCss: String?,
+    textColorHex: String,
+    backgroundHex: String,
+    fontFamilyName: String?,
+    customCss: String,
+) {
+    val css = buildWebReaderCssText(
+        fontFaceCss = fontFaceCss,
+        paddingTop = paddingTop,
+        paddingBottom = paddingBottom,
+        paddingHorizontal = paddingHorizontal,
+        fontSizePx = fontSizePx,
+        lineHeightMultiplier = lineHeightMultiplier,
+        textAlignCss = textAlignCss,
+        textColorHex = textColorHex,
+        backgroundHex = backgroundHex,
+        fontFamilyName = fontFamilyName,
+        customCss = customCss,
+    )
+    val escapedFontFamily = fontFamilyName
+        ?.replace("\\", "\\\\")
+        ?.replace("'", "\\'")
+    val shouldForceFontFamily = escapedFontFamily != null
     val quotedCss = JSONObject.quote(css)
     val fontFlag = if (shouldForceFontFamily) "true" else "false"
     val alignFlag = if (textAlignCss.isNullOrBlank()) "false" else "true"
     evaluateJavascript(
         """
         (function() {
-            const styleId = '__an_reader_style__';
+            const styleId = '$WEB_READER_STYLE_ELEMENT_ID';
             let style = document.getElementById(styleId);
             if (!style) {
                 style = document.createElement('style');
@@ -2251,21 +2450,46 @@ private fun SystemUIController(
     showReaderUi: Boolean,
 ) {
     val view = LocalView.current
-    DisposableEffect(view, fullScreenMode, showReaderUi) {
+    val capturedSystemBarsState = remember(view) { mutableStateOf<ReaderSystemBarsState?>(null) }
+    DisposableEffect(view) {
+        val activity = view.context.findActivity()
+        val window = activity?.window
+        val insetsController = if (window != null) {
+            WindowCompat.getInsetsController(window, view)
+        } else {
+            null
+        }
+        if (capturedSystemBarsState.value == null && insetsController != null) {
+            capturedSystemBarsState.value = insetsController.captureReaderSystemBarsState()
+        }
         onDispose {
             val activity = view.context.findActivity() ?: return@onDispose
             val window = activity.window
             val insetsController = WindowCompat.getInsetsController(window, view)
+            val restoredState = resolveReaderExitSystemBarsState(
+                captured = capturedSystemBarsState.value,
+                current = insetsController.captureReaderSystemBarsState(),
+            )
             if (shouldRestoreSystemBarsOnDispose(fullScreenMode)) {
                 insetsController.show(WindowInsetsCompat.Type.systemBars())
             }
+            insetsController.restoreReaderSystemBarsState(restoredState)
             window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
-    LaunchedEffect(fullScreenMode, keepScreenOn, showReaderUi) {
-        val activity = view.context.findActivity() ?: return@LaunchedEffect
+    SideEffect {
+        val activity = view.context.findActivity() ?: return@SideEffect
         val window = activity.window
         val insetsController = WindowCompat.getInsetsController(window, view)
+        if (capturedSystemBarsState.value == null) {
+            capturedSystemBarsState.value = insetsController.captureReaderSystemBarsState()
+        }
+        val baseSystemBarsState = capturedSystemBarsState.value ?: insetsController.captureReaderSystemBarsState()
+        val activeSystemBarsState = resolveActiveReaderSystemBarsState(
+            showReaderUi = showReaderUi,
+            fullScreenMode = fullScreenMode,
+            base = baseSystemBarsState,
+        )
 
         // Keep Screen On
         if (keepScreenOn) {
@@ -2274,15 +2498,57 @@ private fun SystemUIController(
             window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
 
+        insetsController.restoreReaderSystemBarsState(activeSystemBarsState)
+
         // Fullscreen Mode
         if (shouldHideSystemBars(fullScreenMode = fullScreenMode, showReaderUi = showReaderUi)) {
             insetsController.hide(WindowInsetsCompat.Type.systemBars())
-            insetsController.systemBarsBehavior =
-                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         } else {
             insetsController.show(WindowInsetsCompat.Type.systemBars())
         }
     }
+}
+
+internal data class ReaderSystemBarsState(
+    val isLightStatusBars: Boolean,
+    val isLightNavigationBars: Boolean,
+    val systemBarsBehavior: Int,
+)
+
+internal fun resolveReaderExitSystemBarsState(
+    captured: ReaderSystemBarsState?,
+    current: ReaderSystemBarsState,
+): ReaderSystemBarsState {
+    return captured ?: current
+}
+
+internal fun resolveActiveReaderSystemBarsState(
+    showReaderUi: Boolean,
+    fullScreenMode: Boolean,
+    base: ReaderSystemBarsState,
+): ReaderSystemBarsState {
+    if (!fullScreenMode || showReaderUi) return base
+    return base.copy(
+        isLightStatusBars = false,
+        isLightNavigationBars = false,
+        systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE,
+    )
+}
+
+private fun WindowInsetsControllerCompat.captureReaderSystemBarsState(): ReaderSystemBarsState {
+    return ReaderSystemBarsState(
+        isLightStatusBars = isAppearanceLightStatusBars,
+        isLightNavigationBars = isAppearanceLightNavigationBars,
+        systemBarsBehavior = systemBarsBehavior,
+    )
+}
+
+private fun WindowInsetsControllerCompat.restoreReaderSystemBarsState(
+    state: ReaderSystemBarsState,
+) {
+    isAppearanceLightStatusBars = state.isLightStatusBars
+    isAppearanceLightNavigationBars = state.isLightNavigationBars
+    systemBarsBehavior = state.systemBarsBehavior
 }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {

@@ -353,18 +353,6 @@ object SettingsAppearanceScreen : SearchableSettings {
                     ),
                 )
                 add(
-                    Preference.PreferenceItem.SwitchPreference(
-                        preference = userProfilePreferences.showHomeGreeting(),
-                        title = stringResource(AYMR.strings.pref_show_home_greeting),
-                    ),
-                )
-                add(
-                    Preference.PreferenceItem.SwitchPreference(
-                        preference = userProfilePreferences.showHomeStreak(),
-                        title = stringResource(AYMR.strings.pref_show_home_streak),
-                    ),
-                )
-                add(
                     Preference.PreferenceItem.TextPreference(
                         title = stringResource(AYMR.strings.pref_customize_home_header_layout),
                         subtitle = stringResource(AYMR.strings.pref_customize_home_header_layout_summary),
