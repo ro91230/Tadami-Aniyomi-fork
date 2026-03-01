@@ -1,14 +1,18 @@
 package eu.kanade.tachiyomi.ui.library.anime
 
 import android.content.res.Configuration
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.graphics.ExperimentalAnimationGraphicsApi
 import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +20,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,10 +39,9 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.PrimaryScrollableTabRow
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -49,12 +55,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastAll
@@ -84,6 +93,7 @@ import eu.kanade.presentation.more.onboarding.GETTING_STARTED_URL
 import eu.kanade.presentation.theme.AuroraTheme
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.data.download.novel.NovelTranslatedDownloadFormat
 import eu.kanade.tachiyomi.data.library.anime.AnimeLibraryUpdateJob
 import eu.kanade.tachiyomi.data.library.manga.MangaLibraryUpdateJob
 import eu.kanade.tachiyomi.data.library.novel.NovelLibraryUpdateJob
@@ -92,7 +102,10 @@ import eu.kanade.tachiyomi.ui.browse.manga.source.globalsearch.GlobalMangaSearch
 import eu.kanade.tachiyomi.ui.category.CategoriesTab
 import eu.kanade.tachiyomi.ui.entries.anime.AnimeScreen
 import eu.kanade.tachiyomi.ui.entries.manga.MangaScreen
+import eu.kanade.tachiyomi.ui.entries.novel.NovelBatchDownloadDialog
+import eu.kanade.tachiyomi.ui.entries.novel.NovelDownloadChapterPickerDialog
 import eu.kanade.tachiyomi.ui.entries.novel.NovelScreen
+import eu.kanade.tachiyomi.ui.entries.novel.NovelTranslatedDownloadDialog
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.library.manga.MangaLibraryScreenModel
 import eu.kanade.tachiyomi.ui.library.manga.MangaLibrarySettingsScreenModel
@@ -101,6 +114,7 @@ import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.player.settings.PlayerPreferences
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.novel.NovelReaderScreen
+import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderPreferences
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.channels.Channel
@@ -110,6 +124,8 @@ import kotlinx.coroutines.launch
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.category.novel.interactor.GetVisibleNovelCategories
+import tachiyomi.domain.category.novel.model.NovelCategory
 import tachiyomi.domain.entries.anime.model.Anime
 import tachiyomi.domain.entries.manga.model.Manga
 import tachiyomi.domain.items.episode.model.Episode
@@ -119,7 +135,6 @@ import tachiyomi.domain.library.novel.LibraryNovel
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.aniyomi.AYMR
 import tachiyomi.presentation.core.components.material.Scaffold
-import tachiyomi.presentation.core.components.material.TabText
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.EmptyScreenAction
@@ -130,6 +145,7 @@ import tachiyomi.source.local.entries.manga.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
+import tachiyomi.domain.items.novelchapter.model.NovelChapter as DomainNovelChapter
 
 data object AnimeLibraryTab : Tab {
 
@@ -177,6 +193,8 @@ data object AnimeLibraryTab : Tab {
         val state by screenModel.state.collectAsState()
         val mangaState by mangaScreenModel.state.collectAsState()
         val novelState by novelScreenModel.state.collectAsState()
+        val novelReaderPreferences = remember { Injekt.get<NovelReaderPreferences>() }
+        val isNovelTranslatorEnabled by novelReaderPreferences.geminiEnabled().collectAsState()
 
         val uiPreferences = Injekt.get<UiPreferences>()
         val theme by uiPreferences.appTheme().collectAsState()
@@ -191,6 +209,16 @@ data object AnimeLibraryTab : Tab {
             .libraryPreferences
             .showContinueViewingButton()
             .collectAsState()
+        val showCategoryTabs by settingsScreenModel
+            .libraryPreferences
+            .categoryTabs()
+            .collectAsState()
+        val showCategoryNumberOfItems by settingsScreenModel
+            .libraryPreferences
+            .categoryNumberOfItems()
+            .collectAsState()
+        val getVisibleNovelCategories = remember { Injekt.get<GetVisibleNovelCategories>() }
+        val visibleNovelCategories by getVisibleNovelCategories.subscribe().collectAsState(initial = emptyList())
         val isAurora = theme.isAuroraStyle
         val configuration = LocalConfiguration.current
         val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -208,30 +236,44 @@ data object AnimeLibraryTab : Tab {
         }
 
         val snackbarHostState = remember { SnackbarHostState() }
+        var showNovelBatchDownloadDialog by remember { mutableStateOf(false) }
+        var showNovelBatchChapterPickerDialog by remember { mutableStateOf(false) }
+        var novelBatchPickerChapters by remember { mutableStateOf<List<DomainNovelChapter>>(emptyList()) }
+        var showNovelTranslatedDownloadDialog by remember { mutableStateOf(false) }
+        var showNovelTranslatedChapterPickerDialog by remember { mutableStateOf(false) }
+        var novelTranslatedPickerFormat by remember { mutableStateOf(NovelTranslatedDownloadFormat.TXT) }
+        var novelTranslatedPickerChapters by remember { mutableStateOf<List<DomainNovelChapter>>(emptyList()) }
+        val updatingAnimeMessage = context.stringResource(AYMR.strings.aurora_updating_anime)
+        val updatingMangaMessage = context.stringResource(AYMR.strings.aurora_updating_manga)
+        val updatingNovelMessage = context.stringResource(MR.strings.updating_library)
+        val updateAlreadyRunningMessage = context.stringResource(MR.strings.update_already_running)
 
-        val onClickRefresh: (Category?) -> Boolean = { category ->
-            val started = AnimeLibraryUpdateJob.startNow(context, category)
+        fun showLibraryUpdateFeedback(started: Boolean, startedMessage: String) {
+            if (isAurora) {
+                val message = if (started) startedMessage else updateAlreadyRunningMessage
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                return
+            }
             scope.launch {
                 val msgRes = if (started) MR.strings.updating_category else MR.strings.update_already_running
                 snackbarHostState.showSnackbar(context.stringResource(msgRes))
             }
+        }
+
+        val onClickRefresh: (Category?) -> Boolean = { category ->
+            val started = AnimeLibraryUpdateJob.startNow(context, category)
+            showLibraryUpdateFeedback(started, updatingAnimeMessage)
             started
         }
 
         val onClickRefreshManga: (Category?) -> Boolean = { category ->
             val started = MangaLibraryUpdateJob.startNow(context, category)
-            scope.launch {
-                val msgRes = if (started) MR.strings.updating_category else MR.strings.update_already_running
-                snackbarHostState.showSnackbar(context.stringResource(msgRes))
-            }
+            showLibraryUpdateFeedback(started, updatingMangaMessage)
             started
         }
         val onClickRefreshNovel: () -> Boolean = {
             val started = NovelLibraryUpdateJob.startNow(context)
-            scope.launch {
-                val msgRes = if (started) MR.strings.updating_category else MR.strings.update_already_running
-                snackbarHostState.showSnackbar(context.stringResource(msgRes))
-            }
+            showLibraryUpdateFeedback(started, updatingNovelMessage)
             started
         }
 
@@ -250,6 +292,29 @@ data object AnimeLibraryTab : Tab {
             requestedIndex = mangaScreenModel.activeCategoryIndex,
             categoryCount = mangaState.categories.size,
         )
+        val novelsByCategory = remember(novelState.items) {
+            novelState.items.groupBy(LibraryNovel::category)
+        }
+        val novelCategories = remember(visibleNovelCategories, novelsByCategory) {
+            val mappedCategories = visibleNovelCategories.map(NovelCategory::toCategory)
+            if (novelsByCategory.isNotEmpty() && !novelsByCategory.containsKey(Category.UNCATEGORIZED_ID)) {
+                mappedCategories.filterNot(Category::isSystemCategory)
+            } else {
+                mappedCategories
+            }
+        }
+        val novelCategoryIndex = coerceAuroraLibraryCategoryIndex(
+            requestedIndex = novelScreenModel.activeCategoryIndex,
+            categoryCount = novelCategories.size,
+        )
+        val currentNovelCategoryItems = remember(novelState.items, novelCategories, novelCategoryIndex) {
+            val categoryId = novelCategories.getOrNull(novelCategoryIndex)?.id
+            if (categoryId == null) {
+                novelState.items
+            } else {
+                novelState.items.filter { it.category == categoryId }
+            }
+        }
 
         LaunchedEffect(state.categories.size, animeCategoryIndex) {
             if (screenModel.activeCategoryIndex != animeCategoryIndex) {
@@ -259,6 +324,11 @@ data object AnimeLibraryTab : Tab {
         LaunchedEffect(mangaState.categories.size, mangaCategoryIndex) {
             if (mangaScreenModel.activeCategoryIndex != mangaCategoryIndex) {
                 mangaScreenModel.activeCategoryIndex = mangaCategoryIndex
+            }
+        }
+        LaunchedEffect(novelCategories.size, novelCategoryIndex) {
+            if (novelScreenModel.activeCategoryIndex != novelCategoryIndex) {
+                novelScreenModel.activeCategoryIndex = novelCategoryIndex
             }
         }
 
@@ -301,14 +371,17 @@ data object AnimeLibraryTab : Tab {
                 val currentCategoryItems = mangaState.getLibraryItemsByPage(mangaCategoryIndex)
                 MangaLibraryAuroraContent(
                     items = currentCategoryItems,
-                    selection = emptyList<LibraryManga>(),
+                    selection = mangaState.selection,
                     searchQuery = mangaState.searchQuery,
                     hasActiveFilters = mangaState.hasActiveFilters,
                     displayMode = mangaDisplayMode,
                     columns = mangaColumns,
                     onMangaClicked = { navigator.push(MangaScreen(it)) },
-                    onToggleSelection = {},
-                    onToggleRangeSelection = {},
+                    onToggleSelection = mangaScreenModel::toggleSelection,
+                    onToggleRangeSelection = {
+                        mangaScreenModel.toggleRangeSelection(it)
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    },
                     onContinueReadingClicked = { item: LibraryManga ->
                         scope.launchIO {
                             val chapter = mangaScreenModel.getNextUnreadChapter(item.manga)
@@ -336,10 +409,16 @@ data object AnimeLibraryTab : Tab {
             searchEnabled = true,
             content = { contentPadding, _ ->
                 NovelLibraryAuroraContent(
-                    items = novelState.items,
+                    items = currentNovelCategoryItems,
+                    selection = novelState.selection,
                     searchQuery = novelState.searchQuery,
                     onSearchQueryChange = novelScreenModel::search,
                     onNovelClicked = { navigator.push(NovelScreen(it)) },
+                    onToggleSelection = novelScreenModel::toggleSelection,
+                    onToggleRangeSelection = { novelItem ->
+                        novelScreenModel.toggleRangeSelection(novelItem)
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    },
                     contentPadding = contentPadding,
                     hasActiveFilters = novelState.hasActiveFilters,
                     onFilterClicked = novelScreenModel::showSettingsDialog,
@@ -462,9 +541,8 @@ data object AnimeLibraryTab : Tab {
         val auroraCategories = when (auroraCurrentSection) {
             Section.Anime -> state.categories
             Section.Manga -> mangaState.categories
-            Section.Novel,
-            null,
-            -> emptyList()
+            Section.Novel -> novelCategories
+            null -> emptyList()
         }
         val auroraCategoryIndex = when (auroraCurrentSection) {
             Section.Anime -> coerceAuroraLibraryCategoryIndex(
@@ -475,9 +553,11 @@ data object AnimeLibraryTab : Tab {
                 requestedIndex = mangaScreenModel.activeCategoryIndex,
                 categoryCount = mangaState.categories.size,
             )
-            Section.Novel,
-            null,
-            -> 0
+            Section.Novel -> coerceAuroraLibraryCategoryIndex(
+                requestedIndex = novelScreenModel.activeCategoryIndex,
+                categoryCount = novelCategories.size,
+            )
+            null -> 0
         }
         val showAuroraCategoryTabs = when (auroraCurrentSection) {
             Section.Anime -> shouldShowAuroraLibraryCategoryTabsRow(
@@ -492,9 +572,13 @@ data object AnimeLibraryTab : Tab {
                 showCategoryTabs = mangaState.showCategoryTabs,
                 searchQuery = mangaState.searchQuery,
             )
-            Section.Novel,
-            null,
-            -> false
+            Section.Novel -> shouldShowAuroraLibraryCategoryTabsRow(
+                section = Section.Novel,
+                categoryCount = novelCategories.size,
+                showCategoryTabs = showCategoryTabs,
+                searchQuery = novelState.searchQuery,
+            )
+            null -> false
         }
         val onAuroraCategorySelected: (Int) -> Unit = { index ->
             when (auroraCurrentSection) {
@@ -510,9 +594,13 @@ data object AnimeLibraryTab : Tab {
                         categoryCount = mangaState.categories.size,
                     )
                 }
-                Section.Novel,
-                null,
-                -> Unit
+                Section.Novel -> {
+                    novelScreenModel.activeCategoryIndex = coerceAuroraLibraryCategoryIndex(
+                        requestedIndex = index,
+                        categoryCount = novelCategories.size,
+                    )
+                }
+                null -> Unit
             }
         }
         val onAuroraFilterClick: () -> Unit = {
@@ -627,16 +715,47 @@ data object AnimeLibraryTab : Tab {
                 )
             },
             bottomBar = {
-                LibraryBottomActionMenu(
-                    visible = state.selectionMode,
-                    onChangeCategoryClicked = screenModel::openChangeCategoryDialog,
-                    onMarkAsViewedClicked = { screenModel.markSeenSelection(true) },
-                    onMarkAsUnviewedClicked = { screenModel.markSeenSelection(false) },
-                    onDownloadClicked = screenModel::runDownloadActionSelection
-                        .takeIf { state.selection.fastAll { !it.anime.isLocal() } },
-                    onDeleteClicked = screenModel::openDeleteAnimeDialog,
-                    isManga = false,
-                )
+                when {
+                    !isAurora || auroraCurrentSection == Section.Anime || auroraCurrentSection == null -> {
+                        LibraryBottomActionMenu(
+                            visible = state.selectionMode,
+                            onChangeCategoryClicked = screenModel::openChangeCategoryDialog,
+                            onMarkAsViewedClicked = { screenModel.markSeenSelection(true) },
+                            onMarkAsUnviewedClicked = { screenModel.markSeenSelection(false) },
+                            onDownloadClicked = screenModel::runDownloadActionSelection
+                                .takeIf { state.selection.fastAll { !it.anime.isLocal() } },
+                            onDeleteClicked = screenModel::openDeleteAnimeDialog,
+                            isManga = false,
+                        )
+                    }
+                    auroraCurrentSection == Section.Manga -> {
+                        LibraryBottomActionMenu(
+                            visible = mangaState.selectionMode,
+                            onChangeCategoryClicked = mangaScreenModel::openChangeCategoryDialog,
+                            onMarkAsViewedClicked = { mangaScreenModel.markReadSelection(true) },
+                            onMarkAsUnviewedClicked = { mangaScreenModel.markReadSelection(false) },
+                            onDownloadClicked = mangaScreenModel::runDownloadActionSelection
+                                .takeIf { mangaState.selection.fastAll { !it.manga.isLocal() } },
+                            onDeleteClicked = mangaScreenModel::openDeleteMangaDialog,
+                            isManga = true,
+                        )
+                    }
+                    auroraCurrentSection == Section.Novel -> {
+                        LibraryBottomActionMenu(
+                            visible = novelState.selectionMode,
+                            onChangeCategoryClicked = novelScreenModel::openChangeCategoryDialog,
+                            onMarkAsViewedClicked = { novelScreenModel.markReadSelection(true) },
+                            onMarkAsUnviewedClicked = { novelScreenModel.markReadSelection(false) },
+                            onDownloadClicked = null,
+                            onOpenDownloadDialog = { showNovelBatchDownloadDialog = true },
+                            onTranslatedDownloadClicked = {
+                                showNovelTranslatedDownloadDialog = true
+                            }.takeIf { isNovelTranslatorEnabled },
+                            onDeleteClicked = novelScreenModel::openDeleteNovelDialog,
+                            isManga = true,
+                        )
+                    }
+                }
             },
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         ) { contentPadding ->
@@ -693,9 +812,16 @@ data object AnimeLibraryTab : Tab {
                                         when (auroraCurrentSection) {
                                             Section.Anime -> state.getAnimeCountForCategory(category)
                                             Section.Manga -> mangaState.getMangaCountForCategory(category)
-                                            Section.Novel,
-                                            null,
-                                            -> null
+                                            Section.Novel -> {
+                                                if (showCategoryNumberOfItems ||
+                                                    !novelState.searchQuery.isNullOrEmpty()
+                                                ) {
+                                                    novelsByCategory[category.id]?.size ?: 0
+                                                } else {
+                                                    null
+                                                }
+                                            }
+                                            null -> null
                                         }
                                     },
                                 )
@@ -830,23 +956,187 @@ data object AnimeLibraryTab : Tab {
             null -> {}
         }
 
-        when (novelState.dialog) {
+        when (val dialog = novelState.dialog) {
             NovelLibraryScreenModel.Dialog.Settings -> {
                 NovelLibrarySettingsDialog(
                     onDismissRequest = novelScreenModel::closeDialog,
                     screenModel = novelScreenModel,
                 )
             }
+            is NovelLibraryScreenModel.Dialog.ChangeCategory -> {
+                ChangeCategoryDialog(
+                    initialSelection = dialog.initialSelection,
+                    onDismissRequest = novelScreenModel::closeDialog,
+                    onEditCategories = {
+                        novelScreenModel.clearSelection()
+                        navigator.push(CategoriesTab)
+                        CategoriesTab.showNovelCategory()
+                    },
+                    onConfirm = { include, exclude ->
+                        novelScreenModel.clearSelection()
+                        novelScreenModel.updateNovelCategories(dialog.novels, include, exclude)
+                    },
+                )
+            }
+            is NovelLibraryScreenModel.Dialog.DeleteNovels -> {
+                DeleteLibraryEntryDialog(
+                    containsLocalEntry = false,
+                    onDismissRequest = novelScreenModel::closeDialog,
+                    onConfirm = { deleteFromLibrary, deleteChapters ->
+                        novelScreenModel.removeNovels(dialog.novels, deleteFromLibrary, deleteChapters)
+                        novelScreenModel.clearSelection()
+                    },
+                    isManga = true,
+                )
+            }
             null -> {}
+        }
+
+        if (showNovelBatchDownloadDialog) {
+            NovelBatchDownloadDialog(
+                onDismissRequest = { showNovelBatchDownloadDialog = false },
+                onSelectChapters = {
+                    scope.launch {
+                        val candidates = novelScreenModel.getSingleSelectionDownloadCandidates(
+                            onlyNotDownloaded = true,
+                        )
+                        if (candidates.isEmpty()) {
+                            snackbarHostState.showSnackbar(
+                                message = context.stringResource(AYMR.strings.novel_download_no_available),
+                                duration = SnackbarDuration.Short,
+                            )
+                            return@launch
+                        }
+                        novelBatchPickerChapters = candidates
+                        showNovelBatchDownloadDialog = false
+                        showNovelBatchChapterPickerDialog = true
+                    }
+                },
+                onActionSelected = { action, amount ->
+                    scope.launch {
+                        val added = novelScreenModel.runDownloadActionSelection(action, amount)
+                        val message = if (added > 0) {
+                            context.stringResource(AYMR.strings.novel_download_queue_started_count, added)
+                        } else {
+                            context.stringResource(AYMR.strings.novel_download_no_available)
+                        }
+                        snackbarHostState.showSnackbar(
+                            message = message,
+                            duration = SnackbarDuration.Short,
+                        )
+                    }
+                    showNovelBatchDownloadDialog = false
+                },
+            )
+        }
+
+        if (showNovelBatchChapterPickerDialog) {
+            NovelDownloadChapterPickerDialog(
+                title = context.stringResource(AYMR.strings.novel_download_select_chapters_title),
+                chapters = novelBatchPickerChapters,
+                onDismissRequest = { showNovelBatchChapterPickerDialog = false },
+                onConfirm = { chapterIds ->
+                    scope.launch {
+                        val added = novelScreenModel.runDownloadForSingleSelectionChapterIds(chapterIds)
+                        val message = if (added > 0) {
+                            context.stringResource(AYMR.strings.novel_download_queue_started_count, added)
+                        } else {
+                            context.stringResource(AYMR.strings.novel_download_no_available)
+                        }
+                        snackbarHostState.showSnackbar(
+                            message = message,
+                            duration = SnackbarDuration.Short,
+                        )
+                    }
+                    showNovelBatchChapterPickerDialog = false
+                },
+            )
+        }
+
+        if (showNovelTranslatedDownloadDialog) {
+            NovelTranslatedDownloadDialog(
+                onDismissRequest = { showNovelTranslatedDownloadDialog = false },
+                onSelectChapters = { format ->
+                    scope.launch {
+                        novelTranslatedPickerFormat = format
+                        val candidates = novelScreenModel.getSingleSelectionTranslatedCandidates(
+                            format = format,
+                            onlyNotDownloaded = true,
+                        )
+                        if (candidates.isEmpty()) {
+                            snackbarHostState.showSnackbar(
+                                message = context.stringResource(AYMR.strings.novel_translated_download_no_available),
+                                duration = SnackbarDuration.Short,
+                            )
+                            return@launch
+                        }
+                        novelTranslatedPickerChapters = candidates
+                        showNovelTranslatedDownloadDialog = false
+                        showNovelTranslatedChapterPickerDialog = true
+                    }
+                },
+                onActionSelected = { action, amount, format ->
+                    scope.launch {
+                        val added = novelScreenModel.runTranslatedDownloadActionSelection(
+                            action = action,
+                            amount = amount,
+                            format = format,
+                        )
+                        val message = if (added > 0) {
+                            context.stringResource(AYMR.strings.novel_download_queue_started_count, added)
+                        } else {
+                            context.stringResource(AYMR.strings.novel_translated_download_no_available)
+                        }
+                        snackbarHostState.showSnackbar(
+                            message = message,
+                            duration = SnackbarDuration.Short,
+                        )
+                    }
+                    showNovelTranslatedDownloadDialog = false
+                },
+            )
+        }
+
+        if (showNovelTranslatedChapterPickerDialog) {
+            NovelDownloadChapterPickerDialog(
+                title = context.stringResource(AYMR.strings.novel_translated_download_select_title),
+                chapters = novelTranslatedPickerChapters,
+                onDismissRequest = { showNovelTranslatedChapterPickerDialog = false },
+                onConfirm = { chapterIds ->
+                    scope.launch {
+                        val added = novelScreenModel.runTranslatedDownloadForSingleSelectionChapterIds(
+                            chapterIds = chapterIds,
+                            format = novelTranslatedPickerFormat,
+                        )
+                        val message = if (added > 0) {
+                            context.stringResource(AYMR.strings.novel_download_queue_started_count, added)
+                        } else {
+                            context.stringResource(AYMR.strings.novel_translated_download_no_available)
+                        }
+                        snackbarHostState.showSnackbar(
+                            message = message,
+                            duration = SnackbarDuration.Short,
+                        )
+                    }
+                    showNovelTranslatedChapterPickerDialog = false
+                },
+            )
         }
 
         val hasAnimeSearchQuery = state.searchQuery != null
         val hasMangaSearchQuery = mangaState.searchQuery != null
         val hasNovelSearchQuery = novelState.searchQuery != null
         val currentSection = if (isAurora) auroraCurrentSection else Section.Anime
+        val currentSelectionMode = resolveAuroraLibrarySelectionMode(
+            isAurora = isAurora,
+            section = currentSection,
+            animeSelectionMode = state.selectionMode,
+            mangaSelectionMode = mangaState.selectionMode,
+            novelSelectionMode = novelState.selectionMode,
+        )
 
         BackHandler(
-            enabled = state.selectionMode ||
+            enabled = currentSelectionMode ||
                 hasAnimeSearchQuery ||
                 (
                     isAurora &&
@@ -854,7 +1144,14 @@ data object AnimeLibraryTab : Tab {
                     ),
         ) {
             when {
-                state.selectionMode -> screenModel.clearSelection()
+                currentSelectionMode -> {
+                    when (currentSection) {
+                        Section.Anime -> screenModel.clearSelection()
+                        Section.Manga -> mangaScreenModel.clearSelection()
+                        Section.Novel -> novelScreenModel.clearSelection()
+                        null -> Unit
+                    }
+                }
                 isAurora -> {
                     when {
                         currentSection == Section.Novel && hasNovelSearchQuery -> novelScreenModel.search(null)
@@ -869,8 +1166,8 @@ data object AnimeLibraryTab : Tab {
             }
         }
 
-        LaunchedEffect(state.selectionMode, state.dialog) {
-            HomeScreen.showBottomNav(!state.selectionMode)
+        LaunchedEffect(currentSelectionMode, state.dialog, mangaState.dialog, currentSection, isAurora) {
+            HomeScreen.showBottomNav(!currentSelectionMode)
         }
 
         LaunchedEffect(isLoading) {
@@ -1116,25 +1413,77 @@ private fun AuroraLibraryCategoryTabs(
     onCategorySelected: (Int) -> Unit,
     getCountForCategory: (Category) -> Int?,
 ) {
+    val colors = AuroraTheme.colors
     val coercedSelected = coerceAuroraLibraryCategoryIndex(selectedIndex, categories.size)
-    PrimaryScrollableTabRow(
-        selectedTabIndex = coercedSelected,
-        edgePadding = 0.dp,
-        containerColor = Color.Transparent,
-        indicator = {},
-        divider = {},
-    ) {
-        categories.forEachIndexed { index, category ->
-            Tab(
-                selected = index == coercedSelected,
-                onClick = { onCategorySelected(index) },
-                text = {
-                    TabText(
-                        text = category.visualName,
-                        badgeCount = getCountForCategory(category),
-                    )
-                },
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = colors.glass,
+                shape = RoundedCornerShape(22.dp),
             )
+            .padding(horizontal = 6.dp, vertical = 6.dp),
+    ) {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            contentPadding = PaddingValues(horizontal = 2.dp),
+        ) {
+            itemsIndexed(
+                items = categories,
+                key = { _, category -> category.id },
+            ) { index, category ->
+                val isSelected = index == coercedSelected
+                val badgeCount = getCountForCategory(category)
+
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(
+                            if (isSelected) {
+                                Color.White.copy(alpha = 0.16f)
+                            } else {
+                                Color.Transparent
+                            },
+                        )
+                        .clickable { onCategorySelected(index) }
+                        .padding(horizontal = 14.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = category.visualName,
+                        color = if (isSelected) colors.textPrimary else colors.textSecondary,
+                        fontSize = 13.sp,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+
+                    if (badgeCount != null) {
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    color = if (isSelected) {
+                                        colors.accent
+                                    } else {
+                                        colors.cardBackground
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                )
+                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                        ) {
+                            Text(
+                                text = badgeCount.toString(),
+                                color = if (isSelected) colors.textOnAccent else colors.textSecondary,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -1146,8 +1495,26 @@ internal fun resolveAuroraLibrarySection(
     return sections.getOrNull(page)
 }
 
+internal fun resolveAuroraLibrarySelectionMode(
+    isAurora: Boolean,
+    section: AnimeLibraryTab.Section?,
+    animeSelectionMode: Boolean,
+    mangaSelectionMode: Boolean,
+    novelSelectionMode: Boolean,
+): Boolean {
+    if (!isAurora) return animeSelectionMode
+    return when (section) {
+        AnimeLibraryTab.Section.Anime -> animeSelectionMode
+        AnimeLibraryTab.Section.Manga -> mangaSelectionMode
+        AnimeLibraryTab.Section.Novel -> novelSelectionMode
+        null -> false
+    }
+}
+
 internal fun shouldShowAuroraLibraryCategoryTabs(section: AnimeLibraryTab.Section?): Boolean {
-    return section == AnimeLibraryTab.Section.Anime || section == AnimeLibraryTab.Section.Manga
+    return section == AnimeLibraryTab.Section.Anime ||
+        section == AnimeLibraryTab.Section.Manga ||
+        section == AnimeLibraryTab.Section.Novel
 }
 
 internal fun shouldShowAuroraLibraryCategoryTabsRow(
@@ -1171,4 +1538,14 @@ internal fun shouldShowAuroraSearchField(
 internal fun coerceAuroraLibraryCategoryIndex(requestedIndex: Int, categoryCount: Int): Int {
     if (categoryCount <= 0) return 0
     return requestedIndex.coerceIn(0, categoryCount - 1)
+}
+
+private fun NovelCategory.toCategory(): Category {
+    return Category(
+        id = id,
+        name = name,
+        order = order,
+        flags = flags,
+        hidden = hidden,
+    )
 }

@@ -78,6 +78,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -111,6 +112,7 @@ import eu.kanade.presentation.components.AuroraCard
 import eu.kanade.presentation.components.AuroraTabRow
 import eu.kanade.presentation.components.TabContent
 import eu.kanade.presentation.components.TabbedScreenAurora
+import eu.kanade.presentation.components.auroraMenuRimLightBrush
 import eu.kanade.presentation.more.settings.screen.browse.AnimeExtensionReposScreen
 import eu.kanade.presentation.more.settings.screen.browse.MangaExtensionReposScreen
 import eu.kanade.presentation.more.settings.screen.browse.NovelExtensionReposScreen
@@ -360,6 +362,7 @@ private data class GreetingStyle(
     val color: NicknameColorPreset,
     val customColorHex: String,
     val fontSize: Int,
+    val alpha: Int,
     val decoration: GreetingDecorationPreset,
     val italic: Boolean,
 )
@@ -492,6 +495,7 @@ object HomeHubTab : Tab {
         val greetingColorKey by userProfilePreferences.greetingColor().collectAsState()
         val greetingCustomColorHex by userProfilePreferences.greetingCustomColorHex().collectAsState()
         val greetingFontSize by userProfilePreferences.greetingFontSize().collectAsState()
+        val greetingAlpha by userProfilePreferences.greetingAlpha().collectAsState()
         val greetingDecorationKey by userProfilePreferences.greetingDecoration().collectAsState()
         val greetingItalic by userProfilePreferences.greetingItalic().collectAsState()
         val greetingStyle = GreetingStyle(
@@ -499,6 +503,7 @@ object HomeHubTab : Tab {
             color = NicknameColorPreset.fromKey(greetingColorKey),
             customColorHex = greetingCustomColorHex,
             fontSize = greetingFontSize.coerceIn(10, 26),
+            alpha = greetingAlpha.coerceIn(10, 100),
             decoration = GreetingDecorationPreset.fromKey(greetingDecorationKey),
             italic = greetingItalic,
         )
@@ -575,6 +580,7 @@ object HomeHubTab : Tab {
                     userProfilePreferences.greetingColor().set(newStyle.color.key)
                     userProfilePreferences.greetingCustomColorHex().set(newStyle.customColorHex)
                     userProfilePreferences.greetingFontSize().set(newStyle.fontSize.coerceIn(10, 26))
+                    userProfilePreferences.greetingAlpha().set(newStyle.alpha.coerceIn(10, 100))
                     userProfilePreferences.greetingDecoration().set(newStyle.decoration.key)
                     userProfilePreferences.greetingItalic().set(newStyle.italic)
                     showGreetingDialog = false
@@ -854,19 +860,27 @@ private fun HomeHubPinnedHeader(
     val colors = AuroraTheme.colors
     val auroraAdaptiveSpec = rememberAuroraAdaptiveSpec()
     val contentMaxWidthDp = auroraAdaptiveSpec.updatesMaxWidthDp ?: auroraAdaptiveSpec.entryMaxWidthDp
-
-    Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
-    Spacer(Modifier.height(5.dp))
+    val isDarkTheme = colors.background.luminance() < 0.5f
+    val headerTintAlpha = resolveHomeHubHeaderTintAlpha(isDarkTheme = isDarkTheme)
+    val headerTintSecondaryAlpha = resolveHomeHubHeaderTintSecondaryAlpha(primaryAlpha = headerTintAlpha)
+    val headerBackgroundBrush = remember(colors.accent, headerTintAlpha, headerTintSecondaryAlpha) {
+        Brush.verticalGradient(
+            colors = listOf(
+                colors.accent.copy(alpha = headerTintAlpha),
+                colors.accent.copy(alpha = headerTintSecondaryAlpha),
+                Color.Transparent,
+            ),
+        )
+    }
     Layout(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clipToBounds(),
         content = {
             Column(
                 modifier = Modifier
                     .auroraCenteredMaxWidth(contentMaxWidthDp)
                     .padding(horizontal = 16.dp),
             ) {
+                Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+                Spacer(Modifier.height(5.dp))
                 Spacer(Modifier.height(10.dp))
                 HomeHubProfileHeaderCanvas(
                     modifier = Modifier.fillMaxWidth(),
@@ -899,21 +913,26 @@ private fun HomeHubPinnedHeader(
                 Spacer(Modifier.height(16.dp))
             }
         },
-    ) { measurables, constraints ->
-        if (measurables.isEmpty()) {
-            return@Layout layout(constraints.minWidth, 0) {}
-        }
-        val placeable = measurables.first().measure(constraints)
-        val fullHeight = placeable.height
-        if (fullHeight > 0) {
-            onHeightMeasured(fullHeight)
-        }
-        val collapsedHeight = headerOffsetPx.roundToInt().coerceIn(0, fullHeight)
-        val visibleHeight = (fullHeight - collapsedHeight).coerceAtLeast(0)
-        layout(placeable.width, visibleHeight) {
-            placeable.placeRelative(x = 0, y = -collapsedHeight)
-        }
-    }
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(brush = headerBackgroundBrush)
+            .clipToBounds(),
+        measurePolicy = { measurables, constraints ->
+            if (measurables.isEmpty()) {
+                return@Layout layout(constraints.minWidth, 0) {}
+            }
+            val placeable = measurables.first().measure(constraints)
+            val fullHeight = placeable.height
+            if (fullHeight > 0) {
+                onHeightMeasured(fullHeight)
+            }
+            val collapsedHeight = headerOffsetPx.roundToInt().coerceIn(0, fullHeight)
+            val visibleHeight = (fullHeight - collapsedHeight).coerceAtLeast(0)
+            layout(placeable.width, visibleHeight) {
+                placeable.placeRelative(x = 0, y = -collapsedHeight)
+            }
+        },
+    )
 }
 
 @Composable
@@ -1168,7 +1187,7 @@ private fun HomeHubProfileHeaderCanvas(
                         fontFamily = greetingFontFamily,
                         lineBreak = LineBreak.Heading,
                     ),
-                    color = greetingColor,
+                    color = greetingColor.copy(alpha = greetingStyle.alpha.coerceIn(10, 100) / 100f),
                     fontWeight = FontWeight.Medium,
                     maxLines = if (isTabletHeaderLayout) 2 else 2,
                     textAlign = when {
@@ -1400,6 +1419,7 @@ internal fun HomeHeaderLayoutLivePreview(
             color = NicknameColorPreset.Theme,
             customColorHex = "#FFFFFF",
             fontSize = 12,
+            alpha = 60,
             decoration = GreetingDecorationPreset.Auto,
             italic = false,
         )
@@ -1789,6 +1809,30 @@ internal fun shouldReserveHomeHubHeroSlot(
     return true
 }
 
+internal fun resolveHomeHubHeaderTintAlpha(isDarkTheme: Boolean): Float {
+    return if (isDarkTheme) 0.12f else 0.09f
+}
+
+internal fun resolveHomeHubHeaderTintSecondaryAlpha(primaryAlpha: Float): Float {
+    return (primaryAlpha * 0.5f).coerceIn(0f, 1f)
+}
+
+internal fun homeHubRimLightAlphaStops(): List<Pair<Float, Float>> {
+    return listOf(
+        0.00f to 0.15f,
+        0.28f to 0.05f,
+        0.62f to 0.00f,
+        1.00f to 0.00f,
+    )
+}
+
+internal fun homeHubRimLightBrush(): Brush {
+    val stops = homeHubRimLightAlphaStops()
+        .map { (stop, alpha) -> stop to Color.White.copy(alpha = alpha) }
+        .toTypedArray()
+    return Brush.verticalGradient(colorStops = stops)
+}
+
 @Composable
 private fun HeroSection(
     hero: HomeHubHero,
@@ -1800,18 +1844,38 @@ private fun HeroSection(
     val colors = AuroraTheme.colors
     val auroraAdaptiveSpec = rememberAuroraAdaptiveSpec()
     val contentMaxWidthDp = auroraAdaptiveSpec.updatesMaxWidthDp ?: auroraAdaptiveSpec.entryMaxWidthDp
+    val heroCardShape = RoundedCornerShape(24.dp)
     val overlayGradient = remember(colors) {
         Brush.verticalGradient(
-            listOf(Color.Transparent, colors.gradientEnd.copy(alpha = 0.8f)),
-            startY = 0f,
-            endY = 1000f,
+            colorStops = arrayOf(
+                0.00f to Color.Transparent,
+                0.46f to Color.Transparent,
+                0.72f to colors.background.copy(alpha = 0.34f),
+                0.90f to colors.background.copy(alpha = 0.72f),
+                1.00f to colors.background.copy(alpha = 0.93f),
+            ),
+        )
+    }
+    val rimLightBrush = remember { homeHubRimLightBrush() }
+    val actionButtonShape = RoundedCornerShape(12.dp)
+    val actionButtonBrush = remember(colors.accent) {
+        Brush.linearGradient(
+            colors = listOf(
+                lerp(colors.accent, Color.White, 0.16f),
+                lerp(colors.accent, Color.Black, 0.08f),
+            ),
+            start = Offset(0f, 0f),
+            end = Offset(0f, 420f),
         )
     }
 
     Box(
         modifier = Modifier.auroraCenteredMaxWidth(contentMaxWidthDp).height(
             440.dp,
-        ).padding(16.dp).clip(RoundedCornerShape(24.dp)).clickable(onClick = onEntryClick),
+        ).padding(16.dp)
+            .clip(heroCardShape)
+            .border(width = 1.dp, brush = rimLightBrush, shape = heroCardShape)
+            .clickable(onClick = onEntryClick),
     ) {
         AsyncImage(
             model = hero.coverData,
@@ -1854,10 +1918,14 @@ private fun HeroSection(
 
             Button(
                 onClick = onPlayClick,
-                colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
-                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                shape = actionButtonShape,
                 contentPadding = PaddingValues(start = 22.dp, end = 24.dp, top = 8.dp, bottom = 8.dp),
-                modifier = Modifier.height(52.dp),
+                modifier = Modifier
+                    .height(52.dp)
+                    .clip(actionButtonShape)
+                    .background(actionButtonBrush)
+                    .border(1.dp, Color.White.copy(alpha = 0.12f), actionButtonShape),
             ) {
                 Icon(Icons.Filled.PlayArrow, null, tint = colors.textOnAccent, modifier = Modifier.size(21.dp))
                 Spacer(Modifier.width(8.dp))
@@ -1893,6 +1961,13 @@ private fun QuickSourceButton(sourceName: String?, onClick: () -> Unit) {
     val colors = AuroraTheme.colors
     val auroraAdaptiveSpec = rememberAuroraAdaptiveSpec()
     val contentMaxWidthDp = auroraAdaptiveSpec.updatesMaxWidthDp ?: auroraAdaptiveSpec.entryMaxWidthDp
+    val sourceButtonShape = RoundedCornerShape(16.dp)
+    val sourceSurface = if (colors.background.luminance() < 0.5f) {
+        Color.White.copy(alpha = 0.05f)
+    } else {
+        Color.Black.copy(alpha = 0.03f)
+    }
+    val sourceBorderBrush = remember { auroraMenuRimLightBrush() }
 
     Box(
         modifier = Modifier
@@ -1901,9 +1976,14 @@ private fun QuickSourceButton(sourceName: String?, onClick: () -> Unit) {
     ) {
         Button(
             onClick = onClick,
-            colors = ButtonDefaults.buttonColors(containerColor = colors.glass),
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth().height(56.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+            shape = sourceButtonShape,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .clip(sourceButtonShape)
+                .background(sourceSurface)
+                .border(0.75.dp, sourceBorderBrush, sourceButtonShape),
         ) {
             Icon(Icons.Filled.Search, null, tint = colors.accent, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(10.dp))
@@ -2555,12 +2635,14 @@ private fun GreetingStyleDialog(
     var selectedDecoration by remember(currentStyle) { mutableStateOf(currentStyle.decoration) }
     var italicEnabled by remember(currentStyle) { mutableStateOf(currentStyle.italic) }
     var fontSize by remember(currentStyle) { mutableIntStateOf(currentStyle.fontSize.coerceIn(10, 26)) }
+    var alpha by remember(currentStyle) { mutableIntStateOf(currentStyle.alpha.coerceIn(10, 100)) }
 
     val previewStyle = GreetingStyle(
         font = selectedFont,
         color = selectedColor,
         customColorHex = customColorHex,
         fontSize = fontSize.coerceIn(10, 26),
+        alpha = alpha.coerceIn(10, 100),
         decoration = selectedDecoration,
         italic = italicEnabled,
     )
@@ -2598,7 +2680,7 @@ private fun GreetingStyleDialog(
                             fontStyle = if (previewStyle.italic) FontStyle.Italic else FontStyle.Normal,
                             fontFamily = greetingFontFamily,
                         ),
-                        color = greetingColor,
+                        color = greetingColor.copy(alpha = previewStyle.alpha.coerceIn(10, 100) / 100f),
                         fontWeight = FontWeight.Medium,
                     )
                 }
@@ -2632,6 +2714,18 @@ private fun GreetingStyleDialog(
                     onValueChange = { fontSize = it.roundToInt().coerceIn(10, 26) },
                     valueRange = 10f..26f,
                     steps = 15,
+                )
+
+                Text(
+                    text = stringResource(AYMR.strings.aurora_greeting_alpha, "$alpha%"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AuroraTheme.colors.textSecondary,
+                )
+                Slider(
+                    value = alpha.toFloat(),
+                    onValueChange = { alpha = it.roundToInt().coerceIn(10, 100) },
+                    valueRange = 10f..100f,
+                    steps = 89,
                 )
 
                 Text(

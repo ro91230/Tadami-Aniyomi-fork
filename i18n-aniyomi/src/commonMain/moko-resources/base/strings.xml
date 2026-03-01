@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Generic strings -->
     <string name="confirm_exit">Enable Horizontal Seek</string>
@@ -400,6 +400,10 @@
     <string name="novel_reader_font_size">Font size</string>
     <string name="novel_reader_line_height">Line height</string>
     <string name="novel_reader_margins">Margins</string>
+    <string name="novel_reader_paragraph_spacing">Paragraph spacing</string>
+    <string name="novel_reader_paragraph_spacing_compact">Compact</string>
+    <string name="novel_reader_paragraph_spacing_normal">Normal</string>
+    <string name="novel_reader_paragraph_spacing_spacious">Spacious</string>
     <string name="novel_reader_theme">Theme</string>
     <string name="novel_reader_theme_system">System</string>
     <string name="novel_reader_theme_light">Light</string>
@@ -426,16 +430,21 @@
 
     <!-- Text Align -->
     <string name="novel_reader_text_align">Text alignment</string>
+    <string name="novel_reader_text_align_source">Source (disabled)</string>
     <string name="novel_reader_text_align_left">Left</string>
     <string name="novel_reader_text_align_center">Center</string>
     <string name="novel_reader_text_align_justify">Justify</string>
     <string name="novel_reader_text_align_right">Right</string>
+    <string name="novel_reader_force_paragraph_indent">Force first-line indent for paragraphs</string>
+    <string name="novel_reader_force_paragraph_indent_summary">Apply a fixed first-line indent to each paragraph in reader mode</string>
+    <string name="novel_reader_preserve_source_text_align_native">Preserve source text alignment in native reader</string>
+    <string name="novel_reader_preserve_source_text_align_native_summary">Do not force the global text alignment in native mode; keep source alignment where supported</string>
 
     <!-- Navigation -->
     <string name="novel_reader_volume_buttons">Volume button scroll</string>
     <string name="novel_reader_volume_buttons_summary">Use volume buttons to scroll pages</string>
     <string name="novel_reader_swipe_gestures">Swipe gestures</string>
-    <string name="novel_reader_swipe_gestures_summary">Enable swipe gestures for navigation</string>
+    <string name="novel_reader_swipe_gestures_summary">Enable horizontal swipe gestures for navigation</string>
     <string name="novel_reader_vertical_seekbar">Vertical seekbar</string>
     <string name="novel_reader_swipe_to_next">Swipe up to next chapter</string>
     <string name="novel_reader_swipe_to_prev">Swipe down to previous chapter</string>
@@ -444,11 +453,23 @@
     <string name="novel_reader_page_mode_summary">Display content in pages instead of continuous scroll</string>
     <string name="novel_reader_prefer_webview_renderer">Prefer WebView renderer</string>
     <string name="novel_reader_prefer_webview_renderer_summary">Open chapter in WebView by default. Disable to use native renderer.</string>
+    <string name="novel_reader_rich_native_renderer_experimental">Use rich native rendering (experimental)</string>
+    <string name="novel_reader_rich_native_renderer_experimental_summary">Preserve common HTML styles in the native renderer with automatic WebView fallback for unsupported content.</string>
     <string name="novel_reader_auto_scroll">Auto-scroll</string>
     <string name="novel_reader_auto_scroll_interval">Auto-scroll interval (sec)</string>
     <string name="novel_reader_auto_scroll_offset">Auto-scroll offset (px)</string>
     <string name="novel_reader_prefetch_next_chapter">Prefetch next chapter</string>
     <string name="novel_reader_prefetch_next_chapter_summary">Silently prefetch next chapter after reaching 50% progress</string>
+    <string name="novel_reader_cache_read_chapters">Cache read chapters</string>
+    <string name="novel_reader_cache_read_chapters_summary">Store opened chapters in a compressed temporary cache for faster reopen (auto-limited size)</string>
+    <string name="novel_reader_cache_read_chapters_unlimited">Unlimited chapter cache</string>
+    <string name="novel_reader_cache_read_chapters_unlimited_summary">Disable chapter cache entry/size limits (may use a lot of storage)</string>
+    <string name="novel_reader_chapter_cache_size">Chapter cache usage</string>
+    <string name="novel_reader_chapter_cache_size_summary_limited">%1$s • %2$s entries • limit %3$s / %4$s chapters</string>
+    <string name="novel_reader_chapter_cache_size_summary_unlimited">%1$s • %2$s entries • unlimited</string>
+
+    <string name="novel_reader_clear_chapter_cache">Clear chapter cache</string>
+    <string name="novel_reader_clear_chapter_cache_summary">Delete all cached read chapters (does not affect downloads)</string>
 
     <!-- Accessibility -->
     <string name="novel_reader_fullscreen">Fullscreen mode</string>
@@ -457,7 +478,21 @@
     <string name="novel_reader_keep_screen_on_summary">Prevent screen from turning off while reading</string>
     <string name="novel_reader_show_scroll_percentage">Show reading progress</string>
     <string name="novel_reader_show_battery_time">Show battery and time</string>
+    <string name="novel_reader_show_kindle_info_block">Show Kindle info block</string>
+    <string name="novel_reader_show_kindle_info_block_summary">Master switch for Time-to-end and Word counter</string>
+    <string name="novel_reader_show_time_to_end">Show time to chapter end</string>
+    <string name="novel_reader_show_word_count">Show word counter</string>
+    <string name="novel_reader_time_to_end_unknown">ETA: calculating…</string>
+    <string name="novel_reader_time_to_end_minutes">ETA: ~%1$d min</string>
+    <string name="novel_reader_words_progress">Words: %1$d/%2$d</string>
     <string name="novel_reader_bionic_reading">Bionic reading</string>
+    <string name="novel_reader_background_texture">Background texture</string>
+    <string name="novel_reader_background_texture_none">None</string>
+    <string name="novel_reader_background_texture_paper_grain">Paper grain</string>
+    <string name="novel_reader_background_texture_linen">Linen</string>
+    <string name="novel_reader_background_texture_parchment">Parchment</string>
+    <string name="novel_reader_oled_edge_gradient">OLED edge gradient</string>
+    <string name="novel_reader_oled_edge_gradient_summary">Use a deep edge darkening in dark theme for smoother OLED scrolling</string>
 
     <!-- Advanced -->
     <string name="novel_reader_custom_css">Custom CSS</string>
@@ -466,6 +501,66 @@
     <string name="novel_reader_custom_js">Custom JavaScript</string>
     <string name="novel_reader_custom_js_hint">JavaScript executed after chapter loads</string>
     <string name="novel_reader_custom_js_set">%d characters</string>
+    <string name="novel_reader_ai_translator_show">AI translator: show</string>
+    <string name="novel_reader_ai_translator_hide">AI translator: hide</string>
+    <string name="novel_reader_translation_provider">Provider</string>
+    <string name="novel_reader_translation_provider_gemini">Gemini</string>
+    <string name="novel_reader_translation_provider_openrouter">OpenRouter</string>
+    <string name="novel_reader_translation_provider_deepseek">DeepSeek</string>
+    <string name="novel_reader_translation_auto_english_title">Auto-start translation for English</string>
+    <string name="novel_reader_translation_auto_english_summary">Automatically start translation when source language is English</string>
+    <string name="novel_reader_translation_prefetch_next_title">Pre-translate next chapter (30%)</string>
+    <string name="novel_reader_translation_prefetch_next_summary">Start next chapter translation in background after 30% reading progress</string>
+    <string name="novel_reader_openrouter_base_url">OpenRouter Base URL</string>
+    <string name="novel_reader_openrouter_api_key">OpenRouter API key</string>
+    <string name="novel_reader_openrouter_model">OpenRouter model (:free only)</string>
+    <string name="novel_reader_deepseek_base_url">DeepSeek Base URL</string>
+    <string name="novel_reader_deepseek_api_key">DeepSeek API key</string>
+    <string name="novel_reader_deepseek_model">DeepSeek model</string>
+    <string name="novel_reader_gemini_section_title">Gemini Translation</string>
+    <string name="novel_reader_gemini_section_summary">Chunk translation settings used by the AI button in reader.</string>
+    <string name="novel_reader_gemini_api_key">Gemini API key</string>
+    <string name="novel_reader_gemini_api_key_hint">Required for Gemini translation requests</string>
+    <string name="novel_reader_gemini_model">Gemini model</string>
+    <string name="novel_reader_gemini_model_hint">Example: gemini-2.5-flash</string>
+    <string name="novel_reader_gemini_batch_size">Batch size</string>
+    <string name="novel_reader_gemini_concurrency">Concurrency</string>
+    <string name="novel_reader_gemini_disable_cache">Disable translation cache</string>
+    <string name="novel_reader_gemini_disable_cache_summary">Do not restore/save chapter translation cache</string>
+    <string name="novel_reader_gemini_relaxed_mode">Relaxed mode</string>
+    <string name="novel_reader_gemini_relaxed_mode_summary">Keep partial translations when some chunks fail</string>
+    <string name="novel_reader_gemini_reasoning_effort">Reasoning effort</string>
+    <string name="novel_reader_gemini_reasoning_minimal">Minimal</string>
+    <string name="novel_reader_gemini_reasoning_low">Low</string>
+    <string name="novel_reader_gemini_reasoning_medium">Medium</string>
+    <string name="novel_reader_gemini_reasoning_high">High</string>
+    <string name="novel_reader_gemini_budget_tokens">Budget tokens</string>
+    <string name="novel_reader_gemini_temperature">Temperature</string>
+    <string name="novel_reader_gemini_top_p">Top P</string>
+    <string name="novel_reader_gemini_top_k">Top K</string>
+    <string name="novel_reader_gemini_source_lang">Source language</string>
+    <string name="novel_reader_gemini_target_lang">Target language</string>
+    <string name="novel_reader_gemini_prompt_mode">Prompt mode</string>
+    <string name="novel_reader_gemini_prompt_mode_classic">Classic</string>
+    <string name="novel_reader_gemini_prompt_mode_adult">18+ (Original prompt)</string>
+    <string name="novel_reader_gemini_prompt_modifiers">Prompt modifiers</string>
+    <string name="novel_reader_gemini_prompt_modifiers_hint">Optional extra instructions appended to the system prompt</string>
+    <string name="novel_reader_gemini_enabled">Enable Gemini translator</string>
+    <string name="novel_reader_gemini_enabled_summary">Shows Gemini controls in novel reader (AI menu and quick button above seekbar)</string>
+    <string name="novel_reader_gemini_button">AI</string>
+    <string name="novel_reader_gemini_button_active">AI*</string>
+    <string name="novel_reader_gemini_dialog_title">Gemini Translation</string>
+    <string name="novel_reader_gemini_status_translating">Translating… %s%%</string>
+    <string name="novel_reader_gemini_status_ready">Ready. Progress: %s%%</string>
+    <string name="novel_reader_gemini_status_empty">No cached translation for this chapter.</string>
+    <string name="novel_reader_gemini_status_visibility">Visible: %s</string>
+    <string name="novel_reader_gemini_visibility_on">ON</string>
+    <string name="novel_reader_gemini_visibility_off">OFF</string>
+    <string name="novel_reader_gemini_show_original">Show original</string>
+    <string name="novel_reader_gemini_show_translation">Show translation</string>
+    <string name="novel_reader_gemini_action_start">Start</string>
+    <string name="novel_reader_gemini_action_clear">Clear</string>
+    <string name="novel_reader_gemini_action_close">Close</string>
     <string name="label_recent_anime_updates">Anime Updates</string>
     <string name="label_manga_sources">Manga Sources</string>
     <string name="label_anime_sources">Anime Sources</string>
@@ -510,8 +605,24 @@
     <string name="novel_download_next_10">Download next 10 chapters</string>
     <string name="novel_download_custom_count">Custom amount</string>
     <string name="novel_download_all">Download all chapters</string>
+    <string name="novel_download_not_downloaded">Download not downloaded chapters</string>
+    <string name="novel_download_choose_chapters">Select chapters</string>
+    <string name="novel_download_select_chapters_title">Select chapters to download</string>
+    <string name="novel_download_no_available">No chapters available to download</string>
     <string name="novel_export_as_epub">Export as EPUB</string>
     <string name="novel_epub_short">EPUB</string>
+    <string name="novel_translated_download_short">Translate</string>
+    <string name="novel_translated_download_title">Download translated chapters</string>
+    <string name="novel_translated_download_format_txt">TXT</string>
+    <string name="novel_translated_download_format_docx">DOCX</string>
+    <string name="novel_translated_download_no_cache">No translated chapters found in cache</string>
+    <string name="novel_translated_download_no_available">No translated chapters available to download</string>
+    <string name="novel_translated_download_choose_chapters">Choose chapters to download</string>
+    <string name="novel_translated_download_select_title">Select translated chapters</string>
+    <string name="novel_download_queue_started_count">Queued chapters: %d</string>
+    <string name="novel_download_queue_progress">Downloading... Pending: %1$d, Active: %2$d</string>
+    <string name="novel_download_queue_completed">Download completed</string>
+    <string name="novel_download_queue_failed_count">Failed downloads: %d</string>
     <string name="novel_export_downloaded_only">Downloaded chapters only</string>
     <string name="novel_export_start_chapter">Start chapter (optional)</string>
     <string name="novel_export_end_chapter">End chapter (optional)</string>
@@ -768,6 +879,7 @@
     <string name="aurora_greeting_preview">Greeting preview</string>
     <string name="aurora_greeting_font">Greeting font</string>
     <string name="aurora_greeting_font_size">Greeting size: %s</string>
+    <string name="aurora_greeting_alpha">Greeting opacity: %s</string>
     <string name="aurora_greeting_color">Greeting color</string>
     <string name="aurora_greeting_custom_color">Greeting custom color (HEX)</string>
     <string name="aurora_greeting_custom_color_hint">Format: #RRGGBB or #AARRGGBB</string>
@@ -911,6 +1023,57 @@
     <string name="aurora_greeting_night_midnight">Midnight session</string>
     <string name="aurora_greeting_night_starry">Starry night anime</string>
 
+
+    <!-- Additional Dynamic Greetings -->
+    <string name="aurora_greeting_manga_scroll">Пальцы размял? Тренировка по скроллингу начинается! 📱</string>
+    <string name="aurora_greeting_manhwa_system">[Система] приветствует нового Игрока. Желаете повысить уровень? 🌟</string>
+    <string name="aurora_greeting_manga_black_and_white">Жизнь обретает смысл в чёрно-белых тонах 🖤🤍</string>
+    <string name="aurora_greeting_novel_wall_of_text">Стена текста не пугает истинного культиватора! 🧘‍♂️</string>
+    <string name="aurora_greeting_manga_left_to_right">Читаем справа налево, живём задом наперёд 📖</string>
+    <string name="aurora_greeting_trope_tsundere">Б-бака! Я вовсе не ждало твоего возвращения... просто мимо проходило! 😤</string>
+    <string name="aurora_greeting_trope_yandere">Ты ведь будешь смотреть тайтлы только со мной, да? 🔪💕</string>
+    <string name="aurora_greeting_trope_chuunibyou">Глаз Тёмного Властелина резонирует! Время пришло! 👁️🔥</string>
+    <string name="aurora_greeting_trope_imouto">Онии-чан, пора смотреть аниме! 🎀</string>
+    <string name="aurora_greeting_trope_maid">Добро пожаловать домой, Хозяин! Чай или новую главу? ☕🧹</string>
+    <string name="aurora_greeting_absence_spider">Приложение чуть не покрылось паутиной! Спасибо, что спас 🕸️</string>
+    <string name="aurora_greeting_absence_training_arc">Твоя тренировочная арка в реале завершена? Показывай новые скиллы! ⚔️</string>
+    <string name="aurora_greeting_absence_amnesia">Ты помнишь, на чём остановился, или у нас арка амнезии? 🤕</string>
+    <string name="aurora_greeting_frequent_touch_grass">Говорят, на улице есть такая штука... «трава». Не хочешь потрогать? 🌱</string>
+    <string name="aurora_greeting_frequent_coffee_iv">Тебе чайник по венам пустить или сам нальёшь? ☕🩸</string>
+    <string name="aurora_greeting_frequent_resident">Твоя виртуальная 2D-комната уже готова. Заходи! 🚪</string>
+    <string name="aurora_greeting_streak_30">Месяц без перерывов. Настоящий хикки-профессионал! 🏆</string>
+    <string name="aurora_greeting_streak_100">100 дней?! Ты познал дзен и слился с 2D миром 🧘‍♂️</string>
+    <string name="aurora_greeting_streak_dedication">Твоей целеустремлённости позавидует любой сёнэн-герой! 💪</string>
+    <string name="aurora_greeting_stats_404_eps">Ошибка 404: Реальная жизнь не найдена. Осталось только аниме 🤖</string>
+    <string name="aurora_greeting_library_hoarder">Ты всё равно не посмотришь всё, что добавил в список, признайся 🤫</string>
+    <string name="aurora_greeting_library_black_hole">Твой список «В планах» уже обрёл собственную гравитацию 🌌</string>
+    <string name="aurora_greeting_morning_toast">Беги с тостом во рту, а то опоздаешь на просмотр! 🍞🏃‍♀️</string>
+    <string name="aurora_greeting_morning_alarm">Лучший будильник — это выход нового эпизода онгоинга ⏰</string>
+    <string name="aurora_greeting_morning_isekai">Ещё один день, когда мы не переродились в слайма. Придётся жить эту жизнь 💧</string>
+    <string name="aurora_greeting_afternoon_siesta">Время сиесты! Самое то для пары серий уютного слайсика 🍰</string>
+    <string name="aurora_greeting_afternoon_tea">Время послеобеденного чая с клубом лёгкой музыки 🎸</string>
+    <string name="aurora_greeting_evening_boss_defeated">Дневной босс «Обязанности» повержен. Лутаем опыт и смотрим аниме! 🎮</string>
+    <string name="aurora_greeting_evening_comf">Максимальный уровень уюта достигнут. Запуск протокола «чилл» 🐾</string>
+    <string name="aurora_greeting_evening_dinner">Ужин вкуснее, если на фоне кто-то кричит «ТАТАКАЭ!» 🍽️</string>
+    <string name="aurora_greeting_night_ninja">Режим ниндзя активирован: смотрим так, чтобы никто дома не услышал 🥷</string>
+    <string name="aurora_greeting_night_vampire">Солнце село, мы проснулись. Приветствую, дитя ночи 🦇</string>
+    <string name="aurora_greeting_night_red_eyes">У тебя уже Шаринган от недосыпа открылся, иди спать! 👁️🩸</string>
+    <string name="aurora_greeting_night_3am">Глубокая ночь — идеальное время для драмы, чтобы поплакать в подушку 😭</string>
+    <string name="aurora_greeting_weekend_pajamas">Выходные — это значит не снимать пижаму до понедельника 👘</string>
+    <string name="aurora_greeting_weekend_marathon_prep">Готовь снеки, закрывай шторы — начинается великий марафон! 🏃‍♂️💨</string>
+    <string name="aurora_greeting_weekend_no_regrets">Никаких сожалений о потраченном времени. Оно потрачено на искусство! 🎨</string>
+    <string name="aurora_greeting_weekday_survival">Пережить будни — это тоже своего рода хардкор-квест 🛡️</string>
+    <string name="aurora_greeting_weekday_motivation">Сделай вид, что ты в монтаже тренировок. Скоро выходные! 🎬</string>
+    <string name="aurora_greeting_general_gacha">Твоя удача на сегодня — ранга SSR! Приятного просмотра ✨</string>
+    <string name="aurora_greeting_general_plot_armor">Надеваем сюжетную броню и ныряем в новый тайтл! 🛡️</string>
+    <string name="aurora_greeting_general_bankai">БАНКАЙ! Ой, то есть... запускаю приложение! 🗡️</string>
+    <string name="aurora_greeting_general_titan">Отдадим же наши сердца за годный контент! Шинзо во сасагеё! ✊❤️</string>
+    <string name="aurora_greeting_general_isekai_truck">Смотри по сторонам, а то Грузовик-сан отправит тебя в фэнтези! 🚚</string>
+    <string name="aurora_greeting_general_susume">СУСУМЭЭЭ! Вперёд, к новым эпизодам! 🐎</string>
+    <string name="aurora_greeting_general_magic_girl">Трансформация в девочку-волшебницу... или просто включение плеера 🪄</string>
+    <string name="aurora_greeting_general_mecha">Залезай в грёбаного робота, Синдзи... или просто посмотри аниме 🤖</string>
+    <string name="aurora_greeting_general_power_level">Уровень твоей крутости &quot;OVER 9000!&quot; 💥</string>
+    <string name="aurora_greeting_general_cultured">Ах, я вижу, передо мной человек высокой культуры 🧐🍷</string>
     <!-- Browse Screen -->
     <string name="aurora_browse">Browse</string>
     <string name="aurora_discover_sources">Discover anime sources</string>
@@ -939,6 +1102,10 @@
     <string name="aurora_updating_anime">Updating anime</string>
     <string name="aurora_updating_manga">Updating manga</string>
     <string name="aurora_updating_novel">Updating novel</string>
+    <string name="novel_downloads_saved_on_device">Saved on device</string>
+    <string name="novel_downloads_info_not_queue">Shows locally saved novel chapters, not an active queue.</string>
+    <string name="novel_downloads_failed">Failed</string>
+    <string name="novel_downloads_info_with_queue">Queue shows active tasks. Saved chapters are shown below.</string>
     <string name="aurora_updating_library">Updating whole library</string>
     <string name="aurora_update_already_running">Update already running</string>
 

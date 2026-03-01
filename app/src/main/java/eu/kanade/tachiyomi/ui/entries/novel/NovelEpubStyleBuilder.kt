@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.entries.novel
 
 import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderSettings
 import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderTheme
+import eu.kanade.tachiyomi.ui.reader.novel.setting.TextAlign
 import tachiyomi.domain.entries.novel.model.Novel
 
 internal object NovelEpubStyleBuilder {
@@ -32,7 +33,9 @@ internal object NovelEpubStyleBuilder {
                 appendLine("  padding-bottom: 40px;")
                 appendLine("  font-size: ${settings.fontSize}px;")
                 appendLine("  color: ${colors.text};")
-                appendLine("  text-align: ${settings.textAlign.name.lowercase()};")
+                resolveEpubCssTextAlign(settings.textAlign)?.let { align ->
+                    appendLine("  text-align: $align;")
+                }
                 appendLine("  line-height: ${settings.lineHeight};")
                 if (settings.fontFamily.isNotBlank()) {
                     appendLine("  font-family: \"${settings.fontFamily}\";")
@@ -130,5 +133,15 @@ internal object NovelEpubStyleBuilder {
             .replace("\"", "\\\"")
             .replace("\n", "\\n")
             .replace("\r", "\\r")
+    }
+
+    private fun resolveEpubCssTextAlign(textAlign: TextAlign): String? {
+        return when (textAlign) {
+            TextAlign.SOURCE -> null
+            TextAlign.LEFT -> "left"
+            TextAlign.CENTER -> "center"
+            TextAlign.JUSTIFY -> "justify"
+            TextAlign.RIGHT -> "right"
+        }
     }
 }

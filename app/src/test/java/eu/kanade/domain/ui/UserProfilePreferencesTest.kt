@@ -30,8 +30,18 @@ class UserProfilePreferencesTest {
         prefs.greetingCustomColorHex().get() shouldBe "#FFFFFF"
         prefs.greetingDecoration().get() shouldBe "sparkle"
         prefs.greetingItalic().get() shouldBe true
+        prefs.greetingAlpha().get() shouldBe 60
         prefs.homeHeaderLayoutJson().get() shouldBe ""
         prefs.getHomeHeaderLayoutOrDefault() shouldBe HomeHeaderLayoutSpec.default()
+    }
+
+    @Test
+    fun `greeting alpha can be updated`() {
+        val prefs = UserProfilePreferences(MutablePreferenceStore())
+
+        prefs.greetingAlpha().set(75)
+
+        prefs.greetingAlpha().get() shouldBe 75
     }
 
     @Test
@@ -74,6 +84,21 @@ class UserProfilePreferencesTest {
 
         layout shouldNotBe null
         layout?.version shouldBe HomeHeaderLayoutSpec.CURRENT_VERSION
+    }
+
+    @Test
+    fun `greeting cooldown tracks seen ids within window`() {
+        val prefs = UserProfilePreferences(MutablePreferenceStore())
+        val now = 1_700_000_000_000L
+        val hour = 60L * 60L * 1000L
+        val day = 24L * hour
+
+        prefs.appendRecentGreetingEvent("general_a", now - (2 * hour))
+        prefs.appendRecentGreetingEvent("general_b", now - (26 * hour))
+        prefs.appendRecentGreetingEvent("general_a", now - hour)
+
+        prefs.getGreetingIdsShownWithin(windowMs = day, nowMillis = now) shouldBe setOf("general_a")
+        prefs.getGreetingIdsShownWithin(windowMs = 3 * day, nowMillis = now) shouldBe setOf("general_a", "general_b")
     }
 
     private class MutablePreferenceStore : PreferenceStore {

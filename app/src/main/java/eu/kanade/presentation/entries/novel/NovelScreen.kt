@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Delete
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -44,7 +46,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
@@ -52,6 +53,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -65,6 +67,7 @@ import eu.kanade.presentation.entries.components.ItemCover
 import eu.kanade.presentation.entries.manga.components.ScanlatorBranchSelector
 import eu.kanade.presentation.theme.AuroraTheme
 import eu.kanade.presentation.util.formatChapterNumber
+import eu.kanade.tachiyomi.data.coil.staticBlur
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.entries.novel.NovelScreenModel
 import me.saket.swipe.SwipeableActionsBox
@@ -101,6 +104,7 @@ fun NovelScreen(
     onTrackingClicked: () -> Unit,
     trackingCount: Int,
     onOpenBatchDownloadDialog: (() -> Unit)?,
+    onOpenTranslatedDownloadDialog: (() -> Unit)?,
     onOpenEpubExportDialog: (() -> Unit)?,
     onChapterClick: (Long) -> Unit,
     onChapterReadToggle: (Long) -> Unit,
@@ -142,6 +146,7 @@ fun NovelScreen(
             onTrackingClicked = onTrackingClicked,
             trackingCount = trackingCount,
             onOpenBatchDownloadDialog = onOpenBatchDownloadDialog,
+            onOpenTranslatedDownloadDialog = onOpenTranslatedDownloadDialog,
             onOpenEpubExportDialog = onOpenEpubExportDialog,
             onChapterClick = onChapterClick,
             onChapterLongClick = onChapterLongClick,
@@ -245,6 +250,7 @@ fun NovelScreen(
                     Color.Transparent,
                     MaterialTheme.colorScheme.background,
                 )
+                val blurRadiusPx = with(LocalDensity.current) { 4.dp.roundToPx() }
 
                 Box(
                     modifier = Modifier
@@ -256,6 +262,7 @@ fun NovelScreen(
                             .data(state.novel.thumbnailUrl)
                             .crossfade(true)
                             .placeholderMemoryCacheKey(state.novel.thumbnailUrl)
+                            .staticBlur(blurRadiusPx, intensityFactor = 0.6f)
                             .build(),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
@@ -268,7 +275,6 @@ fun NovelScreen(
                                     brush = Brush.verticalGradient(colors = backdropGradientColors),
                                 )
                             }
-                            .blur(4.dp)
                             .alpha(0.2f),
                     )
 
@@ -450,9 +456,18 @@ fun NovelScreen(
                             )
                         }
                     }
+                    if (onOpenTranslatedDownloadDialog != null) {
+                        TextButton(onClick = onOpenTranslatedDownloadDialog) {
+                            Icon(imageVector = Icons.Outlined.Translate, contentDescription = null)
+                            Text(
+                                text = stringResource(AYMR.strings.novel_translated_download_short),
+                                modifier = Modifier.padding(start = 4.dp),
+                            )
+                        }
+                    }
                     if (onOpenEpubExportDialog != null) {
                         TextButton(onClick = onOpenEpubExportDialog) {
-                            Icon(imageVector = Icons.Outlined.Share, contentDescription = null)
+                            Icon(imageVector = Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null)
                             Text(
                                 text = stringResource(AYMR.strings.novel_epub_short),
                                 modifier = Modifier.padding(start = 4.dp),

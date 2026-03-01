@@ -304,7 +304,7 @@ private fun NovelUpdateCard(
             .fillMaxWidth()
             .clickable { onChapterClick(update.chapterId) }
             .padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.Top,
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Box(
@@ -368,7 +368,8 @@ private fun NovelUpdateCard(
         Box(
             modifier = Modifier
                 .size(36.dp)
-                .background(colors.accent, CircleShape),
+                .background(colors.accent, CircleShape)
+                .clickable { onChapterClick(update.chapterId) },
             contentAlignment = Alignment.Center,
         ) {
             Icon(

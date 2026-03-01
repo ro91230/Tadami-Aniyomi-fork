@@ -2,6 +2,7 @@ package eu.kanade.presentation.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.horizontalScroll
@@ -55,7 +56,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -519,6 +522,7 @@ internal fun AuroraTabRow(
 ) {
     val colors = AuroraTheme.colors
     val scrollState = rememberScrollState()
+    val menuBorderBrush = remember { auroraMenuRimLightBrush() }
 
     // Segmented pill container - adaptive glass background
     Box(
@@ -528,6 +532,11 @@ internal fun AuroraTabRow(
             .background(
                 colors.glass,
                 RoundedCornerShape(28.dp),
+            )
+            .border(
+                width = 0.75.dp,
+                brush = menuBorderBrush,
+                shape = RoundedCornerShape(28.dp),
             )
             .padding(horizontal = 4.dp, vertical = 4.dp),
     ) {
@@ -560,13 +569,36 @@ internal fun AuroraTab(
     modifier: Modifier = Modifier,
 ) {
     val colors = AuroraTheme.colors
+    val tabShape = RoundedCornerShape(20.dp)
+    val selectedTabBrush = remember(colors.accent) {
+        Brush.linearGradient(
+            colors = listOf(
+                lerp(colors.accent, Color.White, 0.18f).copy(alpha = 0.32f),
+                colors.accent.copy(alpha = 0.18f),
+            ),
+            start = androidx.compose.ui.geometry.Offset.Zero,
+            end = androidx.compose.ui.geometry.Offset(0f, 240f),
+        )
+    }
 
     // Segmented tab style: lighter filled background for active tab (good contrast on dark mode)
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
+            .clip(tabShape)
             .background(
-                if (isSelected) Color.White.copy(alpha = 0.15f) else Color.Transparent,
+                brush = if (isSelected) {
+                    selectedTabBrush
+                } else {
+                    Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))
+                },
+                shape = tabShape,
+            )
+            .then(
+                if (isSelected) {
+                    Modifier.border(1.dp, Color.White.copy(alpha = 0.12f), tabShape)
+                } else {
+                    Modifier
+                },
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),
@@ -602,4 +634,20 @@ internal fun AuroraTab(
             }
         }
     }
+}
+
+internal fun auroraMenuRimLightAlphaStops(): List<Pair<Float, Float>> {
+    return listOf(
+        0.00f to 0.10f,
+        0.28f to 0.03f,
+        0.62f to 0.00f,
+        1.00f to 0.00f,
+    )
+}
+
+internal fun auroraMenuRimLightBrush(): Brush {
+    val stops = auroraMenuRimLightAlphaStops()
+        .map { (stop, alpha) -> stop to Color.White.copy(alpha = alpha) }
+        .toTypedArray()
+    return Brush.verticalGradient(colorStops = stops)
 }

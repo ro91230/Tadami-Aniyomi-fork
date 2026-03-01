@@ -40,6 +40,7 @@ icon-ai-social-1-*.png
 
 # Tools
 .claude/
+.codex/
 
 # Ignored by Agent
 .gradle-user/
@@ -52,6 +53,7 @@ build_errors_utf8.txt
 # MCP & AI tools
 .mcp.json
 CLAUDE.md
+GEMINI.md
 
 # Node.js
 package-lock.json
@@ -61,6 +63,7 @@ node_modules/
 temp_result.xml
 *.tmp
 build_*.log
+photo_5269395384788784295_y.jpg
 
 # Local planning scratch files
 /findings.md

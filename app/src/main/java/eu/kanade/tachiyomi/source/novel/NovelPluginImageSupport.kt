@@ -1,6 +1,8 @@
 package eu.kanade.tachiyomi.source.novel
 
 import android.app.Application
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Looper
 import eu.kanade.tachiyomi.extension.novel.NovelPluginId
 import eu.kanade.tachiyomi.network.GET
@@ -26,6 +28,7 @@ import kotlinx.serialization.json.contentOrNull
 import tachiyomi.domain.source.novel.service.NovelSourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.URI
 import java.net.URLDecoder
@@ -285,6 +288,7 @@ object NovelPluginImageResolver {
     private const val MAX_PARALLEL_DECODES = 3
     private const val MAX_MEMORY_BYTES = 24L * 1024L * 1024L
     private const val MAX_DISK_BYTES = 96L * 1024L * 1024L
+    private const val MAX_DISK_ENTRY_BYTES = 8L * 1024L * 1024L
     private const val DISK_CACHE_DIR_NAME = "novel_plugin_image_cache"
     private const val DEFAULT_MIME_TYPE = "application/octet-stream"
 
@@ -359,6 +363,7 @@ object NovelPluginImageResolver {
         val normalized = payload.copy(
             mimeType = payload.mimeType.trim().ifBlank { DEFAULT_MIME_TYPE },
         )
+        val diskOptimizedPayload = optimizePayloadForDiskCache(normalized)
 
         val keys = linkedSetOf(requestKey)
         payload.cacheKey
@@ -368,7 +373,7 @@ object NovelPluginImageResolver {
 
         keys.forEach { key ->
             writeToMemoryCache(key, normalized)
-            writeToDiskCache(key, normalized)
+            diskOptimizedPayload?.let { writeToDiskCache(key, it) }
         }
 
         return normalized
@@ -438,7 +443,7 @@ object NovelPluginImageResolver {
     }
 
     private fun writeToDiskCache(key: String, payload: NovelPluginImagePayload) {
-        if (payload.bytes.isEmpty()) return
+        if (payload.bytes.isEmpty() || payload.bytes.size.toLong() > MAX_DISK_ENTRY_BYTES) return
 
         synchronized(diskCacheLock) {
             runCatching {
@@ -482,5 +487,98 @@ object NovelPluginImageResolver {
     private fun mimeFileForKey(key: String): File {
         val hash = DiskUtil.hashKeyForDisk(key)
         return File(diskCacheDir, "$hash.mime")
+    }
+
+    private fun optimizePayloadForDiskCache(payload: NovelPluginImagePayload): NovelPluginImagePayload? {
+        val bytes = payload.bytes
+        if (bytes.isEmpty()) return null
+        if (bytes.size.toLong() <= MAX_DISK_ENTRY_BYTES) return payload
+        if (!payload.mimeType.startsWith("image/", ignoreCase = true)) return null
+
+        return recompressOversizedImagePayload(payload)
+            ?.takeIf { it.bytes.size.toLong() <= MAX_DISK_ENTRY_BYTES }
+    }
+
+    private fun recompressOversizedImagePayload(payload: NovelPluginImagePayload): NovelPluginImagePayload? {
+        val sourceBytes = payload.bytes
+        if (sourceBytes.isEmpty()) return null
+
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(sourceBytes, 0, sourceBytes.size, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+        val hasAlphaHint = payload.mimeType.contains("png", ignoreCase = true) ||
+            payload.mimeType.contains("webp", ignoreCase = true)
+        val sampleSizes = buildSampleSizes(sourceBytes.size.toLong())
+
+        for (sampleSize in sampleSizes) {
+            val bitmap = BitmapFactory.decodeByteArray(
+                sourceBytes,
+                0,
+                sourceBytes.size,
+                BitmapFactory.Options().apply {
+                    inSampleSize = sampleSize
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                },
+            ) ?: continue
+
+            try {
+                val usePng = hasAlphaHint || bitmap.hasAlpha()
+                val candidates = if (usePng) {
+                    listOf(
+                        compressBitmap(bitmap, Bitmap.CompressFormat.PNG, 100) to "image/png",
+                    )
+                } else {
+                    listOf(
+                        compressBitmap(bitmap, Bitmap.CompressFormat.JPEG, 90) to "image/jpeg",
+                        compressBitmap(bitmap, Bitmap.CompressFormat.JPEG, 80) to "image/jpeg",
+                        compressBitmap(bitmap, Bitmap.CompressFormat.JPEG, 70) to "image/jpeg",
+                        compressBitmap(bitmap, Bitmap.CompressFormat.JPEG, 60) to "image/jpeg",
+                    )
+                }
+
+                candidates.forEach { (candidateBytes, candidateMime) ->
+                    if (candidateBytes != null && candidateBytes.size.toLong() <= MAX_DISK_ENTRY_BYTES) {
+                        return NovelPluginImagePayload(
+                            bytes = candidateBytes,
+                            mimeType = candidateMime,
+                            cacheKey = payload.cacheKey,
+                        )
+                    }
+                }
+            } finally {
+                bitmap.recycle()
+            }
+        }
+
+        return null
+    }
+
+    private fun compressBitmap(
+        bitmap: Bitmap,
+        format: Bitmap.CompressFormat,
+        quality: Int,
+    ): ByteArray? {
+        return runCatching {
+            ByteArrayOutputStream().use { output ->
+                val success = bitmap.compress(format, quality, output)
+                if (success) {
+                    output.toByteArray()
+                } else {
+                    null
+                }
+            }
+        }.getOrNull()
+    }
+
+    private fun buildSampleSizes(sourceBytes: Long): List<Int> {
+        var sample = 1
+        while (sample < 32 && sourceBytes / (sample.toLong() * sample.toLong()) > MAX_DISK_ENTRY_BYTES) {
+            sample *= 2
+        }
+        val candidates = linkedSetOf(sample, sample * 2, sample * 4)
+        return candidates
+            .filter { it in 1..64 }
+            .sorted()
     }
 }

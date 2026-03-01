@@ -8,8 +8,16 @@ import eu.kanade.tachiyomi.novelsource.model.SNovelChapter
 import eu.kanade.tachiyomi.source.novel.NovelWebUrlSource
 import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderTheme
+import eu.kanade.tachiyomi.ui.reader.novel.translation.AirforceModelsService
+import eu.kanade.tachiyomi.ui.reader.novel.translation.AirforceTranslationService
+import eu.kanade.tachiyomi.ui.reader.novel.translation.DeepSeekModelsService
+import eu.kanade.tachiyomi.ui.reader.novel.translation.DeepSeekTranslationService
+import eu.kanade.tachiyomi.ui.reader.novel.translation.GeminiTranslationService
+import eu.kanade.tachiyomi.ui.reader.novel.translation.OpenRouterModelsService
+import eu.kanade.tachiyomi.ui.reader.novel.translation.OpenRouterTranslationService
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -48,6 +56,13 @@ import java.util.Collections
 
 class NovelReaderScreenModelTest {
     private val activeScreenModels = mutableListOf<NovelReaderScreenModel>()
+    private val geminiTranslationService = mockk<GeminiTranslationService>(relaxed = true)
+    private val airforceTranslationService = mockk<AirforceTranslationService>(relaxed = true)
+    private val airforceModelsService = mockk<AirforceModelsService>(relaxed = true)
+    private val openRouterTranslationService = mockk<OpenRouterTranslationService>(relaxed = true)
+    private val openRouterModelsService = mockk<OpenRouterModelsService>(relaxed = true)
+    private val deepSeekTranslationService = mockk<DeepSeekTranslationService>(relaxed = true)
+    private val deepSeekModelsService = mockk<DeepSeekModelsService>(relaxed = true)
 
     @AfterEach
     fun tearDown() {
@@ -258,6 +273,48 @@ class NovelReaderScreenModelTest {
             state.contentBlocks[2].shouldBeInstanceOf<NovelReaderScreenModel.ContentBlock.Image>().url shouldBe
                 "https://example.org/images/pic.jpg"
             state.contentBlocks[3].shouldBeInstanceOf<NovelReaderScreenModel.ContentBlock.Text>().text shouldBe "Outro"
+        }
+    }
+
+    @Test
+    fun `rich content image urls are resolved against chapter web url`() {
+        runBlocking {
+            val novel = Novel.create().copy(
+                id = 1L,
+                source = 10L,
+                title = "Novel",
+                url = "https://example.org/book/slug",
+            )
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/book/ch1",
+            )
+
+            val screenModel = trackedNovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = FakeNovelChapterRepository(chapter),
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(
+                    sourceId = novel.source,
+                    chapterHtml = "<p>Intro</p><img src=\"/images/pic.jpg\" /><p>Outro</p>",
+                ),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            val state = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+            state.richContentBlocks.any { block ->
+                block is NovelRichContentBlock.Image && block.url == "https://example.org/images/pic.jpg"
+            } shouldBe true
         }
     }
 
@@ -597,6 +654,126 @@ class NovelReaderScreenModelTest {
     }
 
     @Test
+    fun `applies plugin css text indent to rich native blocks`() {
+        runBlocking {
+            val pluginId = "plugin.indent"
+            val entry = NovelPluginRepoEntry(
+                id = pluginId,
+                name = "Plugin",
+                site = "https://example.org",
+                lang = "en",
+                version = 1,
+                url = "https://example.org/plugin.js",
+                iconUrl = null,
+                customJsUrl = null,
+                customCssUrl = null,
+                hasSettings = false,
+                sha256 = "ignored",
+            )
+            val pkg = NovelPluginPackage(
+                entry = entry,
+                script = "console.log('main');".toByteArray(),
+                customJs = null,
+                customCss = "p { text-indent: 2em; }".toByteArray(),
+            )
+
+            val novel = Novel.create().copy(id = 1L, source = pluginId.hashCode().toLong(), title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+            )
+
+            val screenModel = trackedNovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = FakeNovelChapterRepository(chapter),
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(sourceId = novel.source, chapterHtml = "<p>Hello</p>"),
+                pluginStorage = FakeNovelPluginStorage(listOf(pkg)),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            val state = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+            val paragraph = state.richContentBlocks
+                .filterIsInstance<NovelRichContentBlock.Paragraph>()
+                .first { block ->
+                    block.segments.any { it.text.contains("Hello") }
+                }
+            paragraph.firstLineIndentEm shouldBe 2f
+        }
+    }
+
+    @Test
+    fun `applies plugin descendant css text indent and align to rich native blocks`() {
+        runBlocking {
+            val pluginId = "plugin.indent.descendant"
+            val entry = NovelPluginRepoEntry(
+                id = pluginId,
+                name = "Plugin",
+                site = "https://example.org",
+                lang = "en",
+                version = 1,
+                url = "https://example.org/plugin.js",
+                iconUrl = null,
+                customJsUrl = null,
+                customCssUrl = null,
+                hasSettings = false,
+                sha256 = "ignored",
+            )
+            val pkg = NovelPluginPackage(
+                entry = entry,
+                script = "console.log('main');".toByteArray(),
+                customJs = null,
+                customCss = ".entry p { text-indent: 2em; text-align: justify; }".toByteArray(),
+            )
+
+            val novel = Novel.create().copy(id = 1L, source = pluginId.hashCode().toLong(), title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+            )
+
+            val screenModel = trackedNovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = FakeNovelChapterRepository(chapter),
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(
+                    sourceId = novel.source,
+                    chapterHtml = "<div class=\"entry\"><p>Hello</p></div>",
+                ),
+                pluginStorage = FakeNovelPluginStorage(listOf(pkg)),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            val state = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+            val paragraph = state.richContentBlocks
+                .filterIsInstance<NovelRichContentBlock.Paragraph>()
+                .first { block ->
+                    block.segments.any { it.text.contains("Hello") }
+                }
+            paragraph.firstLineIndentEm shouldBe 2f
+            paragraph.textAlign shouldBe NovelRichBlockTextAlign.JUSTIFY
+        }
+    }
+
+    @Test
     fun `resolves chapter web url from plugin site when chapter path is relative`() {
         runBlocking {
             val pluginId = "plugin.relative"
@@ -719,6 +896,16 @@ class NovelReaderScreenModelTest {
                         NovelReaderTheme.LIGHT,
                         NovelReaderTheme.SYSTEM,
                     ),
+                    InMemoryPreferenceStore.InMemoryPreference(
+                        "novel_reader_cache_read_chapters",
+                        false,
+                        true,
+                    ),
+                    InMemoryPreferenceStore.InMemoryPreference(
+                        "novel_reader_cache_read_chapters_unlimited",
+                        false,
+                        false,
+                    ),
                 ),
             )
             val prefs = NovelReaderPreferences(
@@ -771,7 +958,10 @@ class NovelReaderScreenModelTest {
             val prefs = NovelReaderPreferences(
                 preferenceStore = store,
                 json = Json { encodeDefaults = true },
-            )
+            ).also {
+                it.cacheReadChapters().set(false)
+                it.cacheReadChaptersUnlimited().set(false)
+            }
             val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
             val chapter = NovelChapter.create().copy(
                 id = 5L,
@@ -817,6 +1007,105 @@ class NovelReaderScreenModelTest {
 
                 val updatedState = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
                 (updatedState.contentBlocks === initialBlocks) shouldBe true
+            } finally {
+                screenModel.onDispose()
+            }
+        }
+    }
+
+    @Test
+    fun `exposes rich parsed content and unsupported flag in success state`() {
+        runBlocking {
+            val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+            )
+
+            val screenModel = trackedNovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = FakeNovelChapterRepository(chapter),
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(
+                    sourceId = novel.source,
+                    chapterHtml = "<p>Hello <strong>world</strong></p><table><tr><td>x</td></tr></table>",
+                ),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = createNovelReaderPreferences(),
+                isSystemDark = { false },
+            )
+
+            withTimeout(1_000) {
+                while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                    yield()
+                }
+            }
+
+            val state = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+            state.richContentBlocks.isNotEmpty() shouldBe true
+            state.richContentBlocks.any { it is NovelRichContentBlock.Paragraph } shouldBe true
+            state.richContentUnsupportedFeaturesDetected shouldBe true
+        }
+    }
+
+    @Test
+    fun `reuses parsed rich content blocks when settings change`() {
+        runBlocking {
+            val store = ReactivePreferenceStore()
+            val prefs = NovelReaderPreferences(
+                preferenceStore = store,
+                json = Json { encodeDefaults = true },
+            ).also {
+                it.cacheReadChapters().set(false)
+                it.cacheReadChaptersUnlimited().set(false)
+            }
+            val novel = Novel.create().copy(id = 1L, source = 10L, title = "Novel")
+            val chapter = NovelChapter.create().copy(
+                id = 5L,
+                novelId = 1L,
+                name = "Chapter 1",
+                url = "https://example.org/ch1",
+            )
+
+            val screenModel = trackedNovelReaderScreenModel(
+                chapterId = chapter.id,
+                novelChapterRepository = FakeNovelChapterRepository(chapter),
+                getNovel = GetNovel(FakeNovelRepository(novel)),
+                sourceManager = FakeNovelSourceManager(
+                    sourceId = novel.source,
+                    chapterHtml = "<p>Hello <em>styled</em> world</p>",
+                ),
+                pluginStorage = FakeNovelPluginStorage(emptyList()),
+                novelReaderPreferences = prefs,
+                isSystemDark = { false },
+            )
+
+            try {
+                withTimeout(1_000) {
+                    while (screenModel.state.value is NovelReaderScreenModel.State.Loading) {
+                        yield()
+                    }
+                }
+
+                val initialState = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+                val initialRichBlocks = initialState.richContentBlocks
+
+                prefs.fontSize().set(22)
+
+                withTimeout(1_000) {
+                    while (true) {
+                        val state = screenModel.state.value
+                        if (state is NovelReaderScreenModel.State.Success && state.readerSettings.fontSize == 22) {
+                            break
+                        }
+                        yield()
+                    }
+                }
+
+                val updatedState = screenModel.state.value.shouldBeInstanceOf<NovelReaderScreenModel.State.Success>()
+                (updatedState.richContentBlocks === initialRichBlocks) shouldBe true
             } finally {
                 screenModel.onDispose()
             }
@@ -1382,7 +1671,11 @@ class NovelReaderScreenModelTest {
         return NovelReaderPreferences(
             preferenceStore = ReactivePreferenceStore(),
             json = Json { encodeDefaults = true },
-        )
+        ).also { prefs ->
+            // Unit tests run without Android Application in Injekt; avoid touching disk cache store.
+            prefs.cacheReadChapters().set(false)
+            prefs.cacheReadChaptersUnlimited().set(false)
+        }
     }
 
     private fun trackedNovelReaderScreenModel(
@@ -1404,6 +1697,13 @@ class NovelReaderScreenModelTest {
             historyRepository = historyRepository,
             novelReaderPreferences = novelReaderPreferences,
             isSystemDark = isSystemDark,
+            geminiTranslationService = geminiTranslationService,
+            airforceTranslationService = airforceTranslationService,
+            airforceModelsService = airforceModelsService,
+            openRouterTranslationService = openRouterTranslationService,
+            openRouterModelsService = openRouterModelsService,
+            deepSeekTranslationService = deepSeekTranslationService,
+            deepSeekModelsService = deepSeekModelsService,
         ).also(activeScreenModels::add)
     }
 
