@@ -21,14 +21,18 @@ import androidx.compose.material.icons.automirrored.filled.FormatAlignLeft
 import androidx.compose.material.icons.automirrored.filled.FormatAlignRight
 import androidx.compose.material.icons.filled.FormatAlignCenter
 import androidx.compose.material.icons.filled.FormatAlignJustify
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,10 +43,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.more.settings.widget.EditTextPreferenceWidget
 import eu.kanade.presentation.more.settings.widget.SwitchPreferenceWidget
+import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderBackgroundTexture
 import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderColorTheme
 import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderOverride
+import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderParagraphSpacing
 import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderTheme
+import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelTranslationProvider
 import eu.kanade.tachiyomi.ui.reader.novel.setting.TextAlign
 import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.i18n.aniyomi.AYMR
@@ -102,6 +109,8 @@ private fun GeneralTab(
     overrideEnabled: Boolean,
     preferences: NovelReaderPreferences,
 ) {
+    var showGeminiSettings by remember { mutableStateOf(false) }
+
     fun <T> update(
         value: T,
         copyOverride: (NovelReaderOverride, T) -> NovelReaderOverride,
@@ -111,6 +120,16 @@ private fun GeneralTab(
             preferences.updateSourceOverride(sourceId) { copyOverride(it, value) }
         } else {
             setGlobal(value)
+        }
+    }
+
+    LaunchedEffect(settings.translationProvider) {
+        if (settings.translationProvider == NovelTranslationProvider.AIRFORCE) {
+            update(
+                NovelTranslationProvider.GEMINI,
+                { o, v -> o.copy(translationProvider = v) },
+                { preferences.translationProvider().set(it) },
+            )
         }
     }
 
@@ -162,6 +181,18 @@ private fun GeneralTab(
                     it,
                     { o, v -> o.copy(preferWebViewRenderer = v) },
                     { preferences.preferWebViewRenderer().set(it) },
+                )
+            },
+        )
+        SwitchPreferenceWidget(
+            title = stringResource(AYMR.strings.novel_reader_rich_native_renderer_experimental),
+            subtitle = stringResource(AYMR.strings.novel_reader_rich_native_renderer_experimental_summary),
+            checked = settings.richNativeRendererExperimental,
+            onCheckedChanged = {
+                update(
+                    it,
+                    { o, v -> o.copy(richNativeRendererExperimental = v) },
+                    { preferences.richNativeRendererExperimental().set(it) },
                 )
             },
         )
@@ -248,7 +279,18 @@ private fun GeneralTab(
                 update(it.toInt(), { o, v -> o.copy(autoScrollOffset = v) }, { preferences.autoScrollOffset().set(it) })
             },
         )
-
+        SwitchPreferenceWidget(
+            title = stringResource(AYMR.strings.novel_reader_prefetch_next_chapter),
+            subtitle = stringResource(AYMR.strings.novel_reader_prefetch_next_chapter_summary),
+            checked = settings.prefetchNextChapter,
+            onCheckedChanged = {
+                update(
+                    it,
+                    { o, v -> o.copy(prefetchNextChapter = v) },
+                    { preferences.prefetchNextChapter().set(it) },
+                )
+            },
+        )
         SwitchPreferenceWidget(
             title = stringResource(AYMR.strings.novel_reader_fullscreen),
             subtitle = stringResource(AYMR.strings.novel_reader_fullscreen_summary),
@@ -280,12 +322,210 @@ private fun GeneralTab(
             },
         )
         SwitchPreferenceWidget(
+            title = stringResource(AYMR.strings.novel_reader_show_kindle_info_block),
+            subtitle = stringResource(AYMR.strings.novel_reader_show_kindle_info_block_summary),
+            checked = settings.showKindleInfoBlock,
+            onCheckedChanged = {
+                update(it, { o, v -> o.copy(showKindleInfoBlock = v) }, { preferences.showKindleInfoBlock().set(it) })
+            },
+        )
+        SwitchPreferenceWidget(
+            title = stringResource(AYMR.strings.novel_reader_show_time_to_end),
+            checked = settings.showTimeToEnd,
+            onCheckedChanged = {
+                if (!settings.showKindleInfoBlock) return@SwitchPreferenceWidget
+                update(it, { o, v -> o.copy(showTimeToEnd = v) }, { preferences.showTimeToEnd().set(it) })
+            },
+        )
+        SwitchPreferenceWidget(
+            title = stringResource(AYMR.strings.novel_reader_show_word_count),
+            checked = settings.showWordCount,
+            onCheckedChanged = {
+                if (!settings.showKindleInfoBlock) return@SwitchPreferenceWidget
+                update(it, { o, v -> o.copy(showWordCount = v) }, { preferences.showWordCount().set(it) })
+            },
+        )
+        SwitchPreferenceWidget(
             title = stringResource(AYMR.strings.novel_reader_bionic_reading),
             checked = settings.bionicReading,
             onCheckedChanged = {
                 update(it, { o, v -> o.copy(bionicReading = v) }, { preferences.bionicReading().set(it) })
             },
         )
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showGeminiSettings = !showGeminiSettings },
+        ) {
+            Text(
+                text = if (showGeminiSettings) {
+                    stringResource(AYMR.strings.novel_reader_ai_translator_hide)
+                } else {
+                    stringResource(AYMR.strings.novel_reader_ai_translator_show)
+                },
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+        if (showGeminiSettings) {
+            Text(
+                text = stringResource(AYMR.strings.novel_reader_translation_provider),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(
+                    NovelTranslationProvider.GEMINI to
+                        stringResource(AYMR.strings.novel_reader_translation_provider_gemini),
+                    NovelTranslationProvider.OPENROUTER to
+                        stringResource(AYMR.strings.novel_reader_translation_provider_openrouter),
+                    NovelTranslationProvider.DEEPSEEK to
+                        stringResource(AYMR.strings.novel_reader_translation_provider_deepseek),
+                ).forEach { option ->
+                    val selected = settings.translationProvider == option.first
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (selected) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        },
+                        modifier = Modifier.clickable {
+                            update(
+                                option.first,
+                                { o, v -> o.copy(translationProvider = v) },
+                                { preferences.translationProvider().set(it) },
+                            )
+                        },
+                    ) {
+                        Text(
+                            text = if (selected) "* ${option.second}" else option.second,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
+                }
+            }
+            SwitchPreferenceWidget(
+                title = stringResource(AYMR.strings.novel_reader_translation_auto_english_title),
+                subtitle = stringResource(AYMR.strings.novel_reader_translation_auto_english_summary),
+                checked = settings.geminiAutoTranslateEnglishSource,
+                onCheckedChanged = {
+                    update(
+                        it,
+                        { o, v -> o.copy(geminiAutoTranslateEnglishSource = v) },
+                        { preferences.geminiAutoTranslateEnglishSource().set(it) },
+                    )
+                },
+            )
+            SwitchPreferenceWidget(
+                title = stringResource(AYMR.strings.novel_reader_translation_prefetch_next_title),
+                subtitle = stringResource(AYMR.strings.novel_reader_translation_prefetch_next_summary),
+                checked = settings.geminiPrefetchNextChapterTranslation,
+                onCheckedChanged = {
+                    update(
+                        it,
+                        { o, v -> o.copy(geminiPrefetchNextChapterTranslation = v) },
+                        { preferences.geminiPrefetchNextChapterTranslation().set(it) },
+                    )
+                },
+            )
+            if (settings.translationProvider == NovelTranslationProvider.OPENROUTER) {
+                EditTextPreferenceWidget(
+                    title = stringResource(AYMR.strings.novel_reader_openrouter_base_url),
+                    subtitle = "%s",
+                    icon = null,
+                    value = settings.openRouterBaseUrl,
+                    onConfirm = {
+                        update(
+                            it,
+                            { o, v -> o.copy(openRouterBaseUrl = v) },
+                            { preferences.openRouterBaseUrl().set(it) },
+                        )
+                        true
+                    },
+                    canBeBlank = false,
+                )
+                EditTextPreferenceWidget(
+                    title = stringResource(AYMR.strings.novel_reader_openrouter_api_key),
+                    subtitle = "%s",
+                    icon = null,
+                    value = settings.openRouterApiKey,
+                    onConfirm = {
+                        update(
+                            it,
+                            { o, v -> o.copy(openRouterApiKey = v) },
+                            { preferences.openRouterApiKey().set(it) },
+                        )
+                        true
+                    },
+                    canBeBlank = false,
+                )
+                EditTextPreferenceWidget(
+                    title = stringResource(AYMR.strings.novel_reader_openrouter_model),
+                    subtitle = "%s",
+                    icon = null,
+                    value = settings.openRouterModel,
+                    onConfirm = {
+                        update(
+                            it,
+                            { o, v -> o.copy(openRouterModel = v) },
+                            { preferences.openRouterModel().set(it) },
+                        )
+                        true
+                    },
+                    canBeBlank = false,
+                )
+            }
+            if (settings.translationProvider == NovelTranslationProvider.DEEPSEEK) {
+                EditTextPreferenceWidget(
+                    title = stringResource(AYMR.strings.novel_reader_deepseek_base_url),
+                    subtitle = "%s",
+                    icon = null,
+                    value = settings.deepSeekBaseUrl,
+                    onConfirm = {
+                        update(
+                            it,
+                            { o, v -> o.copy(deepSeekBaseUrl = v) },
+                            { preferences.deepSeekBaseUrl().set(it) },
+                        )
+                        true
+                    },
+                    canBeBlank = false,
+                )
+                EditTextPreferenceWidget(
+                    title = stringResource(AYMR.strings.novel_reader_deepseek_api_key),
+                    subtitle = "%s",
+                    icon = null,
+                    value = settings.deepSeekApiKey,
+                    onConfirm = {
+                        update(
+                            it,
+                            { o, v -> o.copy(deepSeekApiKey = v) },
+                            { preferences.deepSeekApiKey().set(it) },
+                        )
+                        true
+                    },
+                    canBeBlank = false,
+                )
+                EditTextPreferenceWidget(
+                    title = stringResource(AYMR.strings.novel_reader_deepseek_model),
+                    subtitle = "%s",
+                    icon = null,
+                    value = settings.deepSeekModel,
+                    onConfirm = {
+                        update(
+                            it,
+                            { o, v -> o.copy(deepSeekModel = v) },
+                            { preferences.deepSeekModel().set(it) },
+                        )
+                        true
+                    },
+                    canBeBlank = false,
+                )
+            }
+        }
 
         EditTextPreferenceWidget(
             title = stringResource(AYMR.strings.novel_reader_custom_css),
@@ -365,6 +605,43 @@ private fun ReadingTab(
             steps = 7,
             onChange = { update(it, { o, v -> o.copy(lineHeight = v) }, { preferences.lineHeight().set(it) }) },
         )
+        Text(
+            text = stringResource(AYMR.strings.novel_reader_paragraph_spacing),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(NovelReaderParagraphSpacing.entries) { option ->
+                val selected = settings.paragraphSpacing == option
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    },
+                    modifier = Modifier.clickable {
+                        update(
+                            option,
+                            { o, v -> o.copy(paragraphSpacing = v) },
+                            { preferences.paragraphSpacing().set(it) },
+                        )
+                    },
+                ) {
+                    Text(
+                        text = when (option) {
+                            NovelReaderParagraphSpacing.COMPACT ->
+                                stringResource(AYMR.strings.novel_reader_paragraph_spacing_compact)
+                            NovelReaderParagraphSpacing.NORMAL ->
+                                stringResource(AYMR.strings.novel_reader_paragraph_spacing_normal)
+                            NovelReaderParagraphSpacing.SPACIOUS ->
+                                stringResource(AYMR.strings.novel_reader_paragraph_spacing_spacious)
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
+        }
         LnReaderSliderRow(
             label = stringResource(AYMR.strings.novel_reader_margins),
             valueText = "${settings.margin}dp",
@@ -380,6 +657,18 @@ private fun ReadingTab(
                 update(align, { o, v -> o.copy(textAlign = v) }, { preferences.textAlign().set(it) })
             },
         )
+        SwitchPreferenceWidget(
+            title = stringResource(AYMR.strings.novel_reader_force_paragraph_indent),
+            subtitle = stringResource(AYMR.strings.novel_reader_force_paragraph_indent_summary),
+            checked = settings.forceParagraphIndent,
+            onCheckedChanged = {
+                update(
+                    it,
+                    { o, v -> o.copy(forceParagraphIndent = v) },
+                    { preferences.forceParagraphIndent().set(it) },
+                )
+            },
+        )
 
         FontExamplesRow(
             selected = settings.fontFamily,
@@ -391,6 +680,53 @@ private fun ReadingTab(
         ThemeModeRow(
             selected = settings.theme,
             onSelect = { mode -> update(mode, { o, v -> o.copy(theme = v) }, { preferences.theme().set(it) }) },
+        )
+        Text(
+            text = stringResource(AYMR.strings.novel_reader_background_texture),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(NovelReaderBackgroundTexture.entries) { option ->
+                val selected = settings.backgroundTexture == option
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    },
+                    modifier = Modifier.clickable {
+                        update(
+                            option,
+                            { o, v -> o.copy(backgroundTexture = v) },
+                            { preferences.backgroundTexture().set(it) },
+                        )
+                    },
+                ) {
+                    Text(
+                        text = when (option) {
+                            NovelReaderBackgroundTexture.NONE ->
+                                stringResource(AYMR.strings.novel_reader_background_texture_none)
+                            NovelReaderBackgroundTexture.PAPER_GRAIN ->
+                                stringResource(AYMR.strings.novel_reader_background_texture_paper_grain)
+                            NovelReaderBackgroundTexture.LINEN ->
+                                stringResource(AYMR.strings.novel_reader_background_texture_linen)
+                            NovelReaderBackgroundTexture.PARCHMENT ->
+                                stringResource(AYMR.strings.novel_reader_background_texture_parchment)
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
+        }
+        SwitchPreferenceWidget(
+            title = stringResource(AYMR.strings.novel_reader_oled_edge_gradient),
+            subtitle = stringResource(AYMR.strings.novel_reader_oled_edge_gradient_summary),
+            checked = settings.oledEdgeGradient,
+            onCheckedChanged = {
+                update(it, { o, v -> o.copy(oledEdgeGradient = v) }, { preferences.oledEdgeGradient().set(it) })
+            },
         )
 
         Text(
@@ -525,6 +861,11 @@ private fun AlignButtonsRow(
     onSelect: (TextAlign) -> Unit,
 ) {
     val options = listOf(
+        Triple(
+            TextAlign.SOURCE,
+            Icons.Outlined.Public,
+            stringResource(AYMR.strings.novel_reader_text_align_source),
+        ),
         Triple(
             TextAlign.LEFT,
             Icons.AutoMirrored.Filled.FormatAlignLeft,

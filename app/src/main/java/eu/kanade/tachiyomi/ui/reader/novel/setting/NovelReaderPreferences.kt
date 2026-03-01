@@ -20,12 +20,17 @@ data class NovelReaderSettings(
     val lineHeight: Float,
     val margin: Int,
     val textAlign: TextAlign,
+    val paragraphSpacing: NovelReaderParagraphSpacing,
+    val forceParagraphIndent: Boolean,
+    val preserveSourceTextAlignInNative: Boolean,
     val fontFamily: String,
 
     // Theme
     val theme: NovelReaderTheme,
     val backgroundColor: String?,
     val textColor: String?,
+    val backgroundTexture: NovelReaderBackgroundTexture,
+    val oledEdgeGradient: Boolean,
     val customThemes: List<NovelReaderColorTheme>,
 
     // Navigation
@@ -33,6 +38,7 @@ data class NovelReaderSettings(
     val swipeGestures: Boolean,
     val pageReader: Boolean,
     val preferWebViewRenderer: Boolean,
+    val richNativeRendererExperimental: Boolean,
     val verticalSeekbar: Boolean,
     val swipeToNextChapter: Boolean,
     val swipeToPrevChapter: Boolean,
@@ -40,17 +46,54 @@ data class NovelReaderSettings(
     val autoScroll: Boolean,
     val autoScrollInterval: Int,
     val autoScrollOffset: Int,
+    val prefetchNextChapter: Boolean,
 
     // Accessibility
     val fullScreenMode: Boolean,
     val keepScreenOn: Boolean,
     val showScrollPercentage: Boolean,
     val showBatteryAndTime: Boolean,
+    val showKindleInfoBlock: Boolean,
+    val showTimeToEnd: Boolean,
+    val showWordCount: Boolean,
     val bionicReading: Boolean,
 
     // Advanced
     val customCSS: String,
     val customJS: String,
+
+    // Gemini Translation
+    val geminiEnabled: Boolean = false,
+    val geminiApiKey: String = "",
+    val geminiModel: String = "gemini-2.5-flash",
+    val geminiBatchSize: Int = 40,
+    val geminiConcurrency: Int = 2,
+    val geminiDisableCache: Boolean = false,
+    val geminiRelaxedMode: Boolean = true,
+    val geminiReasoningEffort: String = "minimal",
+    val geminiBudgetTokens: Int = 8192,
+    val geminiTemperature: Float = 0.7f,
+    val geminiTopP: Float = 0.95f,
+    val geminiTopK: Int = 40,
+    val geminiSourceLang: String = "English",
+    val geminiTargetLang: String = "Russian",
+    val geminiPromptMode: GeminiPromptMode = GeminiPromptMode.ADULT_18,
+    val geminiEnabledPromptModifiers: List<String> = emptyList(),
+    val geminiCustomPromptModifier: String = "",
+    val geminiStylePreset: NovelTranslationStylePreset = NovelTranslationStylePreset.PROFESSIONAL,
+    val geminiPromptModifiers: String = "",
+    val geminiAutoTranslateEnglishSource: Boolean = false,
+    val geminiPrefetchNextChapterTranslation: Boolean = false,
+    val translationProvider: NovelTranslationProvider = NovelTranslationProvider.GEMINI,
+    val airforceBaseUrl: String = "https://api.airforce",
+    val airforceApiKey: String = "",
+    val airforceModel: String = "",
+    val openRouterBaseUrl: String = "https://openrouter.ai/api/v1",
+    val openRouterApiKey: String = "",
+    val openRouterModel: String = "",
+    val deepSeekBaseUrl: String = "https://api.deepseek.com",
+    val deepSeekApiKey: String = "",
+    val deepSeekModel: String = "deepseek-chat",
 )
 
 enum class NovelReaderTheme {
@@ -59,11 +102,45 @@ enum class NovelReaderTheme {
     DARK,
 }
 
+enum class NovelReaderBackgroundTexture {
+    NONE,
+    PAPER_GRAIN,
+    LINEN,
+    PARCHMENT,
+}
+
 enum class TextAlign {
+    SOURCE,
     LEFT,
     CENTER,
     JUSTIFY,
     RIGHT,
+}
+
+enum class NovelReaderParagraphSpacing {
+    COMPACT,
+    NORMAL,
+    SPACIOUS,
+}
+
+enum class GeminiPromptMode {
+    CLASSIC,
+    ADULT_18,
+}
+
+enum class NovelTranslationStylePreset {
+    PROFESSIONAL,
+    LITERARY,
+    CONVERSATIONAL,
+    VULGAR_18,
+    MINIMAL,
+}
+
+enum class NovelTranslationProvider {
+    GEMINI,
+    AIRFORCE,
+    OPENROUTER,
+    DEEPSEEK,
 }
 
 @Serializable
@@ -79,12 +156,17 @@ data class NovelReaderOverride(
     val lineHeight: Float? = null,
     val margin: Int? = null,
     val textAlign: TextAlign? = null,
+    val paragraphSpacing: NovelReaderParagraphSpacing? = null,
+    val forceParagraphIndent: Boolean? = null,
+    val preserveSourceTextAlignInNative: Boolean? = null,
     val fontFamily: String? = null,
 
     // Theme
     val theme: NovelReaderTheme? = null,
     val backgroundColor: String? = null,
     val textColor: String? = null,
+    val backgroundTexture: NovelReaderBackgroundTexture? = null,
+    val oledEdgeGradient: Boolean? = null,
     val customThemes: List<NovelReaderColorTheme>? = null,
 
     // Navigation
@@ -92,6 +174,7 @@ data class NovelReaderOverride(
     val swipeGestures: Boolean? = null,
     val pageReader: Boolean? = null,
     val preferWebViewRenderer: Boolean? = null,
+    val richNativeRendererExperimental: Boolean? = null,
     val verticalSeekbar: Boolean? = null,
     val swipeToNextChapter: Boolean? = null,
     val swipeToPrevChapter: Boolean? = null,
@@ -99,17 +182,54 @@ data class NovelReaderOverride(
     val autoScroll: Boolean? = null,
     val autoScrollInterval: Int? = null,
     val autoScrollOffset: Int? = null,
+    val prefetchNextChapter: Boolean? = null,
 
     // Accessibility
     val fullScreenMode: Boolean? = null,
     val keepScreenOn: Boolean? = null,
     val showScrollPercentage: Boolean? = null,
     val showBatteryAndTime: Boolean? = null,
+    val showKindleInfoBlock: Boolean? = null,
+    val showTimeToEnd: Boolean? = null,
+    val showWordCount: Boolean? = null,
     val bionicReading: Boolean? = null,
 
     // Advanced
     val customCSS: String? = null,
     val customJS: String? = null,
+
+    // Gemini Translation
+    val geminiEnabled: Boolean? = null,
+    val geminiApiKey: String? = null,
+    val geminiModel: String? = null,
+    val geminiBatchSize: Int? = null,
+    val geminiConcurrency: Int? = null,
+    val geminiDisableCache: Boolean? = null,
+    val geminiRelaxedMode: Boolean? = null,
+    val geminiReasoningEffort: String? = null,
+    val geminiBudgetTokens: Int? = null,
+    val geminiTemperature: Float? = null,
+    val geminiTopP: Float? = null,
+    val geminiTopK: Int? = null,
+    val geminiSourceLang: String? = null,
+    val geminiTargetLang: String? = null,
+    val geminiPromptMode: GeminiPromptMode? = null,
+    val geminiEnabledPromptModifiers: List<String>? = null,
+    val geminiCustomPromptModifier: String? = null,
+    val geminiStylePreset: NovelTranslationStylePreset? = null,
+    val geminiPromptModifiers: String? = null,
+    val geminiAutoTranslateEnglishSource: Boolean? = null,
+    val geminiPrefetchNextChapterTranslation: Boolean? = null,
+    val translationProvider: NovelTranslationProvider? = null,
+    val airforceBaseUrl: String? = null,
+    val airforceApiKey: String? = null,
+    val airforceModel: String? = null,
+    val openRouterBaseUrl: String? = null,
+    val openRouterApiKey: String? = null,
+    val openRouterModel: String? = null,
+    val deepSeekBaseUrl: String? = null,
+    val deepSeekApiKey: String? = null,
+    val deepSeekModel: String? = null,
 )
 
 class NovelReaderPreferences(
@@ -123,7 +243,12 @@ class NovelReaderPreferences(
 
     fun margin() = preferenceStore.getInt("novel_reader_margins", DEFAULT_MARGIN)
 
-    fun textAlign() = preferenceStore.getEnum("novel_reader_text_align", TextAlign.LEFT)
+    fun textAlign() = preferenceStore.getEnum("novel_reader_text_align", TextAlign.SOURCE)
+
+    fun paragraphSpacing() =
+        preferenceStore.getEnum("novel_reader_paragraph_spacing", NovelReaderParagraphSpacing.NORMAL)
+
+    fun forceParagraphIndent() = preferenceStore.getBoolean("novel_reader_force_paragraph_indent", true)
 
     fun fontFamily() = preferenceStore.getString("novel_reader_font_family", "")
 
@@ -133,6 +258,11 @@ class NovelReaderPreferences(
     fun backgroundColor() = preferenceStore.getString("novel_reader_bg_color", "")
 
     fun textColor() = preferenceStore.getString("novel_reader_text_color", "")
+
+    fun backgroundTexture() =
+        preferenceStore.getEnum("novel_reader_background_texture", NovelReaderBackgroundTexture.PAPER_GRAIN)
+
+    fun oledEdgeGradient() = preferenceStore.getBoolean("novel_reader_oled_edge_gradient", false)
 
     fun customThemes() = preferenceStore.getObject(
         "novel_reader_custom_themes",
@@ -148,7 +278,13 @@ class NovelReaderPreferences(
 
     fun pageReader() = preferenceStore.getBoolean("novel_reader_page_mode", false)
 
-    fun preferWebViewRenderer() = preferenceStore.getBoolean("novel_reader_prefer_webview_renderer", true)
+    fun preferWebViewRenderer() = preferenceStore.getBoolean("novel_reader_prefer_webview_renderer", false)
+
+    fun richNativeRendererExperimental() =
+        preferenceStore.getBoolean("novel_reader_rich_native_renderer_experimental", true)
+
+    fun preserveSourceTextAlignInNative() =
+        preferenceStore.getBoolean("novel_reader_preserve_source_text_align_in_native", true)
 
     fun verticalSeekbar() = preferenceStore.getBoolean("novel_reader_vertical_seekbar", true)
 
@@ -164,6 +300,12 @@ class NovelReaderPreferences(
 
     fun autoScrollOffset() = preferenceStore.getInt("novel_reader_auto_scroll_offset", DEFAULT_AUTO_SCROLL_OFFSET)
 
+    fun prefetchNextChapter() = preferenceStore.getBoolean("novel_reader_prefetch_next_chapter", false)
+
+    fun cacheReadChapters() = preferenceStore.getBoolean("novel_reader_cache_read_chapters", true)
+
+    fun cacheReadChaptersUnlimited() = preferenceStore.getBoolean("novel_reader_cache_read_chapters_unlimited", false)
+
     // Accessibility
     fun fullScreenMode() = preferenceStore.getBoolean("novel_reader_fullscreen", true)
 
@@ -176,12 +318,93 @@ class NovelReaderPreferences(
 
     fun showBatteryAndTime() = preferenceStore.getBoolean("novel_reader_show_battery_time", false)
 
+    fun showKindleInfoBlock() = preferenceStore.getBoolean("novel_reader_show_kindle_info_block", true)
+
+    fun showTimeToEnd() = preferenceStore.getBoolean("novel_reader_show_time_to_end", true)
+
+    fun showWordCount() = preferenceStore.getBoolean("novel_reader_show_word_count", true)
+
     fun bionicReading() = preferenceStore.getBoolean("novel_reader_bionic_reading", false)
 
     // Advanced
     fun customCSS() = preferenceStore.getString("novel_reader_custom_css", "")
 
     fun customJS() = preferenceStore.getString("novel_reader_custom_js", "")
+
+    // Gemini Translation
+    fun geminiEnabled() = preferenceStore.getBoolean("novel_reader_gemini_enabled", false)
+
+    fun geminiApiKey() = preferenceStore.getString("novel_reader_gemini_api_key", "")
+
+    fun geminiModel() = preferenceStore.getString("novel_reader_gemini_model", "gemini-2.5-flash")
+
+    fun geminiBatchSize() = preferenceStore.getInt("novel_reader_gemini_batch_size", 40)
+
+    fun geminiConcurrency() = preferenceStore.getInt("novel_reader_gemini_concurrency", 2)
+
+    fun geminiDisableCache() = preferenceStore.getBoolean("novel_reader_gemini_disable_cache", false)
+
+    fun geminiRelaxedMode() = preferenceStore.getBoolean("novel_reader_gemini_relaxed_mode", true)
+
+    fun geminiReasoningEffort() = preferenceStore.getString("novel_reader_gemini_reasoning_effort", "minimal")
+
+    fun geminiBudgetTokens() = preferenceStore.getInt("novel_reader_gemini_budget_tokens", 8192)
+
+    fun geminiTemperature() = preferenceStore.getFloat("novel_reader_gemini_temperature", 0.7f)
+
+    fun geminiTopP() = preferenceStore.getFloat("novel_reader_gemini_top_p", 0.95f)
+
+    fun geminiTopK() = preferenceStore.getInt("novel_reader_gemini_top_k", 40)
+
+    fun geminiSourceLang() = preferenceStore.getString("novel_reader_gemini_source_lang", "English")
+
+    fun geminiTargetLang() = preferenceStore.getString("novel_reader_gemini_target_lang", "Russian")
+
+    fun geminiPromptMode() = preferenceStore.getEnum("novel_reader_gemini_prompt_mode", GeminiPromptMode.ADULT_18)
+
+    fun geminiEnabledPromptModifiers() = preferenceStore.getObject(
+        "novel_reader_gemini_enabled_prompt_modifiers",
+        emptyList(),
+        serializer = { json.encodeToString(stringListSerializer, it) },
+        deserializer = { json.decodeFromString(stringListSerializer, it) },
+    )
+
+    fun geminiCustomPromptModifier() = preferenceStore.getString("novel_reader_gemini_custom_prompt_modifier", "")
+
+    fun geminiStylePreset() =
+        preferenceStore.getEnum("novel_reader_gemini_style_preset", NovelTranslationStylePreset.PROFESSIONAL)
+
+    fun geminiPromptModifiers() = preferenceStore.getString("novel_reader_gemini_prompt_modifiers", "")
+
+    fun geminiAutoTranslateEnglishSource() =
+        preferenceStore.getBoolean("novel_reader_gemini_auto_translate_english_source", false)
+
+    fun geminiPrefetchNextChapterTranslation() =
+        preferenceStore.getBoolean("novel_reader_gemini_prefetch_next_chapter_translation", false)
+
+    fun translationProvider() =
+        preferenceStore.getEnum("novel_reader_translation_provider", NovelTranslationProvider.GEMINI)
+
+    fun airforceBaseUrl() = preferenceStore.getString("novel_reader_airforce_base_url", "https://api.airforce")
+
+    fun airforceApiKey() = preferenceStore.getString("novel_reader_airforce_api_key", "")
+
+    fun airforceModel() = preferenceStore.getString("novel_reader_airforce_model", "")
+
+    fun openRouterBaseUrl() = preferenceStore.getString(
+        "novel_reader_openrouter_base_url",
+        "https://openrouter.ai/api/v1",
+    )
+
+    fun openRouterApiKey() = preferenceStore.getString("novel_reader_openrouter_api_key", "")
+
+    fun openRouterModel() = preferenceStore.getString("novel_reader_openrouter_model", "")
+
+    fun deepSeekBaseUrl() = preferenceStore.getString("novel_reader_deepseek_base_url", "https://api.deepseek.com")
+
+    fun deepSeekApiKey() = preferenceStore.getString("novel_reader_deepseek_api_key", "")
+
+    fun deepSeekModel() = preferenceStore.getString("novel_reader_deepseek_model", "deepseek-chat")
 
     // EPUB export
     fun epubExportLocation() = preferenceStore.getString("novel_epub_export_location", "")
@@ -220,15 +443,21 @@ class NovelReaderPreferences(
                 lineHeight = lineHeight().get(),
                 margin = margin().get(),
                 textAlign = textAlign().get(),
+                paragraphSpacing = paragraphSpacing().get(),
+                forceParagraphIndent = forceParagraphIndent().get(),
+                preserveSourceTextAlignInNative = preserveSourceTextAlignInNative().get(),
                 fontFamily = fontFamily().get(),
                 theme = theme().get(),
                 backgroundColor = backgroundColor().get(),
                 textColor = textColor().get(),
+                backgroundTexture = backgroundTexture().get(),
+                oledEdgeGradient = oledEdgeGradient().get(),
                 customThemes = customThemes().get(),
                 useVolumeButtons = useVolumeButtons().get(),
                 swipeGestures = swipeGestures().get(),
                 pageReader = pageReader().get(),
                 preferWebViewRenderer = preferWebViewRenderer().get(),
+                richNativeRendererExperimental = richNativeRendererExperimental().get(),
                 verticalSeekbar = verticalSeekbar().get(),
                 swipeToNextChapter = swipeToNextChapter().get(),
                 swipeToPrevChapter = swipeToPrevChapter().get(),
@@ -236,13 +465,47 @@ class NovelReaderPreferences(
                 autoScroll = autoScroll().get(),
                 autoScrollInterval = autoScrollInterval().get(),
                 autoScrollOffset = autoScrollOffset().get(),
+                prefetchNextChapter = prefetchNextChapter().get(),
                 fullScreenMode = fullScreenMode().get(),
                 keepScreenOn = keepScreenOn().get(),
                 showScrollPercentage = showScrollPercentage().get(),
                 showBatteryAndTime = showBatteryAndTime().get(),
+                showKindleInfoBlock = showKindleInfoBlock().get(),
+                showTimeToEnd = showTimeToEnd().get(),
+                showWordCount = showWordCount().get(),
                 bionicReading = bionicReading().get(),
                 customCSS = customCSS().get(),
                 customJS = customJS().get(),
+                geminiApiKey = geminiApiKey().get(),
+                geminiModel = geminiModel().get(),
+                geminiBatchSize = geminiBatchSize().get(),
+                geminiConcurrency = geminiConcurrency().get(),
+                geminiDisableCache = geminiDisableCache().get(),
+                geminiRelaxedMode = geminiRelaxedMode().get(),
+                geminiReasoningEffort = geminiReasoningEffort().get(),
+                geminiBudgetTokens = geminiBudgetTokens().get(),
+                geminiTemperature = geminiTemperature().get(),
+                geminiTopP = geminiTopP().get(),
+                geminiTopK = geminiTopK().get(),
+                geminiSourceLang = geminiSourceLang().get(),
+                geminiTargetLang = geminiTargetLang().get(),
+                geminiPromptMode = geminiPromptMode().get(),
+                geminiEnabledPromptModifiers = geminiEnabledPromptModifiers().get(),
+                geminiCustomPromptModifier = geminiCustomPromptModifier().get(),
+                geminiStylePreset = geminiStylePreset().get(),
+                geminiPromptModifiers = geminiPromptModifiers().get(),
+                geminiAutoTranslateEnglishSource = geminiAutoTranslateEnglishSource().get(),
+                geminiPrefetchNextChapterTranslation = geminiPrefetchNextChapterTranslation().get(),
+                translationProvider = translationProvider().get(),
+                airforceBaseUrl = airforceBaseUrl().get(),
+                airforceApiKey = airforceApiKey().get(),
+                airforceModel = airforceModel().get(),
+                openRouterBaseUrl = openRouterBaseUrl().get(),
+                openRouterApiKey = openRouterApiKey().get(),
+                openRouterModel = openRouterModel().get(),
+                deepSeekBaseUrl = deepSeekBaseUrl().get(),
+                deepSeekApiKey = deepSeekApiKey().get(),
+                deepSeekModel = deepSeekModel().get(),
             ),
         )
     }
@@ -262,15 +525,23 @@ class NovelReaderPreferences(
             lineHeight = override?.lineHeight ?: lineHeight().get(),
             margin = override?.margin ?: margin().get(),
             textAlign = override?.textAlign ?: textAlign().get(),
+            paragraphSpacing = override?.paragraphSpacing ?: paragraphSpacing().get(),
+            forceParagraphIndent = override?.forceParagraphIndent ?: forceParagraphIndent().get(),
+            preserveSourceTextAlignInNative =
+            override?.preserveSourceTextAlignInNative ?: preserveSourceTextAlignInNative().get(),
             fontFamily = override?.fontFamily ?: fontFamily().get(),
             theme = override?.theme ?: theme().get(),
             backgroundColor = override?.backgroundColor ?: backgroundColor().get(),
             textColor = override?.textColor ?: textColor().get(),
+            backgroundTexture = override?.backgroundTexture ?: backgroundTexture().get(),
+            oledEdgeGradient = override?.oledEdgeGradient ?: oledEdgeGradient().get(),
             customThemes = override?.customThemes ?: customThemes().get(),
             useVolumeButtons = override?.useVolumeButtons ?: useVolumeButtons().get(),
             swipeGestures = override?.swipeGestures ?: swipeGestures().get(),
             pageReader = override?.pageReader ?: pageReader().get(),
             preferWebViewRenderer = override?.preferWebViewRenderer ?: preferWebViewRenderer().get(),
+            richNativeRendererExperimental =
+            override?.richNativeRendererExperimental ?: richNativeRendererExperimental().get(),
             verticalSeekbar = override?.verticalSeekbar ?: verticalSeekbar().get(),
             swipeToNextChapter = override?.swipeToNextChapter ?: swipeToNextChapter().get(),
             swipeToPrevChapter = override?.swipeToPrevChapter ?: swipeToPrevChapter().get(),
@@ -278,13 +549,51 @@ class NovelReaderPreferences(
             autoScroll = override?.autoScroll ?: autoScroll().get(),
             autoScrollInterval = override?.autoScrollInterval ?: autoScrollInterval().get(),
             autoScrollOffset = override?.autoScrollOffset ?: autoScrollOffset().get(),
+            prefetchNextChapter = override?.prefetchNextChapter ?: prefetchNextChapter().get(),
             fullScreenMode = override?.fullScreenMode ?: fullScreenMode().get(),
             keepScreenOn = override?.keepScreenOn ?: keepScreenOn().get(),
             showScrollPercentage = override?.showScrollPercentage ?: showScrollPercentage().get(),
             showBatteryAndTime = override?.showBatteryAndTime ?: showBatteryAndTime().get(),
+            showKindleInfoBlock = override?.showKindleInfoBlock ?: showKindleInfoBlock().get(),
+            showTimeToEnd = override?.showTimeToEnd ?: showTimeToEnd().get(),
+            showWordCount = override?.showWordCount ?: showWordCount().get(),
             bionicReading = override?.bionicReading ?: bionicReading().get(),
             customCSS = override?.customCSS ?: customCSS().get(),
             customJS = override?.customJS ?: customJS().get(),
+            geminiEnabled = geminiEnabled().get(),
+            geminiApiKey = override?.geminiApiKey ?: geminiApiKey().get(),
+            geminiModel = override?.geminiModel ?: geminiModel().get(),
+            geminiBatchSize = override?.geminiBatchSize ?: geminiBatchSize().get(),
+            geminiConcurrency = override?.geminiConcurrency ?: geminiConcurrency().get(),
+            geminiDisableCache = override?.geminiDisableCache ?: geminiDisableCache().get(),
+            geminiRelaxedMode = override?.geminiRelaxedMode ?: geminiRelaxedMode().get(),
+            geminiReasoningEffort = override?.geminiReasoningEffort ?: geminiReasoningEffort().get(),
+            geminiBudgetTokens = override?.geminiBudgetTokens ?: geminiBudgetTokens().get(),
+            geminiTemperature = override?.geminiTemperature ?: geminiTemperature().get(),
+            geminiTopP = override?.geminiTopP ?: geminiTopP().get(),
+            geminiTopK = override?.geminiTopK ?: geminiTopK().get(),
+            geminiSourceLang = override?.geminiSourceLang ?: geminiSourceLang().get(),
+            geminiTargetLang = override?.geminiTargetLang ?: geminiTargetLang().get(),
+            geminiPromptMode = override?.geminiPromptMode ?: geminiPromptMode().get(),
+            geminiEnabledPromptModifiers =
+            override?.geminiEnabledPromptModifiers ?: geminiEnabledPromptModifiers().get(),
+            geminiCustomPromptModifier = override?.geminiCustomPromptModifier ?: geminiCustomPromptModifier().get(),
+            geminiStylePreset = override?.geminiStylePreset ?: geminiStylePreset().get(),
+            geminiPromptModifiers = override?.geminiPromptModifiers ?: geminiPromptModifiers().get(),
+            geminiAutoTranslateEnglishSource =
+            override?.geminiAutoTranslateEnglishSource ?: geminiAutoTranslateEnglishSource().get(),
+            geminiPrefetchNextChapterTranslation =
+            override?.geminiPrefetchNextChapterTranslation ?: geminiPrefetchNextChapterTranslation().get(),
+            translationProvider = override?.translationProvider ?: translationProvider().get(),
+            airforceBaseUrl = override?.airforceBaseUrl ?: airforceBaseUrl().get(),
+            airforceApiKey = override?.airforceApiKey ?: airforceApiKey().get(),
+            airforceModel = override?.airforceModel ?: airforceModel().get(),
+            openRouterBaseUrl = override?.openRouterBaseUrl ?: openRouterBaseUrl().get(),
+            openRouterApiKey = override?.openRouterApiKey ?: openRouterApiKey().get(),
+            openRouterModel = override?.openRouterModel ?: openRouterModel().get(),
+            deepSeekBaseUrl = override?.deepSeekBaseUrl ?: deepSeekBaseUrl().get(),
+            deepSeekApiKey = override?.deepSeekApiKey ?: deepSeekApiKey().get(),
+            deepSeekModel = override?.deepSeekModel ?: deepSeekModel().get(),
         )
     }
 
@@ -296,6 +605,9 @@ class NovelReaderPreferences(
             lineHeight().changes(),
             margin().changes(),
             textAlign().changes(),
+            paragraphSpacing().changes(),
+            forceParagraphIndent().changes(),
+            preserveSourceTextAlignInNative().changes(),
             fontFamily().changes(),
         ) { values: Array<Any?> ->
             DisplaySettings(
@@ -303,7 +615,10 @@ class NovelReaderPreferences(
                 values[1] as Float,
                 values[2] as Int,
                 values[3] as TextAlign,
-                values[4] as String,
+                values[4] as NovelReaderParagraphSpacing,
+                values[5] as Boolean,
+                values[6] as Boolean,
+                values[7] as String,
             )
         }
 
@@ -311,13 +626,17 @@ class NovelReaderPreferences(
             theme().changes(),
             backgroundColor().changes(),
             textColor().changes(),
+            backgroundTexture().changes(),
+            oledEdgeGradient().changes(),
             customThemes().changes(),
         ) { values: Array<Any?> ->
             ThemeSettings(
                 values[0] as NovelReaderTheme,
                 values[1] as String,
                 values[2] as String,
-                values[3] as List<NovelReaderColorTheme>,
+                values[3] as NovelReaderBackgroundTexture,
+                values[4] as Boolean,
+                values[5] as List<NovelReaderColorTheme>,
             )
         }
 
@@ -326,6 +645,7 @@ class NovelReaderPreferences(
             swipeGestures().changes(),
             pageReader().changes(),
             preferWebViewRenderer().changes(),
+            richNativeRendererExperimental().changes(),
             verticalSeekbar().changes(),
             swipeToNextChapter().changes(),
             swipeToPrevChapter().changes(),
@@ -333,6 +653,7 @@ class NovelReaderPreferences(
             autoScroll().changes(),
             autoScrollInterval().changes(),
             autoScrollOffset().changes(),
+            prefetchNextChapter().changes(),
         ) { values: Array<Any?> ->
             NavigationSettings(
                 values[0] as Boolean,
@@ -344,8 +665,10 @@ class NovelReaderPreferences(
                 values[6] as Boolean,
                 values[7] as Boolean,
                 values[8] as Boolean,
-                values[9] as Int,
+                values[9] as Boolean,
                 values[10] as Int,
+                values[11] as Int,
+                values[12] as Boolean,
             )
         }
 
@@ -354,6 +677,9 @@ class NovelReaderPreferences(
             keepScreenOn().changes(),
             showScrollPercentage().changes(),
             showBatteryAndTime().changes(),
+            showKindleInfoBlock().changes(),
+            showTimeToEnd().changes(),
+            showWordCount().changes(),
             bionicReading().changes(),
         ) { values: Array<Any?> ->
             AccessibilitySettings(
@@ -361,7 +687,10 @@ class NovelReaderPreferences(
                 keepScreenOn = values[1] as Boolean,
                 showScrollPercentage = values[2] as Boolean,
                 showBatteryAndTime = values[3] as Boolean,
-                bionicReading = values[4] as Boolean,
+                showKindleInfoBlock = values[4] as Boolean,
+                showTimeToEnd = values[5] as Boolean,
+                showWordCount = values[6] as Boolean,
+                bionicReading = values[7] as Boolean,
             )
         }
 
@@ -372,12 +701,81 @@ class NovelReaderPreferences(
             AdvancedSettings(customCSS, customJS)
         }
 
+        val geminiFlow = combine(
+            geminiEnabled().changes(),
+            geminiApiKey().changes(),
+            geminiModel().changes(),
+            geminiBatchSize().changes(),
+            geminiConcurrency().changes(),
+            geminiDisableCache().changes(),
+            geminiRelaxedMode().changes(),
+            geminiReasoningEffort().changes(),
+            geminiBudgetTokens().changes(),
+            geminiTemperature().changes(),
+            geminiTopP().changes(),
+            geminiTopK().changes(),
+            geminiSourceLang().changes(),
+            geminiTargetLang().changes(),
+            geminiPromptMode().changes(),
+            geminiEnabledPromptModifiers().changes(),
+            geminiCustomPromptModifier().changes(),
+            geminiStylePreset().changes(),
+            geminiPromptModifiers().changes(),
+            geminiAutoTranslateEnglishSource().changes(),
+            geminiPrefetchNextChapterTranslation().changes(),
+            translationProvider().changes(),
+            airforceBaseUrl().changes(),
+            airforceApiKey().changes(),
+            airforceModel().changes(),
+            openRouterBaseUrl().changes(),
+            openRouterApiKey().changes(),
+            openRouterModel().changes(),
+            deepSeekBaseUrl().changes(),
+            deepSeekApiKey().changes(),
+            deepSeekModel().changes(),
+        ) { values: Array<Any?> ->
+            GeminiSettings(
+                enabled = values[0] as Boolean,
+                apiKey = values[1] as String,
+                model = values[2] as String,
+                batchSize = values[3] as Int,
+                concurrency = values[4] as Int,
+                disableCache = values[5] as Boolean,
+                relaxedMode = values[6] as Boolean,
+                reasoningEffort = values[7] as String,
+                budgetTokens = values[8] as Int,
+                temperature = values[9] as Float,
+                topP = values[10] as Float,
+                topK = values[11] as Int,
+                sourceLang = values[12] as String,
+                targetLang = values[13] as String,
+                promptMode = values[14] as GeminiPromptMode,
+                enabledPromptModifiers = values[15] as List<String>,
+                customPromptModifier = values[16] as String,
+                stylePreset = values[17] as NovelTranslationStylePreset,
+                promptModifiers = values[18] as String,
+                autoTranslateEnglishSource = values[19] as Boolean,
+                prefetchNextChapterTranslation = values[20] as Boolean,
+                translationProvider = values[21] as NovelTranslationProvider,
+                airforceBaseUrl = values[22] as String,
+                airforceApiKey = values[23] as String,
+                airforceModel = values[24] as String,
+                openRouterBaseUrl = values[25] as String,
+                openRouterApiKey = values[26] as String,
+                openRouterModel = values[27] as String,
+                deepSeekBaseUrl = values[28] as String,
+                deepSeekApiKey = values[29] as String,
+                deepSeekModel = values[30] as String,
+            )
+        }
+
         return combine(
             displayFlow,
             themeFlow,
             navigationFlow,
             accessibilityFlow,
             advancedFlow,
+            geminiFlow,
             sourceOverrides().changes(),
         ) { values: Array<Any?> ->
             val display = values[0] as DisplaySettings
@@ -385,7 +783,8 @@ class NovelReaderPreferences(
             val navigation = values[2] as NavigationSettings
             val accessibility = values[3] as AccessibilitySettings
             val advanced = values[4] as AdvancedSettings
-            val overrides = values[5] as Map<Long, NovelReaderOverride>
+            val gemini = values[5] as GeminiSettings
+            val overrides = values[6] as Map<Long, NovelReaderOverride>
 
             val override = overrides[sourceId]
             NovelReaderSettings(
@@ -393,15 +792,23 @@ class NovelReaderPreferences(
                 lineHeight = override?.lineHeight ?: display.lineHeight,
                 margin = override?.margin ?: display.margin,
                 textAlign = override?.textAlign ?: display.textAlign,
+                paragraphSpacing = override?.paragraphSpacing ?: display.paragraphSpacing,
+                forceParagraphIndent = override?.forceParagraphIndent ?: display.forceParagraphIndent,
+                preserveSourceTextAlignInNative =
+                override?.preserveSourceTextAlignInNative ?: display.preserveSourceTextAlignInNative,
                 fontFamily = override?.fontFamily ?: display.fontFamily,
                 theme = override?.theme ?: theme.theme,
                 backgroundColor = override?.backgroundColor ?: theme.backgroundColor,
                 textColor = override?.textColor ?: theme.textColor,
+                backgroundTexture = override?.backgroundTexture ?: theme.backgroundTexture,
+                oledEdgeGradient = override?.oledEdgeGradient ?: theme.oledEdgeGradient,
                 customThemes = override?.customThemes ?: theme.customThemes,
                 useVolumeButtons = override?.useVolumeButtons ?: navigation.useVolumeButtons,
                 swipeGestures = override?.swipeGestures ?: navigation.swipeGestures,
                 pageReader = override?.pageReader ?: navigation.pageReader,
                 preferWebViewRenderer = override?.preferWebViewRenderer ?: navigation.preferWebViewRenderer,
+                richNativeRendererExperimental =
+                override?.richNativeRendererExperimental ?: navigation.richNativeRendererExperimental,
                 verticalSeekbar = override?.verticalSeekbar ?: navigation.verticalSeekbar,
                 swipeToNextChapter = override?.swipeToNextChapter ?: navigation.swipeToNextChapter,
                 swipeToPrevChapter = override?.swipeToPrevChapter ?: navigation.swipeToPrevChapter,
@@ -409,13 +816,50 @@ class NovelReaderPreferences(
                 autoScroll = override?.autoScroll ?: navigation.autoScroll,
                 autoScrollInterval = override?.autoScrollInterval ?: navigation.autoScrollInterval,
                 autoScrollOffset = override?.autoScrollOffset ?: navigation.autoScrollOffset,
+                prefetchNextChapter = override?.prefetchNextChapter ?: navigation.prefetchNextChapter,
                 fullScreenMode = override?.fullScreenMode ?: accessibility.fullScreenMode,
                 keepScreenOn = override?.keepScreenOn ?: accessibility.keepScreenOn,
                 showScrollPercentage = override?.showScrollPercentage ?: accessibility.showScrollPercentage,
                 showBatteryAndTime = override?.showBatteryAndTime ?: accessibility.showBatteryAndTime,
+                showKindleInfoBlock = override?.showKindleInfoBlock ?: accessibility.showKindleInfoBlock,
+                showTimeToEnd = override?.showTimeToEnd ?: accessibility.showTimeToEnd,
+                showWordCount = override?.showWordCount ?: accessibility.showWordCount,
                 bionicReading = override?.bionicReading ?: accessibility.bionicReading,
                 customCSS = override?.customCSS ?: advanced.customCSS,
                 customJS = override?.customJS ?: advanced.customJS,
+                geminiEnabled = gemini.enabled,
+                geminiApiKey = override?.geminiApiKey ?: gemini.apiKey,
+                geminiModel = override?.geminiModel ?: gemini.model,
+                geminiBatchSize = override?.geminiBatchSize ?: gemini.batchSize,
+                geminiConcurrency = override?.geminiConcurrency ?: gemini.concurrency,
+                geminiDisableCache = override?.geminiDisableCache ?: gemini.disableCache,
+                geminiRelaxedMode = override?.geminiRelaxedMode ?: gemini.relaxedMode,
+                geminiReasoningEffort = override?.geminiReasoningEffort ?: gemini.reasoningEffort,
+                geminiBudgetTokens = override?.geminiBudgetTokens ?: gemini.budgetTokens,
+                geminiTemperature = override?.geminiTemperature ?: gemini.temperature,
+                geminiTopP = override?.geminiTopP ?: gemini.topP,
+                geminiTopK = override?.geminiTopK ?: gemini.topK,
+                geminiSourceLang = override?.geminiSourceLang ?: gemini.sourceLang,
+                geminiTargetLang = override?.geminiTargetLang ?: gemini.targetLang,
+                geminiPromptMode = override?.geminiPromptMode ?: gemini.promptMode,
+                geminiEnabledPromptModifiers = override?.geminiEnabledPromptModifiers ?: gemini.enabledPromptModifiers,
+                geminiCustomPromptModifier = override?.geminiCustomPromptModifier ?: gemini.customPromptModifier,
+                geminiStylePreset = override?.geminiStylePreset ?: gemini.stylePreset,
+                geminiPromptModifiers = override?.geminiPromptModifiers ?: gemini.promptModifiers,
+                geminiAutoTranslateEnglishSource =
+                override?.geminiAutoTranslateEnglishSource ?: gemini.autoTranslateEnglishSource,
+                geminiPrefetchNextChapterTranslation =
+                override?.geminiPrefetchNextChapterTranslation ?: gemini.prefetchNextChapterTranslation,
+                translationProvider = override?.translationProvider ?: gemini.translationProvider,
+                airforceBaseUrl = override?.airforceBaseUrl ?: gemini.airforceBaseUrl,
+                airforceApiKey = override?.airforceApiKey ?: gemini.airforceApiKey,
+                airforceModel = override?.airforceModel ?: gemini.airforceModel,
+                openRouterBaseUrl = override?.openRouterBaseUrl ?: gemini.openRouterBaseUrl,
+                openRouterApiKey = override?.openRouterApiKey ?: gemini.openRouterApiKey,
+                openRouterModel = override?.openRouterModel ?: gemini.openRouterModel,
+                deepSeekBaseUrl = override?.deepSeekBaseUrl ?: gemini.deepSeekBaseUrl,
+                deepSeekApiKey = override?.deepSeekApiKey ?: gemini.deepSeekApiKey,
+                deepSeekModel = override?.deepSeekModel ?: gemini.deepSeekModel,
             )
         }
     }
@@ -426,6 +870,9 @@ class NovelReaderPreferences(
         val lineHeight: Float,
         val margin: Int,
         val textAlign: TextAlign,
+        val paragraphSpacing: NovelReaderParagraphSpacing,
+        val forceParagraphIndent: Boolean,
+        val preserveSourceTextAlignInNative: Boolean,
         val fontFamily: String,
     )
 
@@ -433,6 +880,8 @@ class NovelReaderPreferences(
         val theme: NovelReaderTheme,
         val backgroundColor: String,
         val textColor: String,
+        val backgroundTexture: NovelReaderBackgroundTexture,
+        val oledEdgeGradient: Boolean,
         val customThemes: List<NovelReaderColorTheme>,
     )
 
@@ -441,6 +890,7 @@ class NovelReaderPreferences(
         val swipeGestures: Boolean,
         val pageReader: Boolean,
         val preferWebViewRenderer: Boolean,
+        val richNativeRendererExperimental: Boolean,
         val verticalSeekbar: Boolean,
         val swipeToNextChapter: Boolean,
         val swipeToPrevChapter: Boolean,
@@ -448,6 +898,7 @@ class NovelReaderPreferences(
         val autoScroll: Boolean,
         val autoScrollInterval: Int,
         val autoScrollOffset: Int,
+        val prefetchNextChapter: Boolean,
     )
 
     private data class AccessibilitySettings(
@@ -455,12 +906,49 @@ class NovelReaderPreferences(
         val keepScreenOn: Boolean,
         val showScrollPercentage: Boolean,
         val showBatteryAndTime: Boolean,
+        val showKindleInfoBlock: Boolean,
+        val showTimeToEnd: Boolean,
+        val showWordCount: Boolean,
         val bionicReading: Boolean,
     )
 
     private data class AdvancedSettings(
         val customCSS: String,
         val customJS: String,
+    )
+
+    private data class GeminiSettings(
+        val enabled: Boolean,
+        val apiKey: String,
+        val model: String,
+        val batchSize: Int,
+        val concurrency: Int,
+        val disableCache: Boolean,
+        val relaxedMode: Boolean,
+        val reasoningEffort: String,
+        val budgetTokens: Int,
+        val temperature: Float,
+        val topP: Float,
+        val topK: Int,
+        val sourceLang: String,
+        val targetLang: String,
+        val promptMode: GeminiPromptMode,
+        val enabledPromptModifiers: List<String>,
+        val customPromptModifier: String,
+        val stylePreset: NovelTranslationStylePreset,
+        val promptModifiers: String,
+        val autoTranslateEnglishSource: Boolean,
+        val prefetchNextChapterTranslation: Boolean,
+        val translationProvider: NovelTranslationProvider,
+        val airforceBaseUrl: String,
+        val airforceApiKey: String,
+        val airforceModel: String,
+        val openRouterBaseUrl: String,
+        val openRouterApiKey: String,
+        val openRouterModel: String,
+        val deepSeekBaseUrl: String,
+        val deepSeekApiKey: String,
+        val deepSeekModel: String,
     )
 
     companion object {
@@ -475,5 +963,6 @@ class NovelReaderPreferences(
             NovelReaderOverride.serializer(),
         )
         private val customThemesSerializer = ListSerializer(NovelReaderColorTheme.serializer())
+        private val stringListSerializer = ListSerializer(String.serializer())
     }
 }

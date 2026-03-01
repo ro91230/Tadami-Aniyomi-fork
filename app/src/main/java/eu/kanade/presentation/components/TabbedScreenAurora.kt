@@ -2,6 +2,7 @@ package eu.kanade.presentation.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.horizontalScroll
@@ -55,7 +56,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -66,6 +69,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.theme.AuroraTheme
+import eu.kanade.presentation.theme.aurora.adaptive.auroraCenteredMaxWidth
+import eu.kanade.presentation.theme.aurora.adaptive.rememberAuroraAdaptiveSpec
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -104,6 +109,8 @@ fun TabbedScreenAurora(
     highlightedActionTitle: String? = null,
     extraHeaderContent: @Composable () -> Unit = {},
 ) {
+    val auroraAdaptiveSpec = rememberAuroraAdaptiveSpec()
+    val contentMaxWidthDp = auroraAdaptiveSpec.updatesMaxWidthDp ?: auroraAdaptiveSpec.entryMaxWidthDp
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val density = LocalDensity.current
@@ -189,34 +196,53 @@ fun TabbedScreenAurora(
         Column(modifier = Modifier.fillMaxSize()) {
             if (applyStatusBarsPadding) {
                 Spacer(modifier = Modifier.statusBarsPadding())
+                Spacer(modifier = Modifier.height(5.dp))
             }
 
             if (!showCompactHeader && titleRes != null) {
-                AuroraTabHeader(
-                    title = stringResource(titleRes),
-                    isSearchActive = isSearchActive,
-                    searchQuery = activeSearchQuery ?: "",
-                    onSearchClick = { onChangeSearchQuery("") },
-                    onSearchClose = { onChangeSearchQuery(null) },
-                    onSearchQueryChange = { onChangeSearchQuery(it) },
-                    tabs = tabs,
-                    currentPage = currentPage,
-                    navigateUp = null, // Top-level tabs generally don't have up navigation in this context
-                    highlightSearchAction = highlightSearchAction,
-                    highlightedActionTitle = highlightedActionTitle,
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .auroraCenteredMaxWidth(contentMaxWidthDp),
+                ) {
+                    AuroraTabHeader(
+                        title = stringResource(titleRes),
+                        isSearchActive = isSearchActive,
+                        searchQuery = activeSearchQuery ?: "",
+                        onSearchClick = { onChangeSearchQuery("") },
+                        onSearchClose = { onChangeSearchQuery(null) },
+                        onSearchQueryChange = { onChangeSearchQuery(it) },
+                        tabs = tabs,
+                        currentPage = currentPage,
+                        navigateUp = null, // Top-level tabs generally don't have up navigation in this context
+                        highlightSearchAction = highlightSearchAction,
+                        highlightedActionTitle = highlightedActionTitle,
+                    )
+                }
             }
 
-            extraHeaderContent()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .auroraCenteredMaxWidth(contentMaxWidthDp),
+            ) {
+                extraHeaderContent()
+            }
 
             // Add tabs for Browse
             if (showTabs) {
-                AuroraTabRow(
-                    tabs = tabs,
-                    selectedIndex = currentPage,
-                    onTabSelected = onTabSelected,
-                    scrollable = scrollable,
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .auroraCenteredMaxWidth(contentMaxWidthDp),
+                ) {
+                    AuroraTabRow(
+                        tabs = tabs,
+                        selectedIndex = currentPage,
+                        onTabSelected = onTabSelected,
+                        scrollable = scrollable,
+                    )
+                }
             }
 
             if (instantTabSwitching) {
@@ -228,6 +254,7 @@ fun TabbedScreenAurora(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
+                        .auroraCenteredMaxWidth(contentMaxWidthDp)
                         .pointerInput(currentPage, tabs.size, switchThresholdPx, maxBouncePx) {
                             var totalDragPx = 0f
                             detectHorizontalDragGestures(
@@ -295,10 +322,16 @@ fun TabbedScreenAurora(
                         onTabSelected = onTabSelected,
                     )
                     CompositionLocalProvider(LocalTabState provides tabState) {
-                        tabs[page].content(
-                            PaddingValues(bottom = 16.dp),
-                            snackbarHostState,
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .auroraCenteredMaxWidth(contentMaxWidthDp),
+                        ) {
+                            tabs[page].content(
+                                PaddingValues(bottom = 16.dp),
+                                snackbarHostState,
+                            )
+                        }
                     }
                 }
             }
@@ -489,6 +522,7 @@ internal fun AuroraTabRow(
 ) {
     val colors = AuroraTheme.colors
     val scrollState = rememberScrollState()
+    val menuBorderBrush = remember { auroraMenuRimLightBrush() }
 
     // Segmented pill container - adaptive glass background
     Box(
@@ -498,6 +532,11 @@ internal fun AuroraTabRow(
             .background(
                 colors.glass,
                 RoundedCornerShape(28.dp),
+            )
+            .border(
+                width = 0.75.dp,
+                brush = menuBorderBrush,
+                shape = RoundedCornerShape(28.dp),
             )
             .padding(horizontal = 4.dp, vertical = 4.dp),
     ) {
@@ -530,13 +569,36 @@ internal fun AuroraTab(
     modifier: Modifier = Modifier,
 ) {
     val colors = AuroraTheme.colors
+    val tabShape = RoundedCornerShape(20.dp)
+    val selectedTabBrush = remember(colors.accent) {
+        Brush.linearGradient(
+            colors = listOf(
+                lerp(colors.accent, Color.White, 0.18f).copy(alpha = 0.32f),
+                colors.accent.copy(alpha = 0.18f),
+            ),
+            start = androidx.compose.ui.geometry.Offset.Zero,
+            end = androidx.compose.ui.geometry.Offset(0f, 240f),
+        )
+    }
 
     // Segmented tab style: lighter filled background for active tab (good contrast on dark mode)
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
+            .clip(tabShape)
             .background(
-                if (isSelected) Color.White.copy(alpha = 0.15f) else Color.Transparent,
+                brush = if (isSelected) {
+                    selectedTabBrush
+                } else {
+                    Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))
+                },
+                shape = tabShape,
+            )
+            .then(
+                if (isSelected) {
+                    Modifier.border(1.dp, Color.White.copy(alpha = 0.12f), tabShape)
+                } else {
+                    Modifier
+                },
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),
@@ -572,4 +634,20 @@ internal fun AuroraTab(
             }
         }
     }
+}
+
+internal fun auroraMenuRimLightAlphaStops(): List<Pair<Float, Float>> {
+    return listOf(
+        0.00f to 0.10f,
+        0.28f to 0.03f,
+        0.62f to 0.00f,
+        1.00f to 0.00f,
+    )
+}
+
+internal fun auroraMenuRimLightBrush(): Brush {
+    val stops = auroraMenuRimLightAlphaStops()
+        .map { (stop, alpha) -> stop to Color.White.copy(alpha = alpha) }
+        .toTypedArray()
+    return Brush.verticalGradient(colorStops = stops)
 }

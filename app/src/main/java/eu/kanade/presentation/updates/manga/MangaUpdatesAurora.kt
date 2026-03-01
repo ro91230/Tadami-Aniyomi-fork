@@ -50,6 +50,8 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.theme.AuroraTheme
+import eu.kanade.presentation.theme.aurora.adaptive.auroraCenteredMaxWidth
+import eu.kanade.presentation.theme.aurora.adaptive.rememberAuroraAdaptiveSpec
 import eu.kanade.presentation.updates.aurora.AuroraUpdatesGroupCard
 import eu.kanade.presentation.updates.aurora.buildAuroraUpdatesGroups
 import eu.kanade.tachiyomi.ui.updates.manga.MangaUpdatesItem
@@ -66,10 +68,12 @@ import kotlin.time.Duration.Companion.seconds
 fun MangaUpdatesAuroraContent(
     items: List<MangaUpdatesItem>,
     onMangaClicked: (Long) -> Unit,
+    onChapterClicked: (Long, Long) -> Unit,
     onRefresh: () -> Unit,
     contentPadding: PaddingValues,
 ) {
     val colors = AuroraTheme.colors
+    val auroraAdaptiveSpec = rememberAuroraAdaptiveSpec()
     val scope = rememberCoroutineScope()
     var isRefreshing by remember { mutableStateOf(false) }
     var expandedGroups by rememberSaveable { mutableStateOf(setOf<String>()) }
@@ -104,7 +108,8 @@ fun MangaUpdatesAuroraContent(
                 state = listState,
                 contentPadding = contentPadding,
                 modifier = Modifier
-                    .fillMaxSize(),
+                    .fillMaxSize()
+                    .auroraCenteredMaxWidth(auroraAdaptiveSpec.updatesMaxWidthDp),
             ) {
                 if (items.isEmpty()) {
                     item {
@@ -124,7 +129,8 @@ fun MangaUpdatesAuroraContent(
                                 val item = group.items.first()
                                 AniviewMangaUpdateCard(
                                     item = item,
-                                    onClick = onMangaClicked,
+                                    onMangaClick = onMangaClicked,
+                                    onChapterClick = onChapterClicked,
                                     modifier = Modifier.padding(bottom = 12.dp),
                                 )
                             } else {
@@ -152,7 +158,8 @@ fun MangaUpdatesAuroraContent(
                                         group.items.forEach { updateItem ->
                                             AniviewMangaUpdateCard(
                                                 item = updateItem,
-                                                onClick = onMangaClicked,
+                                                onMangaClick = onMangaClicked,
+                                                onChapterClick = onChapterClicked,
                                                 modifier = Modifier.padding(bottom = 8.dp),
                                             )
                                         }
@@ -285,7 +292,8 @@ private fun EmptyUpdatesState(onRefresh: () -> Unit) {
 @Composable
 fun AniviewMangaUpdateCard(
     item: MangaUpdatesItem,
-    onClick: (Long) -> Unit,
+    onMangaClick: (Long) -> Unit,
+    onChapterClick: (Long, Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = AuroraTheme.colors
@@ -293,9 +301,9 @@ fun AniviewMangaUpdateCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onClick(item.update.mangaId) }
+            .clickable { onMangaClick(item.update.mangaId) }
             .padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.Top,
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         // Left: Thumbnail (60x90dp portrait)
@@ -364,7 +372,10 @@ fun AniviewMangaUpdateCard(
         Box(
             modifier = Modifier
                 .size(36.dp)
-                .background(colors.accent, CircleShape),
+                .background(colors.accent, CircleShape)
+                .clickable {
+                    onChapterClick(item.update.mangaId, item.update.chapterId)
+                },
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -381,6 +392,7 @@ fun AniviewMangaUpdateCard(
 @Composable
 fun AuroraMangaUpdateCard(
     item: MangaUpdatesItem,
-    onClick: (Long) -> Unit,
+    onMangaClick: (Long) -> Unit,
+    onChapterClick: (Long, Long) -> Unit,
     modifier: Modifier = Modifier,
-) = AniviewMangaUpdateCard(item, onClick, modifier)
+) = AniviewMangaUpdateCard(item, onMangaClick, onChapterClick, modifier)

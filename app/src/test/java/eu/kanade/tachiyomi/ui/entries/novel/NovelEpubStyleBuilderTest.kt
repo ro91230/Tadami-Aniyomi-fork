@@ -1,6 +1,8 @@
 package eu.kanade.tachiyomi.ui.entries.novel
 
+import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderBackgroundTexture
 import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderColorTheme
+import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderParagraphSpacing
 import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderSettings
 import eu.kanade.tachiyomi.ui.reader.novel.setting.NovelReaderTheme
 import eu.kanade.tachiyomi.ui.reader.novel.setting.TextAlign
@@ -110,10 +112,15 @@ class NovelEpubStyleBuilderTest {
             lineHeight = lineHeight,
             margin = margin,
             textAlign = textAlign,
+            paragraphSpacing = NovelReaderParagraphSpacing.NORMAL,
+            forceParagraphIndent = false,
+            preserveSourceTextAlignInNative = true,
             fontFamily = fontFamily,
             theme = theme,
             backgroundColor = backgroundColor,
             textColor = textColor,
+            backgroundTexture = NovelReaderBackgroundTexture.PAPER_GRAIN,
+            oledEdgeGradient = true,
             customThemes = listOf(
                 NovelReaderColorTheme(backgroundColor = "#101010", textColor = "#EFEFEF"),
             ),
@@ -121,6 +128,7 @@ class NovelEpubStyleBuilderTest {
             swipeGestures = false,
             pageReader = false,
             preferWebViewRenderer = true,
+            richNativeRendererExperimental = false,
             verticalSeekbar = true,
             swipeToNextChapter = false,
             swipeToPrevChapter = false,
@@ -128,10 +136,14 @@ class NovelEpubStyleBuilderTest {
             autoScroll = false,
             autoScrollInterval = 10,
             autoScrollOffset = 0,
+            prefetchNextChapter = false,
             fullScreenMode = true,
             keepScreenOn = false,
             showScrollPercentage = true,
             showBatteryAndTime = false,
+            showKindleInfoBlock = true,
+            showTimeToEnd = true,
+            showWordCount = true,
             bionicReading = false,
             customCSS = customCSS,
             customJS = customJS,

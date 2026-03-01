@@ -2,19 +2,12 @@ package eu.kanade.tachiyomi.data.library.manga
 
 import android.content.Context
 import android.content.pm.ServiceInfo
-import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import android.os.Build
 import androidx.core.content.ContextCompat
-import androidx.work.BackoffPolicy
-import androidx.work.Constraints
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
-import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkQuery
 import androidx.work.WorkerParameters
@@ -24,6 +17,7 @@ import eu.kanade.domain.entries.manga.model.toSManga
 import eu.kanade.domain.items.chapter.interactor.SyncChaptersWithSource
 import eu.kanade.tachiyomi.data.cache.MangaCoverCache
 import eu.kanade.tachiyomi.data.download.manga.MangaDownloadManager
+import eu.kanade.tachiyomi.data.library.shouldRetryLegacyAutoUpdateRun
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
@@ -55,9 +49,6 @@ import tachiyomi.domain.items.chapter.model.Chapter
 import tachiyomi.domain.items.chapter.model.NoChaptersException
 import tachiyomi.domain.library.manga.LibraryManga
 import tachiyomi.domain.library.service.LibraryPreferences
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_CHARGING
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_NETWORK_NOT_METERED
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_ONLY_ON_WIFI
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.ENTRY_HAS_UNVIEWED
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.ENTRY_NON_COMPLETED
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.ENTRY_NON_VIEWED
@@ -71,7 +62,6 @@ import java.io.File
 import java.time.Instant
 import java.time.ZonedDateTime
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -104,13 +94,13 @@ class MangaLibraryUpdateJob(private val context: Context, workerParams: WorkerPa
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
                 val preferences = Injekt.get<LibraryPreferences>()
                 val restrictions = preferences.autoUpdateDeviceRestrictions().get()
-                if ((DEVICE_ONLY_ON_WIFI in restrictions) && !context.isConnectedToWifi()) {
-                    return Result.retry()
-                }
-                if ((DEVICE_NETWORK_NOT_METERED in restrictions) && context.isConnectedToWifi()) {
-                    return Result.retry()
-                }
-                if ((DEVICE_CHARGING in restrictions) && !context.isCharging()) {
+                if (
+                    shouldRetryLegacyAutoUpdateRun(
+                        restrictions = restrictions,
+                        isConnectedToWifi = context.isConnectedToWifi(),
+                        isCharging = context.isCharging(),
+                    )
+                ) {
                     return Result.retry()
                 }
             }
@@ -128,7 +118,7 @@ class MangaLibraryUpdateJob(private val context: Context, workerParams: WorkerPa
 
         return withIOContext {
             try {
-                updateChapterList()
+                updateChapterList(isManualRun = tags.contains(WORK_NAME_MANUAL))
                 Result.success()
             } catch (e: CancellationException) {
                 throw e
@@ -251,7 +241,7 @@ class MangaLibraryUpdateJob(private val context: Context, workerParams: WorkerPa
      *
      * @return an observable delivering the progress of each update.
      */
-    private suspend fun updateChapterList() {
+    private suspend fun updateChapterList(isManualRun: Boolean) {
         val semaphore = Semaphore(5)
         val progressCount = AtomicInteger(0)
         val currentlyUpdatingManga = CopyOnWriteArrayList<Manga>()
@@ -332,6 +322,9 @@ class MangaLibraryUpdateJob(private val context: Context, workerParams: WorkerPa
                 failedUpdates.size,
                 errorFile.getUriCompat(context),
             )
+        }
+        if (isManualRun && newUpdates.isEmpty() && failedUpdates.isEmpty()) {
+            notifier.showNoUpdatesNotification(checked = mangaToUpdate.size)
         }
     }
 
@@ -446,49 +439,7 @@ class MangaLibraryUpdateJob(private val context: Context, workerParams: WorkerPa
             context: Context,
             prefInterval: Int? = null,
         ) {
-            val preferences = Injekt.get<LibraryPreferences>()
-            val interval = prefInterval ?: preferences.autoUpdateInterval().get()
-            if (interval > 0) {
-                val restrictions = preferences.autoUpdateDeviceRestrictions().get()
-                val networkType = if (DEVICE_NETWORK_NOT_METERED in restrictions) {
-                    NetworkType.UNMETERED
-                } else {
-                    NetworkType.CONNECTED
-                }
-                val networkRequestBuilder = NetworkRequest.Builder()
-                if (DEVICE_ONLY_ON_WIFI in restrictions) {
-                    networkRequestBuilder.addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-                }
-                if (DEVICE_NETWORK_NOT_METERED in restrictions) {
-                    networkRequestBuilder.addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-                }
-                val constraints = Constraints.Builder()
-                    // 'networkRequest' only applies to Android 9+, otherwise 'networkType' is used
-                    .setRequiredNetworkRequest(networkRequestBuilder.build(), networkType)
-                    .setRequiresCharging(DEVICE_CHARGING in restrictions)
-                    .setRequiresBatteryNotLow(true)
-                    .build()
-
-                val request = PeriodicWorkRequestBuilder<MangaLibraryUpdateJob>(
-                    interval.toLong(),
-                    TimeUnit.HOURS,
-                    10,
-                    TimeUnit.MINUTES,
-                )
-                    .addTag(TAG)
-                    .addTag(WORK_NAME_AUTO)
-                    .setConstraints(constraints)
-                    .setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.MINUTES)
-                    .build()
-
-                context.workManager.enqueueUniquePeriodicWork(
-                    WORK_NAME_AUTO,
-                    ExistingPeriodicWorkPolicy.UPDATE,
-                    request,
-                )
-            } else {
-                context.workManager.cancelUniqueWork(WORK_NAME_AUTO)
-            }
+            eu.kanade.tachiyomi.data.library.LibraryAutoUpdateSchedulerJob.setupTask(context, prefInterval)
         }
 
         fun startNow(

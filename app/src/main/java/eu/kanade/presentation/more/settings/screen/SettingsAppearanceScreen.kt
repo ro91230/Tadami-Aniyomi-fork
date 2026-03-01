@@ -25,6 +25,7 @@ import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.appearance.AppLanguageScreen
 import eu.kanade.presentation.more.settings.widget.AppThemeModePreferenceWidget
 import eu.kanade.presentation.more.settings.widget.AppThemePreferenceWidget
+import eu.kanade.tachiyomi.ui.home.HomeHeaderLayoutEditorScreen
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableMap
@@ -140,6 +141,8 @@ object SettingsAppearanceScreen : SearchableSettings {
         val showNovelSection by showNovelSectionPref.collectAsState()
         val greetingFontSizePref = userProfilePreferences.greetingFontSize()
         val greetingFontSize by greetingFontSizePref.collectAsState()
+        val greetingAlphaPref = userProfilePreferences.greetingAlpha()
+        val greetingAlpha by greetingAlphaPref.collectAsState()
         val greetingColorPref = userProfilePreferences.greetingColor()
         val greetingColor by greetingColorPref.collectAsState()
         var isGreetingSettingsExpanded by rememberSaveable { mutableStateOf(false) }
@@ -168,6 +171,16 @@ object SettingsAppearanceScreen : SearchableSettings {
                     steps = 15,
                     onValueChanged = {
                         greetingFontSizePref.set(it.coerceIn(10, 26))
+                        true
+                    },
+                ),
+                Preference.PreferenceItem.SliderPreference(
+                    value = greetingAlpha.coerceIn(10, 100),
+                    title = stringResource(AYMR.strings.aurora_greeting_alpha, "$greetingAlpha%"),
+                    valueRange = 10..100,
+                    steps = 89,
+                    onValueChanged = {
+                        greetingAlphaPref.set(it.coerceIn(10, 100))
                         true
                     },
                 ),
@@ -352,15 +365,10 @@ object SettingsAppearanceScreen : SearchableSettings {
                     ),
                 )
                 add(
-                    Preference.PreferenceItem.SwitchPreference(
-                        preference = userProfilePreferences.showHomeGreeting(),
-                        title = stringResource(AYMR.strings.pref_show_home_greeting),
-                    ),
-                )
-                add(
-                    Preference.PreferenceItem.SwitchPreference(
-                        preference = userProfilePreferences.showHomeStreak(),
-                        title = stringResource(AYMR.strings.pref_show_home_streak),
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(AYMR.strings.pref_customize_home_header_layout),
+                        subtitle = stringResource(AYMR.strings.pref_customize_home_header_layout_summary),
+                        onClick = { navigator.push(HomeHeaderLayoutEditorScreen()) },
                     ),
                 )
                 add(

@@ -2,19 +2,12 @@ package eu.kanade.tachiyomi.data.library.novel
 
 import android.content.Context
 import android.content.pm.ServiceInfo
-import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import android.os.Build
 import androidx.core.content.ContextCompat
-import androidx.work.BackoffPolicy
-import androidx.work.Constraints
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
-import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkQuery
 import androidx.work.WorkerParameters
@@ -23,6 +16,7 @@ import eu.kanade.domain.entries.novel.interactor.UpdateNovel
 import eu.kanade.domain.entries.novel.model.toSNovel
 import eu.kanade.domain.items.novelchapter.interactor.SyncNovelChaptersWithSource
 import eu.kanade.tachiyomi.data.download.novel.NovelDownloadManager
+import eu.kanade.tachiyomi.data.library.shouldRetryLegacyAutoUpdateRun
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.util.system.isCharging
@@ -48,9 +42,6 @@ import tachiyomi.domain.items.novelchapter.model.NoChaptersException
 import tachiyomi.domain.items.novelchapter.model.NovelChapter
 import tachiyomi.domain.library.novel.LibraryNovel
 import tachiyomi.domain.library.service.LibraryPreferences
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_CHARGING
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_NETWORK_NOT_METERED
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_ONLY_ON_WIFI
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.ENTRY_HAS_UNVIEWED
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.ENTRY_NON_COMPLETED
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.ENTRY_NON_VIEWED
@@ -62,7 +53,6 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.time.ZonedDateTime
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 class NovelLibraryUpdateJob(
@@ -94,13 +84,13 @@ class NovelLibraryUpdateJob(
         if (tags.contains(WORK_NAME_AUTO)) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
                 val restrictions = libraryPreferences.autoUpdateDeviceRestrictions().get()
-                if ((DEVICE_ONLY_ON_WIFI in restrictions) && !context.isConnectedToWifi()) {
-                    return Result.retry()
-                }
-                if ((DEVICE_NETWORK_NOT_METERED in restrictions) && context.isConnectedToWifi()) {
-                    return Result.retry()
-                }
-                if ((DEVICE_CHARGING in restrictions) && !context.isCharging()) {
+                if (
+                    shouldRetryLegacyAutoUpdateRun(
+                        restrictions = restrictions,
+                        isConnectedToWifi = context.isConnectedToWifi(),
+                        isCharging = context.isCharging(),
+                    )
+                ) {
                     return Result.retry()
                 }
             }
@@ -117,7 +107,7 @@ class NovelLibraryUpdateJob(
 
         return withIOContext {
             try {
-                updateChapterList()
+                updateChapterList(isManualRun = tags.contains(WORK_NAME_MANUAL))
                 Result.success()
             } catch (e: CancellationException) {
                 throw e
@@ -217,9 +207,11 @@ class NovelLibraryUpdateJob(
         }
     }
 
-    private suspend fun updateChapterList() {
+    private suspend fun updateChapterList(isManualRun: Boolean) {
         val semaphore = Semaphore(5)
         val progressCount = AtomicInteger(0)
+        val updatedCount = AtomicInteger(0)
+        val failedCount = AtomicInteger(0)
         val currentlyUpdating = CopyOnWriteArrayList<Novel>()
         val newUpdates = CopyOnWriteArrayList<Pair<Novel, Int>>()
         val failedUpdates = CopyOnWriteArrayList<Pair<Novel, String?>>()
@@ -236,7 +228,13 @@ class NovelLibraryUpdateJob(
                                     return@forEach
                                 }
 
-                                withUpdateNotification(currentlyUpdating, progressCount, novel) {
+                                withUpdateNotification(
+                                    updatingNovel = currentlyUpdating,
+                                    completed = progressCount,
+                                    updated = updatedCount,
+                                    failed = failedCount,
+                                    novel = novel,
+                                ) {
                                     try {
                                         val newChapters = updateNovel(novel)
                                         if (newChapters.isNotEmpty()) {
@@ -249,6 +247,7 @@ class NovelLibraryUpdateJob(
                                                 novelDownloadManager.downloadChapters(novel, chaptersToDownload)
                                             }
                                             newUpdates.add(novel to newChapters.size)
+                                            updatedCount.incrementAndGet()
                                         }
                                     } catch (e: Throwable) {
                                         if (e is CancellationException) throw e
@@ -261,6 +260,7 @@ class NovelLibraryUpdateJob(
                                             else -> e.message
                                         }
                                         failedUpdates.add(novel to errorMessage)
+                                        failedCount.incrementAndGet()
                                     }
                                 }
                             }
@@ -277,6 +277,9 @@ class NovelLibraryUpdateJob(
         }
         if (failedUpdates.isNotEmpty()) {
             notifier.showUpdateErrorNotification(failedUpdates.size)
+        }
+        if (isManualRun && newUpdates.isEmpty() && failedUpdates.isEmpty()) {
+            notifier.showNoUpdatesNotification(checked = novelToUpdate.size)
         }
     }
 
@@ -327,13 +330,21 @@ class NovelLibraryUpdateJob(
     private suspend fun withUpdateNotification(
         updatingNovel: CopyOnWriteArrayList<Novel>,
         completed: AtomicInteger,
+        updated: AtomicInteger,
+        failed: AtomicInteger,
         novel: Novel,
         block: suspend () -> Unit,
     ) = coroutineScope {
         ensureActive()
 
         updatingNovel.add(novel)
-        notifier.showProgressNotification(updatingNovel, completed.get(), novelToUpdate.size)
+        notifier.showProgressNotification(
+            novels = updatingNovel,
+            current = completed.get(),
+            total = novelToUpdate.size,
+            updated = updated.get(),
+            failed = failed.get(),
+        )
 
         block()
 
@@ -341,7 +352,13 @@ class NovelLibraryUpdateJob(
 
         updatingNovel.remove(novel)
         completed.getAndIncrement()
-        notifier.showProgressNotification(updatingNovel, completed.get(), novelToUpdate.size)
+        notifier.showProgressNotification(
+            novels = updatingNovel,
+            current = completed.get(),
+            total = novelToUpdate.size,
+            updated = updated.get(),
+            failed = failed.get(),
+        )
     }
 
     companion object {
@@ -356,48 +373,7 @@ class NovelLibraryUpdateJob(
         }
 
         fun setupTask(context: Context, prefInterval: Int? = null) {
-            val preferences = Injekt.get<LibraryPreferences>()
-            val interval = prefInterval ?: preferences.autoUpdateInterval().get()
-            if (interval > 0) {
-                val restrictions = preferences.autoUpdateDeviceRestrictions().get()
-                val networkType = if (DEVICE_NETWORK_NOT_METERED in restrictions) {
-                    NetworkType.UNMETERED
-                } else {
-                    NetworkType.CONNECTED
-                }
-                val networkRequestBuilder = NetworkRequest.Builder()
-                if (DEVICE_ONLY_ON_WIFI in restrictions) {
-                    networkRequestBuilder.addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-                }
-                if (DEVICE_NETWORK_NOT_METERED in restrictions) {
-                    networkRequestBuilder.addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-                }
-                val constraints = Constraints.Builder()
-                    .setRequiredNetworkRequest(networkRequestBuilder.build(), networkType)
-                    .setRequiresCharging(DEVICE_CHARGING in restrictions)
-                    .setRequiresBatteryNotLow(true)
-                    .build()
-
-                val request = PeriodicWorkRequestBuilder<NovelLibraryUpdateJob>(
-                    interval.toLong(),
-                    TimeUnit.HOURS,
-                    10,
-                    TimeUnit.MINUTES,
-                )
-                    .addTag(TAG)
-                    .addTag(WORK_NAME_AUTO)
-                    .setConstraints(constraints)
-                    .setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.MINUTES)
-                    .build()
-
-                context.workManager.enqueueUniquePeriodicWork(
-                    WORK_NAME_AUTO,
-                    ExistingPeriodicWorkPolicy.UPDATE,
-                    request,
-                )
-            } else {
-                context.workManager.cancelUniqueWork(WORK_NAME_AUTO)
-            }
+            eu.kanade.tachiyomi.data.library.LibraryAutoUpdateSchedulerJob.setupTask(context, prefInterval)
         }
 
         fun startNow(context: Context, categoryId: Long? = null): Boolean {
